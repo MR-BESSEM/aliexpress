@@ -123,6 +123,8 @@ function detectPlaywrightExecutable() {
 
   const roots = [
     process.env.PLAYWRIGHT_BROWSERS_PATH,
+    path.join(ROOT, "node_modules", "playwright-core", ".local-browsers"),
+    path.join(ROOT, "node_modules", "playwright", ".local-browsers"),
     process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "ms-playwright") : "",
     path.join(os.homedir(), ".cache", "ms-playwright"),
     path.join(os.homedir(), "AppData", "Local", "ms-playwright"),
