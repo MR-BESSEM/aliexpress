@@ -197,6 +197,29 @@ function getCanonicalProductUrl(input) {
   return validateAliExpressUrl(input);
 }
 
+function getProductUrlCandidates(input) {
+  const validInput = validateAliExpressUrl(input);
+  const productId = extractProductId(input);
+  const candidates = [];
+
+  if (validInput) candidates.push(validInput);
+
+  if (productId) {
+    candidates.push(
+      `https://www.aliexpress.com/item/${productId}.html`,
+      `https://ar.aliexpress.com/item/${productId}.html`,
+      `https://www.aliexpress.us/item/${productId}.html`,
+      `https://m.aliexpress.com/i/${productId}.html`
+    );
+  }
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function isAliExpressBlockedTitle(title) {
+  return /封禁|blocked|access denied|forbidden|ip ban|verification required/i.test(String(title || ""));
+}
+
 function getClientIp(req) {
   return req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
 }
@@ -534,7 +557,7 @@ function extractHtmlProduct(html, url, source) {
 
   return {
     success: true,
-    title,
+    title: isAliExpressBlockedTitle(title) ? "" : title,
     price,
     shipping,
     image,
@@ -736,6 +759,10 @@ async function scrapeWithPlaywright(url) {
       shipping: parseShippingTexts(runtime.shippingTexts) ?? parsed.shipping
     };
 
+    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
+      throw new Error("AliExpress blocked this host for the current URL");
+    }
+
     if (!merged.title || /^aliexpress$/i.test(merged.title) || !merged.image || merged.price <= 0) {
       log("warn", "Playwright extracted partial product data", {
         url,
@@ -774,7 +801,8 @@ async function scrapeWithHttp(url) {
 }
 
 async function fetchProduct(url) {
-  const canonicalUrl = getCanonicalProductUrl(url);
+  const urlCandidates = getProductUrlCandidates(url);
+  const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
   if (!canonicalUrl) {
     const error = new Error("Invalid AliExpress URL");
     error.status = 400;
@@ -794,22 +822,45 @@ async function fetchProduct(url) {
   }
 
   let pageData = null;
-  try {
-    pageData = await withRetries("playwright-scrape", () => scrapeWithPlaywright(canonicalUrl));
-  } catch (error) {
-    log("warn", "Playwright scrape exhausted, switching to HTTP fallback", { error: error.message });
+  let lastPageError = null;
+
+  for (const candidateUrl of urlCandidates) {
+    try {
+      pageData = await withRetries("playwright-scrape", () => scrapeWithPlaywright(candidateUrl));
+      if (pageData) break;
+    } catch (error) {
+      lastPageError = error;
+      log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
+    }
   }
 
   if (!pageData) {
-    try {
-      pageData = await withRetries("http-scrape", () => scrapeWithHttp(canonicalUrl));
-    } catch (error) {
-      if (!apiData) {
-        error.status = 502;
-        error.message = "Unable to fetch product details from AliExpress right now";
-        throw error;
+    for (const candidateUrl of urlCandidates) {
+      try {
+        pageData = await withRetries("http-scrape", () => scrapeWithHttp(candidateUrl));
+        if (pageData) break;
+      } catch (error) {
+        lastPageError = error;
+        log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
       }
     }
+  }
+
+  if (!pageData && !apiData) {
+    const error = lastPageError || new Error("Unable to fetch product details from AliExpress right now");
+    error.status = 502;
+    error.message = "Unable to fetch product details from AliExpress right now";
+    throw error;
+  }
+
+  if (!pageData) {
+    pageData = {
+      url: canonicalUrl,
+      source: "api-fallback",
+      shipping: DEFAULT_SHIPPING_USD
+    };
+  } else if (pageData.shipping == null) {
+    pageData.shipping = DEFAULT_SHIPPING_USD;
   }
 
   const product = {
