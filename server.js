@@ -121,30 +121,39 @@ function detectPlaywrightExecutable() {
     return PLAYWRIGHT_EXECUTABLE_PATH;
   }
 
-  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
-  const playwrightRoot = path.join(localAppData, "ms-playwright");
-
-  let subdirs = [];
-  try {
-    subdirs = fs.readdirSync(playwrightRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .filter((name) => /^chromium(?:_headless_shell)?-\d+$/i.test(name))
-      .sort((left, right) => Number(right.split("-").pop()) - Number(left.split("-").pop()));
-  } catch {
-    subdirs = [];
-  }
+  const roots = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "ms-playwright") : "",
+    path.join(os.homedir(), ".cache", "ms-playwright"),
+    path.join(os.homedir(), "AppData", "Local", "ms-playwright"),
+    "/opt/render/.cache/ms-playwright"
+  ].filter(Boolean);
 
   const candidates = [];
-  for (const subdir of subdirs) {
-    const base = path.join(playwrightRoot, subdir);
-    candidates.push(
-      path.join(base, "chrome-win64", "chrome.exe"),
-      path.join(base, "chrome-win", "chrome.exe"),
-      path.join(base, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
-      path.join(base, "chrome-linux", "chrome"),
-      path.join(base, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium")
-    );
+
+  for (const playwrightRoot of roots) {
+    let subdirs = [];
+    try {
+      subdirs = fs.readdirSync(playwrightRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .filter((name) => /^(chromium|chromium_headless_shell)-\d+$/i.test(name))
+        .sort((left, right) => Number(right.split("-").pop()) - Number(left.split("-").pop()));
+    } catch {
+      subdirs = [];
+    }
+
+    for (const subdir of subdirs) {
+      const base = path.join(playwrightRoot, subdir);
+      candidates.push(
+        path.join(base, "chrome-win64", "chrome.exe"),
+        path.join(base, "chrome-win", "chrome.exe"),
+        path.join(base, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
+        path.join(base, "chrome-linux", "chrome"),
+        path.join(base, "chrome-headless-shell-linux64", "chrome-headless-shell"),
+        path.join(base, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium")
+      );
+    }
   }
 
   return candidates.find(fileExists) || "";
