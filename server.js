@@ -518,7 +518,7 @@ function extractHtmlProduct(html, url, source) {
       parseMoney($("meta[property='product:price:amount']").attr("content")),
       parseMoney($("meta[name='twitter:data1']").attr("content")),
       parseMoney($("meta[itemprop='price']").attr("content")),
-      ...extractPriceFromTextList([
+      extractPriceFromTextList([
         $("meta[property='og:description']").attr("content"),
         $("[class*='price']").first().text(),
         $("[class*='Price']").first().text(),
