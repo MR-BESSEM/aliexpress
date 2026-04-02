@@ -363,17 +363,95 @@ function extractRatingFromTextList(texts = []) {
   return 0;
 }
 
+function safeJsonParse(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function extractBalancedJson(source, startIndex) {
+  const opening = source[startIndex];
+  const closing = opening === "{" ? "}" : "]";
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+
+  for (let index = startIndex; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        quote = "";
+      }
+      continue;
+    }
+
+    if (char === "'" || char === "\"" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === opening) depth += 1;
+    if (char === closing) {
+      depth -= 1;
+      if (depth === 0) return source.slice(startIndex, index + 1);
+    }
+  }
+
+  return "";
+}
+
 function extractJsonObjectsFromHtml(html, $) {
   const objects = [];
   const scripts = $("script").map((_, element) => $(element).html() || "").get();
   for (const rawScript of scripts) {
     const script = rawScript.trim();
     if (!script) continue;
+
     if (script.startsWith("{") || script.startsWith("[")) {
-      try {
-        objects.push(JSON.parse(script));
-      } catch {
-        // ignore non-JSON scripts
+      const parsed = safeJsonParse(script);
+      if (parsed) objects.push(parsed);
+      continue;
+    }
+
+    const assignmentPattern = /(?:window\.[\w$]+|[\w$]+)\s*=\s*[\[{]/g;
+    let match = null;
+    while ((match = assignmentPattern.exec(script)) !== null) {
+      const start = script.search(/[\[{]/, match.index);
+      if (start < 0) continue;
+      const jsonChunk = extractBalancedJson(script, start);
+      if (!jsonChunk) continue;
+
+      const parsed = safeJsonParse(jsonChunk);
+      if (parsed) objects.push(parsed);
+    }
+
+    const jsonParsePattern = /JSON\.parse\(\s*(['"`])([\s\S]*?)\1\s*\)/g;
+    while ((match = jsonParsePattern.exec(script)) !== null) {
+      const rawValue = match[2]
+        .replace(/\\"/g, "\"")
+        .replace(/\\'/g, "'")
+        .replace(/\\n/g, "\n")
+        .replace(/\\t/g, "\t")
+        .replace(/\\\\/g, "\\");
+      const parsed = safeJsonParse(rawValue);
+      if (parsed) objects.push(parsed);
+    }
+
+    const objectMarkerPattern = /[\[{]/g;
+    while ((match = objectMarkerPattern.exec(script)) !== null) {
+      const jsonChunk = extractBalancedJson(script, match.index);
+      if (!jsonChunk || jsonChunk.length < 20) continue;
+      const parsed = safeJsonParse(jsonChunk);
+      if (parsed) objects.push(parsed);
+      if (jsonChunk) {
+        objectMarkerPattern.lastIndex = match.index + jsonChunk.length;
       }
     }
   }
