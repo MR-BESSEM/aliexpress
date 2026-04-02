@@ -311,12 +311,17 @@
 
             state.currentProduct = data;
             if (dom.calcName) dom.calcName.value = data.title || "";
-            if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0).toFixed(2);
+            if (dom.usdPrice) dom.usdPrice.value = data.priceUnavailable ? "" : Number(data.price || 0).toFixed(2);
             if (dom.usdShip) dom.usdShip.value = data.shipping == null ? "" : Number(data.shipping || 0).toFixed(2);
 
             renderPreview(data);
             renderPricing();
-            toast(data.manualQuoteRecommended ? "تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد." : "تم جلب البيانات بنجاح!");
+            if (data.priceUnavailable) {
+                setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
+                toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
+            } else {
+                toast(data.manualQuoteRecommended ? "تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد." : "تم جلب البيانات بنجاح!");
+            }
         } catch (error) {
             const message = error.message || "خطأ في الاتصال بسيرفر الجلب";
             setError(message);
