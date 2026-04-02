@@ -37,6 +37,8 @@ services:
         value: 2
       - key: PLAYWRIGHT_HEADLESS
         value: "true"
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
       - key: TRUST_PROXY
         value: "true"
       - key: WHATSAPP_NUMBER
