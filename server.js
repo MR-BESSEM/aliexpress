@@ -760,7 +760,15 @@ async function scrapeWithPlaywright(url) {
     };
 
     if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
-      throw new Error("AliExpress blocked this host for the current URL");
+      const error = new Error("AliExpress blocked this host for the current URL");
+      error.partialData = {
+        title: "",
+        image: merged.image,
+        price: merged.price,
+        shipping: merged.shipping,
+        rating: merged.rating
+      };
+      throw error;
     }
 
     if (!merged.title || /^aliexpress$/i.test(merged.title) || !merged.image || merged.price <= 0) {
@@ -772,7 +780,15 @@ async function scrapeWithPlaywright(url) {
         shipping: merged.shipping,
         rating: merged.rating || 0
       });
-      throw new Error("Playwright scrape returned incomplete product data");
+      const error = new Error("Playwright scrape returned incomplete product data");
+      error.partialData = {
+        title: merged.title,
+        image: merged.image,
+        price: merged.price,
+        shipping: merged.shipping,
+        rating: merged.rating
+      };
+      throw error;
     }
 
     if (merged.shipping == null) merged.shipping = DEFAULT_SHIPPING_USD;
@@ -794,7 +810,15 @@ async function scrapeWithHttp(url) {
 
   const parsed = extractHtmlProduct(response.data, url, "http-fallback");
   if (!parsed.title || /^aliexpress$/i.test(parsed.title) || !parsed.image || parsed.price <= 0) {
-    throw new Error("HTTP fallback returned incomplete product data");
+    const error = new Error("HTTP fallback returned incomplete product data");
+    error.partialData = {
+      title: parsed.title,
+      image: parsed.image,
+      price: parsed.price,
+      shipping: parsed.shipping,
+      rating: parsed.rating
+    };
+    throw error;
   }
   if (parsed.shipping == null) parsed.shipping = DEFAULT_SHIPPING_USD;
   return parsed;
@@ -823,6 +847,7 @@ async function fetchProduct(url) {
 
   let pageData = null;
   let lastPageError = null;
+  let partialPageData = null;
 
   for (const candidateUrl of urlCandidates) {
     try {
@@ -830,6 +855,7 @@ async function fetchProduct(url) {
       if (pageData) break;
     } catch (error) {
       lastPageError = error;
+      if (error?.partialData) partialPageData = { ...(partialPageData || {}), ...error.partialData, url: candidateUrl };
       log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
     }
   }
@@ -841,12 +867,13 @@ async function fetchProduct(url) {
         if (pageData) break;
       } catch (error) {
         lastPageError = error;
+        if (error?.partialData) partialPageData = { ...(partialPageData || {}), ...error.partialData, url: candidateUrl };
         log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
       }
     }
   }
 
-  if (!pageData && !apiData) {
+  if (!pageData && !apiData && !partialPageData) {
     const error = lastPageError || new Error("Unable to fetch product details from AliExpress right now");
     error.status = 502;
     error.message = "Unable to fetch product details from AliExpress right now";
@@ -855,9 +882,14 @@ async function fetchProduct(url) {
 
   if (!pageData) {
     pageData = {
-      url: canonicalUrl,
-      source: "api-fallback",
-      shipping: DEFAULT_SHIPPING_USD
+      title: partialPageData?.title || `AliExpress Product #${productId}`,
+      price: Number(partialPageData?.price || 0),
+      image: partialPageData?.image || "",
+      rating: Number(partialPageData?.rating || 4.5),
+      url: partialPageData?.url || canonicalUrl,
+      source: partialPageData ? "partial-fallback" : "api-fallback",
+      shipping: Number(partialPageData?.shipping ?? DEFAULT_SHIPPING_USD),
+      priceUnavailable: true
     };
   } else if (pageData.shipping == null) {
     pageData.shipping = DEFAULT_SHIPPING_USD;
@@ -881,8 +913,17 @@ async function fetchProduct(url) {
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
   product.manualQuoteRecommended = Boolean(product.restrictions?.banned || product.restrictions?.restricted || product.shipping >= 8);
+  product.priceUnavailable = Boolean(pageData?.priceUnavailable && !apiData?.price && product.price <= 0);
 
-  if (!product.image || product.price <= 0 || /^aliexpress$/i.test(product.title)) {
+  if (product.priceUnavailable) {
+    product.alerts.unshift({
+      level: "warning",
+      text: "ما قدرناش نجيبولك السعر exact توّا بسبب حماية AliExpress. استعمل التسعيرة اليدوية أو ابعثنا الرابط على واتساب."
+    });
+    product.manualQuoteRecommended = true;
+  }
+
+  if (!product.image || (!product.priceUnavailable && product.price <= 0) || /^aliexpress$/i.test(product.title)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
     error.status = 502;
     throw error;
