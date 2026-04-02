@@ -32,6 +32,17 @@ const FX_API_URL = process.env.FX_API_URL || "https://open.er-api.com/v6/latest/
 const FX_FALLBACK_URL = process.env.FX_FALLBACK_URL || "https://api.exchangerate.host/latest?base=USD&symbols=TND";
 const FX_FALLBACK_RATE = Number(process.env.FX_FALLBACK_RATE || 3.8);
 const DEFAULT_SHIPPING_USD = Number(process.env.DEFAULT_SHIPPING_USD || 2);
+const RESTRICTED_RULES = [
+  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|طيارة بدون طيار|طائرة بدون طيار/i, message: "المنتج هذا ينجم يكون ممنوع في الديوانة التونسية." },
+  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|سيجارة إلكترونية/i, message: "السيجارة الإلكترونية ومشتقاتها فيها خطر حجز كبير." },
+  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|كاميرا تجسس/i, message: "الكاميرات المخفية والتجسس غالبا ممنوعة." },
+  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|جهاز تتبع/i, message: "أجهزة التتبع فيها خطر قانوني مرتفع." },
+  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|هاتف|telephone portable/i, message: "الهواتف تنجم تتطلب إجراءات أو تصريح قبل الإدخال." },
+  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|لاسلكي|transceiver/i, message: "الأجهزة اللاسلكية تنجم تتطلب ترخيص." },
+  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|رسيفر/i, message: "أجهزة الاستقبال تنجم تتطلب تصريح أو تتعرض للحجز." },
+  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|دواء|مكمل غذائي/i, message: "الأدوية والمكملات الغذائية يلزمهم تثبت إضافي قبل الطلب." },
+  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|سكين|خنجر|سيف/i, message: "الأدوات الحادة أو الصيد فيها خطر رفض أو حجز." }
+];
 
 const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
 const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
@@ -279,6 +290,52 @@ function parseShippingTexts(texts = []) {
   if (cheapest > 0) return cheapest;
   if (sawFree) return 0;
   return null;
+}
+
+function inferDeliveryEstimate(shippingValue) {
+  const shipping = Number(shippingValue);
+  if (!Number.isFinite(shipping) || shipping < 0) return "غير متوفر";
+  if (shipping === 0) return "من 12 حتى 25 يوم";
+  if (shipping <= 3) return "من 10 حتى 20 يوم";
+  if (shipping <= 8) return "من 8 حتى 16 يوم";
+  return "من 7 حتى 14 يوم";
+}
+
+function classifyProductRestrictions({ title = "", url = "" }) {
+  const haystack = `${title} ${url}`.trim();
+  const matches = RESTRICTED_RULES.filter((rule) => rule.pattern.test(haystack));
+
+  return {
+    banned: matches.some((match) => match.type === "banned"),
+    restricted: matches.some((match) => match.type === "restricted"),
+    category: matches[0]?.category || "",
+    reasons: matches.map((match) => match.message)
+  };
+}
+
+function buildProductAlerts(product) {
+  const alerts = [];
+
+  if (product.restrictions?.banned) {
+    alerts.push({ level: "danger", text: "هذا المنتج عندو خطر حجز كبير في تونس. كلمنا قبل ما تأكد الطلب." });
+  } else if (product.restrictions?.restricted) {
+    alerts.push({ level: "warning", text: "المنتج هذا ينجم يحتاج تثبت أو تصريح قبل الطلب." });
+  }
+
+  if (Number(product.shipping) === 0) {
+    alerts.push({ level: "info", text: "الشحن مجاني في العرض الحالي." });
+  } else if (Number(product.shipping) >= 8) {
+    alerts.push({ level: "info", text: "الشحن مرتفع شوية، إذا تحب نعملولك تسعيرة يدوية أفضل." });
+  }
+
+  return alerts;
+}
+
+function cleanupProductTitle(title) {
+  return sanitizeText(title)
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\-\|\s]+|[\-\|\s]+$/g, "")
+    .trim();
 }
 
 function extractPriceFromTextList(texts = []) {
@@ -635,7 +692,7 @@ async function fetchProduct(url) {
 
   const product = {
     success: true,
-    title: apiData?.title || pageData?.title || "AliExpress Product",
+    title: cleanupProductTitle(apiData?.title || pageData?.title || "AliExpress Product"),
     price: Number(apiData?.price || pageData?.price || 0),
     shipping: Number(pageData?.shipping ?? DEFAULT_SHIPPING_USD),
     image: apiData?.image || pageData?.image || "",
@@ -645,6 +702,12 @@ async function fetchProduct(url) {
     cached: false,
     fetchedAt: new Date().toISOString()
   };
+
+  product.shippingLabel = product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`;
+  product.deliveryEstimate = inferDeliveryEstimate(product.shipping);
+  product.restrictions = classifyProductRestrictions(product);
+  product.alerts = buildProductAlerts(product);
+  product.manualQuoteRecommended = Boolean(product.restrictions?.banned || product.restrictions?.restricted || product.shipping >= 8);
 
   if (!product.image || product.price <= 0 || /^aliexpress$/i.test(product.title)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
