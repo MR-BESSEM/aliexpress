@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "render-build": "npm ci && npx playwright install chromium"
+    "render-build": "npm ci && npx playwright install chromium chromium-headless-shell"
   },
   "engines": {
     "node": ">=20"
