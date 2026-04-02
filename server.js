@@ -466,7 +466,7 @@ function extractProductFieldsFromObjectTree(source) {
     for (const [key, value] of Object.entries(node)) {
       const lowerKey = key.toLowerCase();
 
-      if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname)/i.test(lowerKey)) {
+      if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname|itemname|tradename|name)/i.test(lowerKey)) {
         const title = sanitizeText(value);
         if (title && !/^aliexpress$/i.test(title)) result.title = title;
       }
@@ -477,7 +477,8 @@ function extractProductFieldsFromObjectTree(source) {
       }
 
       if (!result.price && /(?:price|amount|saleprice|minprice|maxprice|currentprice|activityprice|displayprice)/i.test(lowerKey)) {
-        const price = parseMoney(readScalar(value));
+        const scalar = readScalar(value);
+        const price = pickLowestPositive([parseMoney(scalar), ...extractUsdValuesFromText(String(scalar || ""))]);
         if (price > 0) result.price = price;
       }
 
@@ -493,10 +494,17 @@ function extractProductFieldsFromObjectTree(source) {
 
 function extractHtmlProduct(html, url, source) {
   const $ = cheerio.load(html);
-  const embedded = extractProductFieldsFromObjectTree(extractJsonObjectsFromHtml(html, $));
+  const jsonLdObjects = $("script[type='application/ld+json']").map((_, element) => safeJsonParse($(element).html() || "")).get().filter(Boolean);
+  const embedded = extractProductFieldsFromObjectTree([
+    ...extractJsonObjectsFromHtml(html, $),
+    ...jsonLdObjects
+  ]);
   const title =
     embedded.title ||
     sanitizeText($("meta[property='og:title']").attr("content")) ||
+    sanitizeText($("meta[name='twitter:title']").attr("content")) ||
+    sanitizeText($("meta[name='title']").attr("content")) ||
+    sanitizeText($("[data-pl='product-title']").first().text()) ||
     sanitizeText($("h1").first().text()) ||
     sanitizeText($("title").text());
   const image =
@@ -509,7 +517,14 @@ function extractHtmlProduct(html, url, source) {
     pickLowestPositive([
       parseMoney($("meta[property='product:price:amount']").attr("content")),
       parseMoney($("meta[name='twitter:data1']").attr("content")),
-      parseMoney($("meta[itemprop='price']").attr("content"))
+      parseMoney($("meta[itemprop='price']").attr("content")),
+      ...extractPriceFromTextList([
+        $("meta[property='og:description']").attr("content"),
+        $("[class*='price']").first().text(),
+        $("[class*='Price']").first().text(),
+        $("[data-testid*='price']").first().text(),
+        $("body").text().slice(0, 4000)
+      ])
     ]);
   const rating = embedded.rating || extractRatingFromTextList([$("body").text()]);
   const shipping = parseShippingTexts([
@@ -670,6 +685,21 @@ async function scrapeWithPlaywright(url) {
         return Array.from(new Set(values));
       };
 
+      const globalSnapshots = [];
+      [
+        window.runParams,
+        window.__INITIAL_STATE__,
+        window.__data__,
+        window.__AER_DATA__,
+        window.__NEXT_DATA__,
+        window.detailData,
+        window.pageData
+      ].forEach((entry) => {
+        if (entry && typeof entry === "object") {
+          globalSnapshots.push(entry);
+        }
+      });
+
       return {
         title: queryText(["h1[data-pl='product-title']", "h1[class*='title']", "h1"]),
         image:
@@ -687,18 +717,21 @@ async function scrapeWithPlaywright(url) {
           "[class*='logistics']",
           "[data-testid*='shipping']"
         ]),
-        pageTitle: clean(document.title)
+        pageTitle: clean(document.title),
+        bodyText: clean(document.body?.innerText || ""),
+        globalSnapshots
       };
     });
 
     const html = await page.content();
     const parsed = extractHtmlProduct(html, page.url(), "playwright");
+    const fromGlobals = extractProductFieldsFromObjectTree(runtime.globalSnapshots || []);
 
     const merged = {
       ...parsed,
-      title: sanitizeText(runtime.title || parsed.title || runtime.pageTitle),
-      image: normalizeUrl(runtime.image || parsed.image),
-      price: extractPriceFromTextList(runtime.priceTexts) || parsed.price,
+      title: sanitizeText(runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
+      image: normalizeUrl(runtime.image || fromGlobals.image || parsed.image),
+      price: extractPriceFromTextList([...runtime.priceTexts, runtime.bodyText]) || fromGlobals.price || parsed.price,
       rating: extractRatingFromTextList(runtime.ratingTexts) || parsed.rating,
       shipping: parseShippingTexts(runtime.shippingTexts) ?? parsed.shipping
     };
