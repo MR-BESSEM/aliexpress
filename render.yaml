@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: aliexpress-tunisia
+    runtime: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        value: 900
+      - key: FX_CACHE_TTL_SECONDS
+        value: 3600
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX
+        value: 45
+      - key: SCRAPE_TIMEOUT_MS
+        value: 30000
+      - key: SCRAPE_RETRIES
+        value: 2
+      - key: FX_API_URL
+        value: https://open.er-api.com/v6/latest/USD
+      - key: FX_FALLBACK_URL
+        value: https://api.exchangerate.host/latest?base=USD&symbols=TND
+      - key: FX_FALLBACK_RATE
+        value: 3.8
+      - key: DEFAULT_SHIPPING_USD
+        value: 2
+      - key: PLAYWRIGHT_HEADLESS
+        value: "true"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: WHATSAPP_NUMBER
+        value: "21627498276"
+      - key: ALIEXPRESS_API_BASE_URL
+        value: https://api-sg.aliexpress.com/sync
+      - key: ALIEXPRESS_APP_KEY
+        sync: false
+      - key: ALIEXPRESS_APP_SECRET
+        sync: false
+      - key: ALIEXPRESS_PRODUCT_METHOD
+        value: aliexpress.ds.product.get
