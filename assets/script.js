@@ -14,22 +14,22 @@
         usdShip: document.getElementById("usd-ship"),
         tndResult: document.getElementById("tnd-result"),
         rateBadge: document.getElementById("rate-badge"),
-        liveRateDisplay: document.getElementById("live-rate-display")
+        liveRateDisplay: document.getElementById("live-rate-display"),
+        scrapeBtn: document.getElementById("runtime-scrape-btn"),
+        scrapeLoader: document.getElementById("runtime-scrape-loader"),
+        scrapeError: document.getElementById("runtime-scrape-error"),
+        previewCard: document.getElementById("runtime-preview-card"),
+        previewImage: document.getElementById("runtime-preview-image"),
+        previewTitle: document.getElementById("runtime-preview-title"),
+        previewMeta: document.getElementById("runtime-preview-meta"),
+        previewPrice: document.getElementById("runtime-preview-price"),
+        previewLink: document.getElementById("runtime-preview-link"),
+        previewSource: document.getElementById("runtime-preview-source")
     };
 
     const state = {
         liveRate: FX_FALLBACK_RATE,
-        currentProduct: null,
-        previousOnload: typeof window.onload === "function" ? window.onload : null,
-        previewCard: null,
-        previewImage: null,
-        previewTitle: null,
-        previewMeta: null,
-        previewPrice: null,
-        previewLink: null,
-        scrapeBtn: null,
-        scrapeLoader: null,
-        scrapeError: null
+        currentProduct: null
     };
 
     function isAliExpressUrl(value) {
@@ -49,16 +49,16 @@
         return `${Number(value || 0).toFixed(3)} TND`;
     }
 
-    function getShippingLabel(value) {
-        if (value == null || Number.isNaN(Number(value))) return "غير متوفر";
-        if (Number(value) === 0) return "شحن مجاني";
-        return `${formatUsd(value)} شحن`;
-    }
-
     function toast(message) {
         if (typeof window.showToast === "function") {
             window.showToast(message);
         }
+    }
+
+    function getShippingLabel(value) {
+        if (value == null || Number.isNaN(Number(value))) return "غير متوفر";
+        if (Number(value) === 0) return "شحن مجاني";
+        return `${formatUsd(value)} شحن`;
     }
 
     function getEffectiveRate() {
@@ -97,109 +97,52 @@
         if (dom.liveRateDisplay) {
             dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
         }
-        if (state.previewPrice && state.currentProduct) {
-            state.previewPrice.textContent = formatTnd(pricing.finalTnd);
+        if (state.currentProduct && dom.previewPrice) {
+            dom.previewPrice.textContent = formatTnd(pricing.finalTnd);
         }
 
         return pricing;
     }
 
-    function ensureScrapeUi() {
-        if (!dom.calcLink) return;
+    function renderPreview(product) {
+        state.currentProduct = product;
+        if (!dom.previewCard) return;
 
-        const linkField = dom.calcLink.parentElement;
-        if (linkField && !state.scrapeBtn) {
-            const actions = document.createElement("div");
-            actions.className = "mt-3 flex flex-col sm:flex-row gap-2";
-            actions.innerHTML = `
-                <button id="runtime-scrape-btn" type="button" class="bg-blue-600 text-white px-4 py-3 rounded-xl text-xs font-black hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-lg">
-                    <i class="fas fa-wand-magic-sparkles"></i>
-                    <span>جلب تلقائي</span>
-                </button>
-                <div id="runtime-scrape-loader" class="hidden text-[10px] text-blue-400 font-black flex items-center gap-2 px-2">
-                    <span class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-                    <span>جاري جلب بيانات المنتج...</span>
-                </div>
-            `;
-            state.scrapeBtn = actions.querySelector("#runtime-scrape-btn");
-            state.scrapeLoader = actions.querySelector("#runtime-scrape-loader");
-            linkField.appendChild(actions);
+        dom.previewCard.classList.remove("hidden");
+        if (dom.previewImage) {
+            dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
         }
-
-        if (!state.scrapeError && linkField) {
-            const errorBox = document.createElement("div");
-            errorBox.className = "hidden mt-2 text-[10px] text-red-400 font-black";
-            linkField.appendChild(errorBox);
-            state.scrapeError = errorBox;
+        if (dom.previewTitle) {
+            dom.previewTitle.textContent = product.title || "AliExpress Product";
         }
-
-        if (!state.previewCard) {
-            const previewCard = document.createElement("div");
-            previewCard.className = "hidden glass-card p-5 rounded-3xl border border-white/5";
-            previewCard.innerHTML = `
-                <div class="flex flex-col md:flex-row gap-4 items-center md:items-start auto-align">
-                    <img id="runtime-preview-image" src="" alt="Product preview" class="w-24 h-24 rounded-2xl object-cover border border-white/10 bg-slate-900">
-                    <div class="flex-1 space-y-3">
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <span id="runtime-preview-source" class="px-3 py-1 rounded-full bg-amber-400/10 text-amber-400 text-[10px] font-black uppercase">SCRAPE</span>
-                            <span id="runtime-preview-meta" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black">غير متوفر</span>
-                        </div>
-                        <h3 id="runtime-preview-title" class="text-sm md:text-lg font-black text-white leading-relaxed">اسم المنتج</h3>
-                        <div id="runtime-preview-price" class="text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.000 TND</div>
-                        <a id="runtime-preview-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-white transition-colors">
-                            <i class="fas fa-arrow-up-right-from-square"></i>
-                            <span>فتح المنتج الأصلي</span>
-                        </a>
-                    </div>
-                </div>
-            `;
-
-            const mountAfter = document.querySelector("#section-calc .space-y-5.auto-align");
-            if (mountAfter) {
-                mountAfter.insertBefore(previewCard, dom.calcName?.parentElement || null);
-            }
-
-            state.previewCard = previewCard;
-            state.previewImage = previewCard.querySelector("#runtime-preview-image");
-            state.previewTitle = previewCard.querySelector("#runtime-preview-title");
-            state.previewMeta = previewCard.querySelector("#runtime-preview-meta");
-            state.previewPrice = previewCard.querySelector("#runtime-preview-price");
-            state.previewLink = previewCard.querySelector("#runtime-preview-link");
+        if (dom.previewMeta) {
+            dom.previewMeta.textContent = `${getShippingLabel(product.shipping)} • ⭐ ${(Number(product.rating) || 0).toFixed(1)}`;
         }
-    }
-
-    function setLoading(isLoading) {
-        if (state.scrapeBtn) {
-            state.scrapeBtn.disabled = isLoading;
-            state.scrapeBtn.classList.toggle("opacity-70", isLoading);
-            state.scrapeBtn.classList.toggle("cursor-not-allowed", isLoading);
+        if (dom.previewPrice) {
+            dom.previewPrice.textContent = formatTnd(calculatePricingData().finalTnd);
         }
-        if (state.scrapeLoader) {
-            state.scrapeLoader.classList.toggle("hidden", !isLoading);
+        if (dom.previewLink) {
+            dom.previewLink.href = product.url || "#";
+        }
+        if (dom.previewSource) {
+            dom.previewSource.textContent = String(product.source || "scrape").toUpperCase();
         }
     }
 
     function setError(message = "") {
-        if (!state.scrapeError) return;
-        state.scrapeError.textContent = message;
-        state.scrapeError.classList.toggle("hidden", !message);
+        if (!dom.scrapeError) return;
+        dom.scrapeError.textContent = message;
+        dom.scrapeError.classList.toggle("hidden", !message);
     }
 
-    function renderPreview(product) {
-        ensureScrapeUi();
-        state.currentProduct = product;
-        if (!state.previewCard) return;
-
-        state.previewCard.classList.remove("hidden");
-        state.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
-        state.previewTitle.textContent = product.title || "AliExpress Product";
-        state.previewMeta.textContent = `${getShippingLabel(product.shipping)} • ⭐ ${(Number(product.rating) || 0).toFixed(1)}`;
-        state.previewPrice.textContent = formatTnd(calculatePricingData().finalTnd);
-        state.previewLink.href = product.url || "#";
-
-        const sourceBadge = state.previewCard.querySelector("#runtime-preview-source");
-        if (sourceBadge) {
-            sourceBadge.textContent = String(product.source || "scrape").toUpperCase();
+    function setLoading(isLoading) {
+        if (dom.scrapeBtn) {
+            dom.scrapeBtn.disabled = isLoading;
+            dom.scrapeBtn.classList.toggle("opacity-70", isLoading);
+            dom.scrapeBtn.classList.toggle("cursor-not-allowed", isLoading);
+        }
+        if (dom.scrapeLoader) {
+            dom.scrapeLoader.classList.toggle("hidden", !isLoading);
         }
     }
 
@@ -239,9 +182,7 @@
             state.currentProduct = data;
             if (dom.calcName) dom.calcName.value = data.title || "";
             if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0).toFixed(2);
-            if (dom.usdShip) {
-                dom.usdShip.value = data.shipping == null ? "" : Number(data.shipping || 0).toFixed(2);
-            }
+            if (dom.usdShip) dom.usdShip.value = data.shipping == null ? "" : Number(data.shipping || 0).toFixed(2);
 
             renderPreview(data);
             renderPricing();
@@ -255,15 +196,8 @@
         }
     }
 
-    function patchFunctions() {
-        window.calculateTND = renderPricing;
-        window.autoScrapeProduct = scrapeProduct;
-    }
-
-    function patchInteractions() {
-        if (state.scrapeBtn) {
-            state.scrapeBtn.addEventListener("click", scrapeProduct);
-        }
+    function bindEvents() {
+        dom.scrapeBtn?.addEventListener("click", scrapeProduct);
         dom.calcLink?.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -273,21 +207,28 @@
         dom.usdPrice?.addEventListener("input", renderPricing);
         dom.usdShip?.addEventListener("input", renderPricing);
         dom.calcName?.addEventListener("input", () => {
-            if (state.previewTitle && dom.calcName.value.trim()) {
-                state.previewTitle.textContent = dom.calcName.value.trim();
+            if (state.currentProduct && dom.previewTitle && dom.calcName.value.trim()) {
+                dom.previewTitle.textContent = dom.calcName.value.trim();
             }
         });
     }
 
-    window.onload = async function enhancedOnload(event) {
-        ensureScrapeUi();
-        patchFunctions();
-        if (typeof state.previousOnload === "function") {
-            await state.previousOnload.call(window, event);
-        }
-        patchInteractions();
-        await loadLiveRate();
+    function patchGlobals() {
+        window.calculateTND = renderPricing;
+        window.autoScrapeProduct = scrapeProduct;
+    }
+
+    function boot() {
+        patchGlobals();
+        bindEvents();
+        loadLiveRate();
         renderPricing();
         window.setInterval(loadLiveRate, RATE_REFRESH_MS);
-    };
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot, { once: true });
+    } else {
+        boot();
+    }
 })();
