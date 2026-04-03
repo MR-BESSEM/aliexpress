@@ -206,8 +206,7 @@ function hasUsefulPartialProductData(partial = {}) {
     Number(partial.reviewCount || 0) > 0 ||
     Number(partial.soldCount || 0) > 0 ||
     sanitizeText(partial.deliveryEstimate) ||
-    (Array.isArray(partial.variants) && partial.variants.length > 0) ||
-    (Array.isArray(partial.variantOffers) && partial.variantOffers.length > 0)
+    (Array.isArray(partial.variants) && partial.variants.length > 0)
   );
 }
 
@@ -225,7 +224,6 @@ function mergePartialProductData(current = null, incoming = null, fallbackUrl = 
     soldCount: Math.max(0, Number(next.soldCount || 0), Number(base.soldCount || 0)),
     deliveryEstimate: sanitizeText(next.deliveryEstimate || base.deliveryEstimate || ""),
     variants: mergeVariantGroups(base.variants, next.variants),
-    variantOffers: mergeVariantOffers(base.variantOffers, next.variantOffers),
     url: next.url || base.url || fallbackUrl
   };
 }
@@ -1422,7 +1420,7 @@ function extractJsonObjectsFromHtml(html, $) {
 }
 
 function extractProductFieldsFromObjectTree(source) {
-  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [], variantOffers: [] };
+  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
 
   walkObject(source, (node) => {
     if (Array.isArray(node)) return;
@@ -1477,9 +1475,7 @@ function extractProductFieldsFromObjectTree(source) {
     }
   });
 
-  const variantData = extractVariantOffersFromObjectTree(source);
-  result.variants = mergeVariantGroups(variantData.groups, extractVariantGroupsFromObjectTree(source));
-  result.variantOffers = variantData.offers;
+  result.variants = extractVariantGroupsFromObjectTree(source);
 
   return result;
 }
@@ -1560,7 +1556,6 @@ function extractHtmlProduct(html, url, source) {
     reviewCount,
     soldCount,
     variants,
-    variantOffers: embedded.variantOffers || [],
     url,
     source
   };
@@ -1622,7 +1617,6 @@ async function fetchAliExpressApiProduct(productId) {
     reviewCount: extracted.reviewCount || 0,
     soldCount: extracted.soldCount || 0,
     variants: extracted.variants || [],
-    variantOffers: extracted.variantOffers || [],
     source: "aliexpress-api"
   };
 }
@@ -1871,8 +1865,7 @@ async function scrapeWithPlaywright(url) {
           runtime.variantGroups
         ),
         extractVariantGroupsFromTextList(runtime.variantTexts)
-      ),
-      variantOffers: mergeVariantOffers(fromGlobals.variantOffers, parsed.variantOffers)
+      )
     };
 
     if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
@@ -1887,8 +1880,7 @@ async function scrapeWithPlaywright(url) {
         rating: merged.rating,
         reviewCount: merged.reviewCount,
         soldCount: merged.soldCount,
-        variants: merged.variants,
-        variantOffers: merged.variantOffers
+        variants: merged.variants
       };
       error.nonRetryable = true;
       throw error;
@@ -1915,8 +1907,7 @@ async function scrapeWithPlaywright(url) {
         rating: merged.rating,
         reviewCount: merged.reviewCount,
         soldCount: merged.soldCount,
-        variants: merged.variants,
-        variantOffers: merged.variantOffers
+        variants: merged.variants
       };
       if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
         error.nonRetryable = true;
@@ -1952,8 +1943,7 @@ async function scrapeWithHttp(url) {
       rating: parsed.rating,
       reviewCount: parsed.reviewCount,
       soldCount: parsed.soldCount,
-      variants: parsed.variants,
-      variantOffers: parsed.variantOffers
+      variants: parsed.variants
     };
     if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
       error.nonRetryable = true;
@@ -2032,7 +2022,6 @@ async function fetchProduct(url) {
       reviewCount: Number(partialPageData?.reviewCount || 0),
       soldCount: Number(partialPageData?.soldCount || 0),
       variants: Array.isArray(partialPageData?.variants) ? partialPageData.variants : [],
-      variantOffers: Array.isArray(partialPageData?.variantOffers) ? partialPageData.variantOffers : [],
       url: partialPageData?.url || canonicalUrl,
       source: partialPageData ? "partial-fallback" : "api-fallback",
       shipping: partialPageData?.shipping != null ? Number(partialPageData.shipping) : null,
@@ -2040,8 +2029,6 @@ async function fetchProduct(url) {
       priceUnavailable: true
     };
   }
-
-  const rawVariantOffers = mergeVariantOffers(pageData?.variantOffers, apiData?.variantOffers);
 
   const product = {
     success: true,
@@ -2055,10 +2042,7 @@ async function fetchProduct(url) {
     rating: normalizeRating(apiData?.rating) || normalizeRating(pageData?.rating),
     reviewCount: Number(apiData?.reviewCount || pageData?.reviewCount || 0),
     soldCount: Number(apiData?.soldCount || pageData?.soldCount || 0),
-    variants: mergeVariantGroups(
-      mergeVariantGroups(pageData?.variants, apiData?.variants),
-      extractVariantGroupsFromOffers(rawVariantOffers)
-    ),
+    variants: mergeVariantGroups(pageData?.variants, apiData?.variants),
     url: canonicalUrl,
     source: apiData ? "api+scrape" : (pageData?.source || "scrape"),
     cached: false,
@@ -2094,11 +2078,6 @@ async function fetchProduct(url) {
     });
     product.manualQuoteRecommended = true;
   }
-
-  product.variantOffers = mergeVariantOffers([], rawVariantOffers)
-    .map((offer) => buildVariantOfferProduct(product, offer))
-    .filter((offer) => offer.key && Object.keys(offer.attributes || {}).length)
-    .slice(0, 48);
 
   if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
