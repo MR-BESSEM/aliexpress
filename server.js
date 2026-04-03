@@ -104,6 +104,26 @@ function pickFirstPositive(values = []) {
   return 0;
 }
 
+function normalizeRating(value) {
+  const rating = Number.parseFloat(String(value ?? "").replace(",", "."));
+  return Number.isFinite(rating) && rating > 0 && rating <= 5 ? rating : 0;
+}
+
+function mergeVariantGroups(current = [], incoming = []) {
+  const map = new Map();
+  [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])].forEach((group) => {
+    if (!group || typeof group !== "object") return;
+    const name = sanitizeText(group.name || "Option");
+    const values = uniqueShortText(Array.isArray(group.values) ? group.values : []);
+    if (!values.length) return;
+    const existing = map.get(name) || [];
+    map.set(name, uniqueShortText(existing.concat(values)).slice(0, 8));
+  });
+  return Array.from(map.entries())
+    .map(([name, values]) => ({ name, values }))
+    .filter((group) => group.values.length >= 2);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -118,7 +138,12 @@ function hasUsefulPartialProductData(partial = {}) {
     sanitizeText(partial.title) ||
     sanitizeText(partial.description) ||
     Number(partial.price || 0) > 0 ||
-    Number(partial.rating || 0) > 0
+    Number(partial.rating || 0) > 0 ||
+    Number(partial.shipping || 0) >= 0 ||
+    Number(partial.reviewCount || 0) > 0 ||
+    Number(partial.soldCount || 0) > 0 ||
+    sanitizeText(partial.deliveryEstimate) ||
+    (Array.isArray(partial.variants) && partial.variants.length > 0)
   );
 }
 
@@ -131,7 +156,11 @@ function mergePartialProductData(current = null, incoming = null, fallbackUrl = 
     image: normalizeUrl(next.image || base.image || ""),
     price: pickLowestPositive([Number(next.price || 0), Number(base.price || 0)]),
     shipping: next.shipping != null ? Number(next.shipping) : (base.shipping != null ? Number(base.shipping) : null),
-    rating: pickLowestPositive([Number(next.rating || 0), Number(base.rating || 0)]),
+    rating: normalizeRating(next.rating) || normalizeRating(base.rating),
+    reviewCount: Math.max(0, Number(next.reviewCount || 0), Number(base.reviewCount || 0)),
+    soldCount: Math.max(0, Number(next.soldCount || 0), Number(base.soldCount || 0)),
+    deliveryEstimate: sanitizeText(next.deliveryEstimate || base.deliveryEstimate || ""),
+    variants: mergeVariantGroups(base.variants, next.variants),
     url: next.url || base.url || fallbackUrl
   };
 }
@@ -576,17 +605,38 @@ function parseShippingTexts(texts = []) {
   const prices = [];
 
   for (const raw of texts) {
-    const text = sanitizeText(raw).toLowerCase();
+    const text = sanitizeText(raw);
     if (!text) continue;
-    if (hasFreeShippingKeyword(text) && hasShippingKeyword(text)) sawFree = true;
-    if (!hasShippingKeyword(text)) continue;
-    prices.push(...extractUsdValuesFromText(text));
+    const lowerText = text.toLowerCase();
+    if (text.length > 220) continue;
+    if (hasFreeShippingKeyword(lowerText) && hasShippingKeyword(lowerText)) sawFree = true;
+    if (!hasShippingKeyword(lowerText)) continue;
+    prices.push(...extractUsdValuesFromText(lowerText));
   }
 
   const cheapest = pickLowestPositive(prices);
   if (cheapest > 0) return cheapest;
   if (sawFree) return 0;
   return null;
+}
+
+function extractDeliveryEstimateFromTexts(texts = []) {
+  const patterns = [
+    /\b(\d{1,2})\s*(?:-|to|~)\s*(\d{1,2})\s*(?:business\s*)?(?:days?|jours?)\b/i,
+    /(\d{1,2})\s*(?:حتى|الى|إلى)\s*(\d{1,2})\s*(?:يوم|أيام)/i,
+    /\b(\d{1,2})\s*(?:business\s*)?(days?|jours?)\b/i,
+    /(\d{1,2})\s*(?:يوم|أيام)/i
+  ];
+
+  for (const raw of texts) {
+    const text = sanitizeText(raw);
+    if (!text || text.length > 180) continue;
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) return text;
+    }
+  }
+  return "";
 }
 
 function inferDeliveryEstimate(shippingValue) {
@@ -601,22 +651,38 @@ function inferDeliveryEstimate(shippingValue) {
 function parseCompactCount(value) {
   const text = sanitizeText(value).toLowerCase();
   if (!text) return 0;
-  const match = text.match(/([0-9]+(?:[.,][0-9]+)?)\s*([km])?/i);
+  const match = text.match(/([0-9]{1,3}(?:[.,\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?)\s*([km])?/i);
   if (!match) return 0;
-  const base = Number.parseFloat(match[1].replace(",", "."));
+  const rawNumber = match[1];
+  const hasGroupedThousands = /[.,\s][0-9]{3}(?:[.,\s][0-9]{3})*$/.test(rawNumber) && !match[2];
+  const normalizedNumber = hasGroupedThousands
+    ? rawNumber.replace(/[.,\s]/g, "")
+    : rawNumber.replace(/\s/g, "").replace(",", ".");
+  const base = Number.parseFloat(normalizedNumber);
   if (!Number.isFinite(base) || base < 0) return 0;
   const multiplier = match[2] === "k" ? 1_000 : (match[2] === "m" ? 1_000_000 : 1);
   return Math.round(base * multiplier);
 }
 
 function extractCountFromTextList(texts = [], keywordPattern) {
+  const patternSource = keywordPattern.source;
+  const nearKeywordPatterns = [
+    new RegExp(`([0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?\\s*[km]?)\\+?\\s*(?:${patternSource})`, "i"),
+    new RegExp(`(?:${patternSource})[^0-9]{0,12}([0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?\\s*[km]?)`, "i")
+  ];
+  let best = 0;
   for (const raw of texts) {
     const text = sanitizeText(raw);
     if (!text || !keywordPattern.test(text)) continue;
-    const count = parseCompactCount(text);
-    if (count > 0) return count;
+    for (const pattern of nearKeywordPatterns) {
+      const match = text.match(pattern);
+      const count = parseCompactCount(match?.[1] || "");
+      if (count > best) best = count;
+    }
+    const fallbackCount = parseCompactCount(text);
+    if (fallbackCount > best) best = fallbackCount;
   }
-  return 0;
+  return best;
 }
 
 function classifyProductRestrictions({ title = "", url = "" }) {
@@ -727,6 +793,12 @@ function extractVariantGroupsFromHtml($) {
   }
 
   return groups;
+}
+
+function extractVariantGroupsFromTextList(texts = []) {
+  const values = uniqueShortText(texts).filter((value) => !/^select|choose/i.test(value));
+  if (values.length < 2) return [];
+  return [{ name: guessVariantLabel("", values), values: values.slice(0, 8) }];
 }
 
 function buildSellerTrustScore(product) {
@@ -932,7 +1004,7 @@ function extractJsonObjectsFromHtml(html, $) {
 }
 
 function extractProductFieldsFromObjectTree(source) {
-  const result = { title: "", description: "", image: "", price: 0, rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
+  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
 
   walkObject(source, (node) => {
     if (Array.isArray(node)) return;
@@ -960,9 +1032,19 @@ function extractProductFieldsFromObjectTree(source) {
         if (price > 0) result.price = price;
       }
 
+      if (result.shipping == null && /(?:shipping|freight|delivery|logistics|postage)/i.test(lowerKey)) {
+        const shippingValue = parseShippingTexts([String(readScalar(value) || "")]);
+        if (shippingValue != null) result.shipping = shippingValue;
+      }
+
+      if (!result.deliveryEstimate && /(?:delivery|ship|eta|arrival|transit)/i.test(lowerKey)) {
+        const estimate = extractDeliveryEstimateFromTexts([String(readScalar(value) || "")]);
+        if (estimate) result.deliveryEstimate = estimate;
+      }
+
       if (!result.rating && /(?:rating|star|reviewscore|averagestar)/i.test(lowerKey)) {
-        const rating = Number.parseFloat(String(readScalar(value) || "").replace(/[^0-9.]/g, ""));
-        if (Number.isFinite(rating) && rating > 0 && rating <= 5) result.rating = rating;
+        const rating = normalizeRating(readScalar(value));
+        if (rating > 0) result.rating = rating;
       }
 
       if (!result.reviewCount && /(?:reviewcount|reviews|reviewnum|commentcount|feedback)/i.test(lowerKey)) {
@@ -1039,8 +1121,10 @@ function extractHtmlProduct(html, url, source) {
     ...$("[class*='sold'], [class*='order'], [class*='trade']").map((_, el) => $(el).text()).get()
   ], /sold|orders?|commandes|ventes/i);
   const shipping = parseShippingTexts([
-    $("body").text(),
     ...$("[class*='shipping'], [class*='delivery'], [class*='freight'], [class*='logistics']").map((_, el) => $(el).text()).get()
+  ]);
+  const deliveryEstimate = embedded.deliveryEstimate || extractDeliveryEstimateFromTexts([
+    ...$("[class*='delivery'], [class*='Delivery'], [class*='arrival'], [class*='transit'], [class*='logistics']").map((_, el) => $(el).text()).get()
   ]);
   const variants = embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($);
 
@@ -1050,8 +1134,9 @@ function extractHtmlProduct(html, url, source) {
       description,
       price,
       shipping,
+      deliveryEstimate,
       image,
-    rating: rating || 4.5,
+    rating: rating || 0,
     reviewCount,
     soldCount,
     variants,
@@ -1105,12 +1190,14 @@ async function fetchAliExpressApiProduct(productId) {
     throw new Error("AliExpress API returned no usable product fields");
   }
 
-    return {
-      title: extracted.title,
-      description: extracted.description,
-      image: extracted.image,
-      price: extracted.price,
-    rating: extracted.rating || 4.5,
+  return {
+    title: extracted.title,
+    description: extracted.description,
+    image: extracted.image,
+    price: extracted.price,
+    shipping: extracted.shipping,
+    deliveryEstimate: extracted.deliveryEstimate || "",
+    rating: extracted.rating || 0,
     reviewCount: extracted.reviewCount || 0,
     soldCount: extracted.soldCount || 0,
     variants: extracted.variants || [],
@@ -1249,6 +1336,8 @@ async function scrapeWithPlaywright(url) {
           queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "src"),
         priceTexts: collectTexts(["[class*='price']", "[class*='Price']", "[data-testid*='price']"]),
         ratingTexts: collectTexts(["[class*='rating']", "[class*='Rating']", "[class*='star']", "[class*='Star']"]),
+        reviewTexts: collectTexts(["[class*='review']", "[class*='Review']", "[class*='feedback']", "[class*='comment']"]),
+        soldTexts: collectTexts(["[class*='sold']", "[class*='Sold']", "[class*='order']", "[class*='Order']", "[class*='trade']"]),
         shippingTexts: collectTexts([
           "[class*='shipping']",
           "[class*='Shipping']",
@@ -1257,6 +1346,14 @@ async function scrapeWithPlaywright(url) {
           "[class*='freight']",
           "[class*='logistics']",
           "[data-testid*='shipping']"
+        ]),
+        variantTexts: collectTexts([
+          "[class*='sku'] button",
+          "[class*='Sku'] button",
+          "[class*='variant'] button",
+          "[class*='Variant'] button",
+          "[class*='property'] li",
+          "select option"
         ]),
         pageTitle: clean(document.title),
         bodyText: clean(document.body?.innerText || ""),
@@ -1279,8 +1376,23 @@ async function scrapeWithPlaywright(url) {
         parsed.price,
         extractPriceFromTextList([runtime.bodyText])
       ]),
-      rating: extractRatingFromTextList(runtime.ratingTexts) || parsed.rating,
-      shipping: parseShippingTexts(runtime.shippingTexts) ?? parsed.shipping
+      rating: normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) || normalizeRating(fromGlobals.rating) || normalizeRating(parsed.rating),
+      reviewCount: Math.max(
+        extractCountFromTextList(runtime.reviewTexts, /review|feedback|ratings?|avis/i),
+        Number(fromGlobals.reviewCount || 0),
+        Number(parsed.reviewCount || 0)
+      ),
+      soldCount: Math.max(
+        extractCountFromTextList(runtime.soldTexts, /sold|orders?|commandes|ventes/i),
+        Number(fromGlobals.soldCount || 0),
+        Number(parsed.soldCount || 0)
+      ),
+      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromGlobals.shipping ?? parsed.shipping,
+      deliveryEstimate: extractDeliveryEstimateFromTexts(runtime.shippingTexts) || fromGlobals.deliveryEstimate || parsed.deliveryEstimate || "",
+      variants: mergeVariantGroups(
+        mergeVariantGroups(fromGlobals.variants, parsed.variants),
+        extractVariantGroupsFromTextList(runtime.variantTexts)
+      )
     };
 
     if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
@@ -1291,7 +1403,11 @@ async function scrapeWithPlaywright(url) {
         image: merged.image,
         price: merged.price,
         shipping: merged.shipping,
-        rating: merged.rating
+        deliveryEstimate: merged.deliveryEstimate,
+        rating: merged.rating,
+        reviewCount: merged.reviewCount,
+        soldCount: merged.soldCount,
+        variants: merged.variants
       };
       error.nonRetryable = true;
       throw error;
@@ -1314,15 +1430,17 @@ async function scrapeWithPlaywright(url) {
         image: merged.image,
         price: merged.price,
         shipping: merged.shipping,
-        rating: merged.rating
+        deliveryEstimate: merged.deliveryEstimate,
+        rating: merged.rating,
+        reviewCount: merged.reviewCount,
+        soldCount: merged.soldCount,
+        variants: merged.variants
       };
       if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
         error.nonRetryable = true;
       }
       throw error;
     }
-
-    if (merged.shipping == null) merged.shipping = DEFAULT_SHIPPING_USD;
     return merged;
   } finally {
     await page.close().catch(() => {});
@@ -1348,14 +1466,17 @@ async function scrapeWithHttp(url) {
       image: parsed.image,
       price: parsed.price,
       shipping: parsed.shipping,
-      rating: parsed.rating
+      deliveryEstimate: parsed.deliveryEstimate,
+      rating: parsed.rating,
+      reviewCount: parsed.reviewCount,
+      soldCount: parsed.soldCount,
+      variants: parsed.variants
     };
     if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
       error.nonRetryable = true;
     }
     throw error;
   }
-  if (parsed.shipping == null) parsed.shipping = DEFAULT_SHIPPING_USD;
   return parsed;
 }
 
@@ -1424,14 +1545,16 @@ async function fetchProduct(url) {
       description: partialPageData?.description || "",
       price: Number(partialPageData?.price || 0),
       image: normalizeUrl(partialPageData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
-      rating: Number(partialPageData?.rating || 4.5),
+      rating: normalizeRating(partialPageData?.rating),
+      reviewCount: Number(partialPageData?.reviewCount || 0),
+      soldCount: Number(partialPageData?.soldCount || 0),
+      variants: Array.isArray(partialPageData?.variants) ? partialPageData.variants : [],
       url: partialPageData?.url || canonicalUrl,
       source: partialPageData ? "partial-fallback" : "api-fallback",
-      shipping: Number(partialPageData?.shipping ?? DEFAULT_SHIPPING_USD),
+      shipping: partialPageData?.shipping != null ? Number(partialPageData.shipping) : null,
+      deliveryEstimate: partialPageData?.deliveryEstimate || "",
       priceUnavailable: true
     };
-  } else if (pageData.shipping == null) {
-    pageData.shipping = DEFAULT_SHIPPING_USD;
   }
 
   const product = {
@@ -1439,32 +1562,40 @@ async function fetchProduct(url) {
     title: cleanupProductTitle(apiData?.title || pageData?.title || "AliExpress Product"),
     description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "AliExpress Product"),
     price: Number(apiData?.price || pageData?.price || 0),
-    shipping: Number(pageData?.shipping ?? DEFAULT_SHIPPING_USD),
+    shipping: pageData?.shipping != null
+      ? Number(pageData.shipping)
+      : (apiData?.shipping != null ? Number(apiData.shipping) : null),
     image: apiData?.image || pageData?.image || "",
-    rating: Number(apiData?.rating || pageData?.rating || 4.5),
+    rating: normalizeRating(apiData?.rating) || normalizeRating(pageData?.rating),
     reviewCount: Number(apiData?.reviewCount || pageData?.reviewCount || 0),
     soldCount: Number(apiData?.soldCount || pageData?.soldCount || 0),
-    variants: Array.isArray(apiData?.variants) && apiData.variants.length ? apiData.variants : (Array.isArray(pageData?.variants) ? pageData.variants : []),
+    variants: mergeVariantGroups(pageData?.variants, apiData?.variants),
     url: canonicalUrl,
     source: apiData ? "api+scrape" : (pageData?.source || "scrape"),
     cached: false,
     fetchedAt: new Date().toISOString()
   };
 
-  product.shippingLabel = product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`;
+  product.shippingLabel = product.shipping == null
+    ? "غير متوفر"
+    : (product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`);
   if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title)) {
     product.title = product.description
       ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "AliExpress Product"
       : "AliExpress Product";
   }
 
-  product.deliveryEstimate = inferDeliveryEstimate(product.shipping);
+  product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
   product.trustScore = buildSellerTrustScore(product);
   product.customsAdvisor = buildCustomsAdvisor(product);
   product.deliveryTimeline = buildEstimatedTimeline(product);
-  product.manualQuoteRecommended = Boolean(product.restrictions?.banned || product.restrictions?.restricted || product.shipping >= 8);
+  product.manualQuoteRecommended = Boolean(
+    product.restrictions?.banned ||
+    product.restrictions?.restricted ||
+    (Number.isFinite(Number(product.shipping)) && Number(product.shipping) >= 8)
+  );
   product.priceUnavailable = Boolean(pageData?.priceUnavailable && !apiData?.price && product.price <= 0);
 
   if (product.priceUnavailable) {
