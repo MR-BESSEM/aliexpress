@@ -349,8 +349,8 @@
                 linear-gradient(145deg, rgba(10, 18, 30, 0.98), rgba(16, 28, 44, 0.94)),
                 radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 32%);
             border-color: var(--panel-highlight) !important;
-            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.38);
-            max-width: 860px;
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.32);
+            max-width: 760px;
             margin-inline: auto;
         }
         #runtime-preview-card::before {
@@ -363,39 +363,39 @@
             pointer-events: none;
         }
         #runtime-preview-image {
-            width: 120px !important;
-            height: 120px !important;
-            border-radius: 1.6rem !important;
+            width: 96px !important;
+            height: 96px !important;
+            border-radius: 1.35rem !important;
             border: 1px solid rgba(255,255,255,0.12) !important;
             background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
             box-shadow:
-                0 18px 40px rgba(0,0,0,0.34),
+                0 12px 28px rgba(0,0,0,0.28),
                 inset 0 1px 0 rgba(255,255,255,0.04);
-            padding: 0.2rem;
+            padding: 0.15rem;
         }
         .runtime-preview-stat {
             background: linear-gradient(180deg, rgba(5, 10, 18, 0.78), rgba(10, 17, 29, 0.66));
             border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 1.15rem;
-            padding: 0.9rem;
-            min-height: 82px;
+            border-radius: 1rem;
+            padding: 0.72rem 0.8rem;
+            min-height: 70px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 0.22rem;
+            gap: 0.18rem;
             box-shadow:
                 inset 0 1px 0 rgba(255,255,255,0.03),
-                0 14px 30px rgba(0,0,0,0.16);
+                0 10px 24px rgba(0,0,0,0.14);
         }
         .runtime-preview-stat-label {
-            font-size: 0.63rem;
+            font-size: 0.58rem;
             font-weight: 800;
             letter-spacing: .08em;
             text-transform: uppercase;
             color: rgba(148, 163, 184, 0.85);
         }
         .runtime-preview-stat-value {
-            font-size: 0.98rem;
+            font-size: 0.88rem;
             font-weight: 900;
             color: #fff;
             line-height: 1.22;
@@ -404,9 +404,9 @@
             display: inline-flex;
             align-items: center;
             gap: .45rem;
-            padding: .55rem .9rem;
+            padding: .42rem .72rem;
             border-radius: 999px;
-            font-size: .63rem;
+            font-size: .58rem;
             font-weight: 900;
             letter-spacing: .04em;
             border: 1px solid rgba(255,255,255,0.08);
@@ -419,36 +419,36 @@
             align-items: center;
             justify-content: center;
             gap: .55rem;
-            padding: .82rem 1.1rem;
-            border-radius: 1.15rem;
+            padding: .68rem .92rem;
+            border-radius: 1rem;
             border: 1px solid rgba(255,255,255,0.08);
-            font-size: .72rem;
+            font-size: .66rem;
             font-weight: 900;
             transition: all .25s ease;
-            min-height: 46px;
+            min-height: 40px;
         }
         .runtime-preview-action:hover {
             transform: translateY(-2px);
             box-shadow: 0 16px 30px rgba(0,0,0,0.22);
         }
         #runtime-preview-title {
-            font-size: clamp(1.35rem, 2vw, 1.9rem) !important;
-            line-height: 1.24 !important;
-            letter-spacing: -0.03em;
-            max-width: 620px;
+            font-size: clamp(1.08rem, 1.3vw + 0.95rem, 1.45rem) !important;
+            line-height: 1.18 !important;
+            letter-spacing: -0.04em;
+            max-width: 100%;
             text-wrap: pretty;
             overflow: hidden;
             display: -webkit-box;
             -webkit-box-orient: vertical;
-            -webkit-line-clamp: 4;
-            line-clamp: 4;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
             word-break: break-word;
         }
         #runtime-preview-description {
-            font-size: 0.84rem !important;
-            line-height: 1.65 !important;
-            color: rgba(226, 232, 240, 0.86) !important;
-            max-width: 580px;
+            font-size: 0.76rem !important;
+            line-height: 1.45 !important;
+            color: rgba(226, 232, 240, 0.74) !important;
+            max-width: 100%;
             overflow: hidden;
             display: -webkit-box;
             -webkit-box-orient: vertical;
@@ -456,79 +456,85 @@
             line-clamp: 2;
         }
         #runtime-preview-card .runtime-preview-main {
-            align-items: flex-start;
-            gap: 1.1rem;
+            display: grid;
+            grid-template-columns: 110px minmax(0, 1fr);
+            align-items: start;
+            gap: 0.95rem;
         }
         #runtime-preview-card .runtime-preview-copy {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 0.95rem;
+            gap: 0.75rem;
+            min-width: 0;
         }
         #runtime-preview-card .runtime-preview-media {
             position: relative;
             flex-shrink: 0;
             align-self: flex-start;
-            width: 136px;
+            width: 110px;
             max-width: 100%;
-            padding: 0.38rem;
-            border-radius: 1.85rem;
+            padding: 0.3rem;
+            border-radius: 1.5rem;
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01)),
                 radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 68%);
             box-shadow:
                 inset 0 1px 0 rgba(255,255,255,0.06),
-                0 18px 48px rgba(0,0,0,0.24);
+                0 12px 30px rgba(0,0,0,0.2);
         }
         #runtime-preview-card .runtime-preview-media::after {
             content: "";
             position: absolute;
-            inset: 11px;
-            border-radius: 1.35rem;
+            inset: 8px;
+            border-radius: 1.1rem;
             border: 1px solid rgba(255,255,255,0.06);
             pointer-events: none;
         }
         #runtime-preview-card .runtime-preview-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
         }
         #runtime-preview-card .runtime-preview-actions .runtime-preview-action {
-            flex: 1 1 180px;
+            width: 100%;
         }
         #runtime-preview-card .runtime-preview-summary {
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: space-between;
-            gap: 1rem;
+            gap: 0.65rem;
             flex-wrap: wrap;
         }
         #runtime-preview-price {
-            font-size: clamp(1.7rem, 2vw, 2.3rem) !important;
+            font-size: clamp(1.35rem, 1.2vw + 1rem, 1.8rem) !important;
             line-height: 1;
         }
         @media (max-width: 768px) {
             #runtime-preview-image {
-                width: 102px !important;
-                height: 102px !important;
+                width: 84px !important;
+                height: 84px !important;
             }
             #runtime-preview-title {
-                font-size: 1.28rem !important;
-                -webkit-line-clamp: 3;
-                line-clamp: 3;
+                font-size: 1rem !important;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
             }
             #runtime-preview-description {
-                font-size: 0.76rem !important;
-                line-height: 1.55 !important;
+                font-size: 0.7rem !important;
+                line-height: 1.35 !important;
+                -webkit-line-clamp: 1;
+                line-clamp: 1;
             }
             #runtime-preview-card .runtime-preview-main {
-                align-items: center;
+                grid-template-columns: 88px minmax(0, 1fr);
+                align-items: start;
             }
             #runtime-preview-card .runtime-preview-media {
-                width: 116px;
+                width: 88px;
             }
-            #runtime-preview-card .runtime-preview-actions .runtime-preview-action {
-                flex-basis: 100%;
+            #runtime-preview-card .runtime-preview-actions {
+                grid-template-columns: 1fr;
             }
         }
         #runtime-variant-groups button.is-active {
@@ -1037,24 +1043,24 @@
                         </div>
                         <div id="runtime-scrape-error" class="hidden mt-2 text-[10px] text-red-400 font-black"></div>
                     </div>
-                    <div id="runtime-preview-card" class="hidden glass-card relative overflow-hidden p-5 md:p-6 rounded-3xl border border-white/5">
-                        <div class="relative z-10 space-y-5">
+                    <div id="runtime-preview-card" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
+                        <div class="relative z-10 space-y-4">
                             <div class="runtime-preview-main flex flex-col md:flex-row auto-align">
                                 <div class="runtime-preview-media">
-                                    <img id="runtime-preview-image" src="" alt="Product preview" class="w-28 h-28 md:w-32 md:h-32 rounded-[1.35rem] object-cover border border-white/10 bg-slate-900">
+                                    <img id="runtime-preview-image" src="" alt="Product preview" class="w-24 h-24 rounded-[1.2rem] object-cover border border-white/10 bg-slate-900">
                                 </div>
-                                <div class="runtime-preview-copy flex-1 min-w-0 space-y-4">
+                                <div class="runtime-preview-copy flex-1 min-w-0 space-y-3">
                                     <div class="flex flex-wrap gap-2 items-center">
                                         <span id="runtime-preview-source" class="runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20 uppercase">SCRAPE</span>
                                         <span id="runtime-preview-meta" class="runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Tunisia Ready</span>
                                         <span id="runtime-preview-variant-summary" class="hidden runtime-preview-chip bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20">No option selected</span>
                                     </div>
-                                    <h3 id="runtime-preview-title" class="text-lg md:text-[1.7rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
-                                    <p id="runtime-preview-description" class="text-xs md:text-sm text-slate-300 leading-7 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
+                                    <h3 id="runtime-preview-title" class="text-lg md:text-[1.35rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
+                                    <p id="runtime-preview-description" class="text-xs text-slate-300 leading-6 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
                                     <div class="runtime-preview-summary">
                                         <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.000 TND</div>
                                     </div>
-                                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
                                         <div class="runtime-preview-stat">
                                             <div class="runtime-preview-stat-label">Tunisia Shipping</div>
                                             <div id="runtime-preview-shipping" class="runtime-preview-stat-value">Free</div>
