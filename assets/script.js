@@ -1533,6 +1533,174 @@
         }
     };
 
+    const RUNTIME_TRANSLATIONS = {
+        ar: {
+            preview_ready: "جاهز لتونس",
+            preview_review: "راجع قبل التأكيد",
+            preview_no_desc: "ما لقيناش وصف واضح، أما الاسم والصورة متوفرين.",
+            stat_shipping: "شحن تونس",
+            stat_delivery: "التوصيل",
+            stat_rating: "التقييم",
+            stat_reviews: "المراجعات",
+            action_open: "فتح المنتج الأصلي",
+            action_alert: "تنبيه هبوط السعر",
+            action_share: "مشاركة الإحالة",
+            trust_title: "ثقة البائع",
+            trust_desc: "تقييم سريع حسب التقييم والمراجعات والشحن والمخاطر",
+            variant_title: "اختيار النسخة",
+            variant_desc: "اختار اللون أو المقاس أو النسخة وتتسجل وحدها في المواصفات",
+            variant_auto: "تلقائي",
+            quote_pdf: "PDF / عرض سعر",
+            export_csv: "تصدير CSV",
+            account_overview: "نظرة عامة",
+            account_overview_desc: "ملخص سريع للحساب والنشاط",
+            account_contact: "بيانات وتفضيلات",
+            account_contact_desc: "بياناتك المحفوظة وطرق التواصل",
+            account_admin: "لوحة الإدارة",
+            account_admin_desc: "البروموات والطلبات وإدارة الحالة",
+            cloud_identity: "هوية السحابة",
+            saved_yes: "محفوظة",
+            saved_no: "غير محفوظة",
+            contact_whatsapp: "واتساب",
+            contact_call: "مكالمة",
+            contact_sms: "SMS",
+            cart_eta: "التوصيل",
+            cart_ready: "جاهز",
+            cart_split: "قسّم الطلب",
+            cart_rec_empty: "أضف منتجات للسلة باش يبان التحليل الذكي.",
+            cart_rec_ready: "السلة متوازنة وجاهزة للإرسال كطلب واحد.",
+            cart_rec_risk: "في السلة منتجات تحتاج حذر أو مراجعة. الأفضل تقسيمها أو مراجعتها يدويًا.",
+            cart_rec_eta: "مواعيد التوصيل متباعدة. تقسيم الطلب ينجم يكون أوضح وأسرع.",
+            cart_rec_large: "السلة كبيرة. راجع المقاسات والخيارات قبل الإرسال النهائي.",
+            bundle_default: "تجميعة ذكية",
+            bundle_note_low: "أضف أكثر من منتج باش تتحسن التجميعة أكثر.",
+            bundle_note_hot: "التجميعة هاذي تنجم توفر أكثر في الرسوم والخدمة.",
+            safety_ban: "ممنوع 100%",
+            safety_license: "قد يطلب ترخيص",
+            safety_before: "قبل ما تطلب",
+            safety_docs: "وثائق تنجم تنفع",
+            safety_notice: "تنبيه مهم",
+            remove: "حذف",
+            total: "الإجمالي",
+            shipping_free: "شحن مجاني",
+            reviews_na: "غير متوفر",
+            rating_na: "غير متوفر"
+        },
+        fr: {
+            preview_ready: "Pret pour la Tunisie",
+            preview_review: "A revoir avant validation",
+            preview_no_desc: "La description n'est pas claire pour le moment, mais le nom et l'image sont disponibles.",
+            stat_shipping: "Livraison TN",
+            stat_delivery: "Delai",
+            stat_rating: "Note",
+            stat_reviews: "Avis",
+            action_open: "Ouvrir le produit",
+            action_alert: "Alerte prix",
+            action_share: "Partager l'affiliation",
+            trust_title: "Confiance vendeur",
+            trust_desc: "Resume rapide selon note, avis, livraison et risque douane",
+            variant_title: "Choix de variante",
+            variant_desc: "Choisissez couleur, taille ou version et on l'ajoute aux specifications",
+            variant_auto: "AUTO",
+            quote_pdf: "PDF / Devis",
+            export_csv: "Exporter CSV",
+            account_overview: "Vue d'ensemble",
+            account_overview_desc: "Resume rapide du compte et de l'activite",
+            account_contact: "Contact & Preferences",
+            account_contact_desc: "Vos informations sauvegardees et votre moyen de contact",
+            account_admin: "Admin Studio",
+            account_admin_desc: "Promos, commandes et suivi admin",
+            cloud_identity: "Identite cloud",
+            saved_yes: "Sauvegarde",
+            saved_no: "Non sauvegarde",
+            contact_whatsapp: "WhatsApp",
+            contact_call: "Appel",
+            contact_sms: "SMS",
+            cart_eta: "Livraison",
+            cart_ready: "PRET",
+            cart_split: "SEPARER",
+            cart_rec_empty: "Ajoutez des produits pour afficher l'analyse intelligente.",
+            cart_rec_ready: "Panier equilibre et pret a etre envoye comme une seule commande.",
+            cart_rec_risk: "Certains articles demandent plus de prudence. Il vaut mieux separer ou verifier.",
+            cart_rec_eta: "Les delais sont tres differents. Separer la commande peut etre plus pratique.",
+            cart_rec_large: "Panier assez grand. Verifiez bien tailles et options avant validation.",
+            bundle_default: "Bundle intelligent",
+            bundle_note_low: "Ajoutez plus d'articles pour mieux optimiser le bundle.",
+            bundle_note_hot: "Ce bundle peut reduire une partie des frais et du service.",
+            safety_ban: "Interdit 100%",
+            safety_license: "Licence possible",
+            safety_before: "Avant de commander",
+            safety_docs: "Documents utiles",
+            safety_notice: "Note importante",
+            remove: "Supprimer",
+            total: "Total",
+            shipping_free: "Livraison gratuite",
+            reviews_na: "Indispo",
+            rating_na: "Indispo"
+        },
+        en: {
+            preview_ready: "Tunisia Ready",
+            preview_review: "Review Before Checkout",
+            preview_no_desc: "A clear description is not available yet, but the product name and image are ready.",
+            stat_shipping: "Tunisia Shipping",
+            stat_delivery: "Delivery ETA",
+            stat_rating: "Rating",
+            stat_reviews: "Reviews",
+            action_open: "Open Original Product",
+            action_alert: "Price Alert",
+            action_share: "Share Referral",
+            trust_title: "Seller Trust Score",
+            trust_desc: "Quick view based on rating, reviews, shipping, and customs risk",
+            variant_title: "Variant Picker",
+            variant_desc: "Choose color, size, or version and save it into the specs field",
+            variant_auto: "AUTO",
+            quote_pdf: "PDF / Quote",
+            export_csv: "Export CSV",
+            account_overview: "Overview",
+            account_overview_desc: "Quick account and activity summary",
+            account_contact: "Contact & Preferences",
+            account_contact_desc: "Saved customer details and preferred contact method",
+            account_admin: "Admin Studio",
+            account_admin_desc: "Promos, orders, and admin controls",
+            cloud_identity: "Cloud Identity",
+            saved_yes: "Saved",
+            saved_no: "Not saved",
+            contact_whatsapp: "WhatsApp",
+            contact_call: "Call",
+            contact_sms: "SMS",
+            cart_eta: "ETA",
+            cart_ready: "READY",
+            cart_split: "SPLIT",
+            cart_rec_empty: "Add products to see smart cart analysis.",
+            cart_rec_ready: "This cart looks balanced and ready to send as one order.",
+            cart_rec_risk: "Some items need extra customs care. Splitting or manual review is safer.",
+            cart_rec_eta: "Delivery windows are far apart. Splitting the order may be cleaner.",
+            cart_rec_large: "This is a large cart. Double-check sizes and options before sending it.",
+            bundle_default: "Smart Bundle",
+            bundle_note_low: "Add more products to improve the bundle suggestion.",
+            bundle_note_hot: "This bundle can save part of the fees and service cost.",
+            safety_ban: "100% Prohibited",
+            safety_license: "May Need License",
+            safety_before: "Before You Order",
+            safety_docs: "Helpful Documents",
+            safety_notice: "Important Note",
+            remove: "Remove",
+            total: "Total",
+            shipping_free: "Free Shipping",
+            reviews_na: "N/A",
+            rating_na: "N/A"
+        }
+    };
+
+    function currentUiLanguage() {
+        const lang = window.localStorage.getItem("alexpress_lang") || "ar";
+        return RUNTIME_TRANSLATIONS[lang] ? lang : "ar";
+    }
+
+    function rt(key, lang = currentUiLanguage()) {
+        return RUNTIME_TRANSLATIONS[lang]?.[key] || RUNTIME_TRANSLATIONS.ar[key] || key;
+    }
+
     function applyLanguageMeta(lang) {
         const rtl = lang === "ar";
         document.documentElement.lang = lang;
@@ -1567,14 +1735,64 @@
         });
     }
 
+    function applyRuntimeTranslations(lang) {
+        const setText = (selector, value) => {
+            const element = document.querySelector(selector);
+            if (element) element.textContent = value;
+        };
+        const setMany = (selector, index, value) => {
+            const elements = document.querySelectorAll(selector);
+            if (elements[index]) elements[index].textContent = value;
+        };
+
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 0, rt("stat_shipping", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 1, rt("stat_delivery", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 2, rt("stat_rating", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 3, rt("stat_reviews", lang));
+        setText("#runtime-preview-link span", rt("action_open", lang));
+        setText("#runtime-create-alert", rt("action_alert", lang));
+        setText("#runtime-copy-referral-share", rt("action_share", lang));
+        setText("#runtime-trust-card .text-[10px].font-black.text-white", rt("trust_title", lang));
+        setText("#runtime-trust-card .text-[9px].text-slate-500.font-bold", rt("trust_desc", lang));
+        setText("#runtime-variants-card .text-[10px].font-black.text-white", rt("variant_title", lang));
+        setText("#runtime-variants-card .text-[9px].text-slate-500.font-bold", rt("variant_desc", lang));
+        setText("#runtime-variants-card span.px-3.py-1.rounded-full", rt("variant_auto", lang));
+        setText("#runtime-download-quote", rt("quote_pdf", lang));
+        setText("#runtime-export-csv", rt("export_csv", lang));
+        setText("#section-account details[data-account-panel='overview'] .text-sm.font-black.text-white", rt("account_overview", lang));
+        setText("#section-account details[data-account-panel='overview'] .text-[11px].text-slate-500.font-bold", rt("account_overview_desc", lang));
+        setText("#section-account details[data-account-panel='prefs'] .text-sm.font-black.text-white", rt("account_contact", lang));
+        setText("#section-account details[data-account-panel='prefs'] .text-[11px].text-slate-500.font-bold", rt("account_contact_desc", lang));
+        setText("#section-account details[data-account-panel='admin'] .text-sm.font-black.text-white", rt("account_admin", lang));
+        setText("#section-account details[data-account-panel='admin'] .text-[11px].text-slate-500.font-bold", rt("account_admin_desc", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-red-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_ban", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-amber-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_license", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-emerald-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_before", lang));
+        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 0, rt("safety_docs", lang));
+        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 1, rt("safety_notice", lang));
+
+        const contactOptions = dom.accountContactMethod?.querySelectorAll("option") || [];
+        if (contactOptions[0]) contactOptions[0].textContent = rt("contact_whatsapp", lang);
+        if (contactOptions[1]) contactOptions[1].textContent = rt("contact_call", lang);
+        if (contactOptions[2]) contactOptions[2].textContent = rt("contact_sms", lang);
+    }
+
     function applyLanguage(lang = "ar") {
         const safeLang = UI_TRANSLATIONS[lang] ? lang : "ar";
         window.localStorage.setItem("alexpress_lang", safeLang);
         applyLanguageMeta(safeLang);
         applyUiTranslations(safeLang);
+        applyRuntimeTranslations(safeLang);
         if (dom.previewMeta && dom.previewMeta.textContent === "Product Summary") {
             dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
         }
+        if (typeof window.renderCart === "function") window.renderCart();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+        renderNotifications();
+        renderSavedPacks();
+        renderBundleDeals();
+        renderCartInsights();
+        if (state.currentProduct) renderPreview(state.currentProduct);
     }
 
     function clearImagePreview() {
@@ -1590,7 +1808,7 @@
         if (dom.accountContactMethod) dom.accountContactMethod.value = prefs.contactMethod || "whatsapp";
         if (dom.accountPrefsStatus) {
             const hasPrefs = Boolean(prefs.phone || prefs.city || prefs.address);
-            dom.accountPrefsStatus.textContent = hasPrefs ? "محفوظة" : "غير محفوظة";
+            dom.accountPrefsStatus.textContent = hasPrefs ? rt("saved_yes") : rt("saved_no");
             dom.accountPrefsStatus.className = `text-[9px] font-black ${hasPrefs ? "text-emerald-400" : "text-slate-500"}`;
         }
     }
@@ -1724,13 +1942,13 @@
         const mixedEta = etaMin != null && etaMax != null && (etaMax - etaMin >= 10);
         const splitRecommended = riskyItems > 0 || mixedEta;
 
-        let recommendation = "Cart متوازن وجاهز للإرسال كطلب واحد.";
+        let recommendation = rt("cart_rec_ready");
         if (riskyItems > 0) {
-            recommendation = "في cart هذا توجد منتجات فيها customs risk. الأفضل تعمل split للمنتجات الحساسة أو تأخذ manual confirmation قبل الإرسال.";
+            recommendation = rt("cart_rec_risk");
         } else if (mixedEta) {
-            recommendation = "مواعيد التوصيل متباعدة برشة. تقسيم المنتجات السريعة على طلب منفصل ينجم يسرّع الاستلام.";
+            recommendation = rt("cart_rec_eta");
         } else if (totalUnits >= 6) {
-            recommendation = "Cart كبير. تأكد من المقاسات والمواصفات قبل الإرسال النهائي باش نتفاداو التأخير.";
+            recommendation = rt("cart_rec_large");
         }
 
         return {
@@ -1759,9 +1977,9 @@
         dom.cartService.textContent = formatTnd(insights.totalService);
         dom.cartFreeShip.textContent = String(insights.freeShipping);
         dom.cartRisk.textContent = String(insights.riskyItems);
-        dom.cartEta.textContent = `ETA: ${insights.etaLabel}`;
+        dom.cartEta.textContent = `${rt("cart_eta")}: ${insights.etaLabel}`;
         dom.cartRecommendation.textContent = insights.recommendation;
-        dom.cartHealth.textContent = insights.splitRecommended ? "SPLIT" : "READY";
+        dom.cartHealth.textContent = insights.splitRecommended ? rt("cart_split") : rt("cart_ready");
         dom.cartHealth.className = `px-3 py-1 rounded-full text-[10px] font-black ${
             insights.splitRecommended ? "bg-amber-400/10 text-amber-300" : "bg-emerald-500/10 text-emerald-300"
         }`;
@@ -1781,7 +1999,7 @@
             return;
         }
 
-        const trust = product.trustScore || { score: 60, label: "Good" };
+        const trust = product.trustScore || { score: 60, label: rt("trust_desc") };
         dom.trustCard.classList.remove("hidden");
         dom.trustBadge.dir = "ltr";
         dom.trustBadge.textContent = `${trust.score} / 100`;
@@ -1793,7 +2011,11 @@
         dom.trustRating.textContent = Number(product.rating || 0).toFixed(1);
         dom.trustReviews.textContent = formatCompactCount(product.reviewCount || 0);
         dom.trustSold.textContent = formatCompactCount(product.soldCount || 0);
-        dom.trustNote.textContent = `Trust ${trust.label}. ${product.restrictions?.banned ? "Customs risk high." : (product.restrictions?.restricted ? "Needs customs review." : "No major block detected.")}`;
+        dom.trustNote.textContent = product.restrictions?.banned
+            ? `${rt("trust_title")}: ${trust.label}. ${rt("cart_rec_risk")}`
+            : (product.restrictions?.restricted
+                ? `${rt("trust_title")}: ${trust.label}. ${rt("safety_license")}`
+                : `${rt("trust_title")}: ${trust.label}.`);
     }
 
     function renderVariants(product) {
@@ -1897,11 +2119,11 @@
         const names = items.slice(0, 2).map((item) => item.name).filter(Boolean);
 
         dom.bundleSavings.textContent = formatTnd(estimatedSavings);
-        dom.bundleTitle.textContent = names.length ? `${names.join(" + ")}` : "Smart Bundle";
-        dom.bundleBadge.textContent = estimatedSavings >= 8 ? "HOT" : "COMBO";
+        dom.bundleTitle.textContent = names.length ? `${names.join(" + ")}` : rt("bundle_default");
+        dom.bundleBadge.textContent = estimatedSavings >= 8 ? "HOT" : rt("bundle_default");
         dom.bundleNote.textContent = estimatedSavings >= 8
-            ? "هذا bundle باهي للبيع السريع أو الشراء الجماعي. وفّر service fees تقريبية مع شحن أفضل."
-            : "Bundle صالح للتجميع. إذا زدت منتج مكمل، الوفرة تنجم تتحسن أكثر.";
+            ? rt("bundle_note_hot")
+            : rt("bundle_note_low");
     }
 
     function renderVoiceNote() {
@@ -2293,6 +2515,7 @@
         state.currentProduct = product;
         if (!dom.previewCard) return;
         const previewDescriptionNode = ensurePreviewDescriptionNode();
+        const currentLang = currentUiLanguage();
         state.selectedVariants = {};
 
         dom.previewCard.classList.remove("hidden");
@@ -2324,36 +2547,34 @@
         if (dom.previewShipping) {
             const shippingKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
             dom.previewShipping.textContent = !shippingKnown
-                ? "N/A"
-                : (product.shipping === 0 ? "Free" : getShippingLabel(product.shipping));
+                ? rt("reviews_na")
+                : (product.shipping === 0 ? rt("shipping_free") : getShippingLabel(product.shipping));
         }
         if (dom.previewDelivery) {
             const deliveryKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
-            dom.previewDelivery.textContent = deliveryKnown ? (product.deliveryEstimate || "Not available") : "N/A";
+            dom.previewDelivery.textContent = deliveryKnown ? (product.deliveryEstimate || rt("reviews_na")) : rt("reviews_na");
         }
         if (dom.previewRating) {
-            dom.previewRating.textContent = Number(product.rating || 0) > 0 ? Number(product.rating || 0).toFixed(1) : "N/A";
+            dom.previewRating.textContent = Number(product.rating || 0) > 0 ? Number(product.rating || 0).toFixed(1) : rt("rating_na");
         }
         if (dom.previewReviews) {
-            dom.previewReviews.textContent = Number(product.reviewCount || 0) > 0 ? formatCompactCount(product.reviewCount || 0) : "N/A";
+            dom.previewReviews.textContent = Number(product.reviewCount || 0) > 0 ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
         }
         if (dom.previewMeta) {
-            const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
             dom.previewMeta.textContent = product.description
                 ? (currentLang === "ar" ? "الوصف متوفر" : currentLang === "fr" ? "Description prete" : "Description Ready")
                 : (currentLang === "ar" ? "الاسم والصورة متوفرين" : currentLang === "fr" ? "Nom + image prets" : "Image + Name Ready");
         }
         if (dom.previewMeta) {
-            dom.previewMeta.textContent = product?.manualQuoteRecommended ? "Review Before Checkout" : "Tunisia Ready";
+            dom.previewMeta.textContent = product?.manualQuoteRecommended ? rt("preview_review") : rt("preview_ready");
         }
         if (previewDescriptionNode) {
-            const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
             previewDescriptionNode.textContent = product.description || (
                 currentLang === "ar"
-                    ? "ما لقيناش وصف واضح، أما الصورة واسم المنتج متوفرين."
+                    ? rt("preview_no_desc")
                     : currentLang === "fr"
-                        ? "Description non disponible pour le moment, mais le nom et l'image sont bien disponibles."
-                        : "A clear description is not available yet, but the product name and image are ready."
+                        ? rt("preview_no_desc", "fr")
+                        : rt("preview_no_desc", "en")
             );
         }
         if (dom.previewPrice) {
@@ -2866,9 +3087,9 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                 const qty = Math.max(1, Number(item.qty || 1));
                 const lineTotal = Number(item.totalWithFee || item.tnd || 0) * qty;
                 subtotal += lineTotal;
-                const shippingText = Number(item.shippingUsd || 0) === 0 ? "Free" : formatUsd(item.shippingUsd || 0);
-                const ratingText = Number(item.rating || 0) > 0 ? Number(item.rating || 0).toFixed(1) : "N/A";
-                const reviewText = Number(item.reviewCount || 0) > 0 ? formatCompactCount(item.reviewCount || 0) : "N/A";
+                const shippingText = Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0);
+                const ratingText = Number(item.rating || 0) > 0 ? Number(item.rating || 0).toFixed(1) : rt("rating_na");
+                const reviewText = Number(item.reviewCount || 0) > 0 ? formatCompactCount(item.reviewCount || 0) : rt("reviews_na");
                 const imgHtml = item.image
                     ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
                     : `<div class="w-20 h-20 rounded-2xl border border-white/10 bg-black/20 flex items-center justify-center text-slate-500 shrink-0"><i class="fas fa-box text-xl"></i></div>`;
@@ -2893,15 +3114,15 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                                 <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(item.productUsd || item.usd || 0)}</div>
                             </div>
                             <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">Rating</div>
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_rating"))}</div>
                                 <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(ratingText)}</div>
                             </div>
                             <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">Reviews</div>
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_reviews"))}</div>
                                 <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(reviewText)}</div>
                             </div>
                             <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">Total</div>
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("total"))}</div>
                                 <div class="text-sm font-black text-amber-300 mt-1" dir="ltr">${formatTnd(lineTotal)}</div>
                             </div>
                         </div>
@@ -2911,7 +3132,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                                 <span class="text-xs font-black text-white min-w-[18px] text-center">${qty}</span>
                                 <button onclick="changeQty(${item.id}, 1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">+</button>
                             </div>
-                            <button onclick="removeItem(${item.id})" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[10px] font-black hover:bg-red-500/20 transition-colors">Remove</button>
+                            <button onclick="removeItem(${item.id})" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[10px] font-black hover:bg-red-500/20 transition-colors">${escapeHtml(rt("remove"))}</button>
                         </div>
                     </div>
                 `;
