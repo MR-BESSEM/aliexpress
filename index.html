@@ -187,6 +187,260 @@
         @media (min-width: 768px) {
             .sticky-mobile-bar { display: none; }
         }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.10), transparent 28%),
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(255,255,255,0.015), transparent 22%);
+            z-index: -1;
+        }
+        .glass-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .glass-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent 28%, transparent 72%, rgba(251,191,36,0.06));
+            opacity: 0.8;
+        }
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(255,255,255,0.04);
+        }
+        .nav-container {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 35px rgba(0,0,0,0.20);
+        }
+        header.glass-card {
+            backdrop-filter: blur(18px);
+            box-shadow: 0 14px 40px rgba(0,0,0,0.22);
+        }
+        main {
+            padding-top: 1.25rem;
+            padding-bottom: 6.5rem;
+        }
+        .trust-badge,
+        .banned-grid-item,
+        details,
+        .recent-link-chip {
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+        }
+        .light-mode body::before {
+            background:
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 28%),
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(15,23,42,0.025), transparent 18%);
+        }
+        :root {
+            --panel-border: rgba(255, 255, 255, 0.07);
+            --panel-highlight: rgba(251, 191, 36, 0.16);
+            --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.30);
+            --text-soft: #94a3b8;
+        }
+        body {
+            background:
+                radial-gradient(circle at top center, rgba(15, 23, 42, 0.9), transparent 35%),
+                linear-gradient(180deg, #06080c 0%, #0a1017 45%, #091018 100%);
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.45), transparent 82%);
+            z-index: -1;
+            opacity: 0.22;
+        }
+        main {
+            max-width: 1140px !important;
+        }
+        header.glass-card {
+            background: rgba(12, 17, 27, 0.82);
+            border-color: var(--panel-border);
+        }
+        .light-mode header.glass-card {
+            background: rgba(255,255,255,0.88);
+        }
+        .nav-btn {
+            letter-spacing: 0.01em;
+            min-height: 38px;
+        }
+        .active-tab {
+            background: linear-gradient(180deg, rgba(36, 48, 71, 0.96), rgba(21, 31, 47, 0.96));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 22px rgba(0,0,0,0.26);
+        }
+        .glass-card {
+            box-shadow: var(--panel-shadow);
+            border-color: var(--panel-border);
+        }
+        .glass-card:hover {
+            border-color: rgba(251, 191, 36, 0.14);
+        }
+        input,
+        textarea,
+        select {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.08), inset 0 1px 0 rgba(255,255,255,0.03);
+            transform: translateY(-1px);
+        }
+        button,
+        a {
+            transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease, border-color 0.22s ease;
+        }
+        button:hover,
+        a:hover {
+            box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        }
+        #section-guide > .text-center h2 {
+            font-size: clamp(2rem, 5vw, 4.4rem);
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+            text-shadow: 0 12px 30px rgba(0,0,0,0.35);
+        }
+        #section-guide > .text-center p {
+            color: #a4afc0 !important;
+            font-style: normal !important;
+            max-width: 760px;
+        }
+        #section-guide > .text-center button {
+            min-width: 220px;
+            border-radius: 1.25rem;
+        }
+        #section-guide .trust-badge,
+        #section-guide .glass-card.p-5.rounded-3xl,
+        #section-guide .glass-card.p-6.rounded-3xl,
+        #section-guide .glass-card.p-5.md\:p-8 {
+            backdrop-filter: blur(18px);
+        }
+        #section-guide .grid.grid-cols-2.lg\:grid-cols-4 .glass-card,
+        #section-guide .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 .glass-card {
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        #section-guide .grid.grid-cols-2.lg\:grid-cols-4 .glass-card:hover,
+        #section-guide .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 34px rgba(0,0,0,0.24);
+        }
+        #section-calc .glass-card,
+        #section-cart .glass-card,
+        #section-history .glass-card,
+        #section-account .glass-card,
+        #section-check .glass-card,
+        #section-track .glass-card {
+            backdrop-filter: blur(20px);
+        }
+        #runtime-preview-card {
+            background: linear-gradient(145deg, rgba(12, 21, 34, 0.96), rgba(18, 31, 49, 0.92));
+            border-color: var(--panel-highlight) !important;
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+        }
+        #runtime-preview-image {
+            width: 112px !important;
+            height: 112px !important;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+        }
+        #runtime-breakdown-card,
+        #runtime-quote-compare-card,
+        #runtime-cart-insights-card,
+        #runtime-bundle-card {
+            background: linear-gradient(180deg, rgba(8, 14, 24, 0.88), rgba(11, 18, 29, 0.82));
+        }
+        #cart-footer .bg-slate-900\/40,
+        #cart-footer .bg-slate-900\/80 {
+            backdrop-filter: blur(14px);
+        }
+        footer.glass-card {
+            background: rgba(10, 16, 25, 0.92);
+            border-top-color: rgba(255,255,255,0.06);
+        }
+        .light-mode .active-tab {
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        }
+        .light-mode #runtime-preview-card,
+        .light-mode #runtime-breakdown-card,
+        .light-mode #runtime-quote-compare-card,
+        .light-mode #runtime-cart-insights-card,
+        .light-mode #runtime-bundle-card,
+        .light-mode footer.glass-card {
+            background: rgba(255,255,255,0.92);
+        }
+        #section-account .account-shell {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+        #section-account .account-panel {
+            border-radius: 1.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(155deg, rgba(10, 18, 30, 0.98), rgba(15, 27, 43, 0.9));
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        #section-account .account-panel[open] {
+            border-color: rgba(251, 191, 36, 0.22);
+            box-shadow: 0 24px 56px rgba(0, 0, 0, 0.28);
+        }
+        #section-account .account-panel-summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.15rem 1.25rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+        }
+        #section-account .account-panel-summary::-webkit-details-marker {
+            display: none;
+        }
+        #section-account .account-panel-body {
+            padding: 0 1.25rem 1.25rem;
+        }
+        #section-account .account-chevron {
+            transition: transform 0.25s ease;
+        }
+        #section-account .account-panel[open] .account-chevron {
+            transform: rotate(180deg);
+        }
+        #section-account .account-kpi {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(5, 11, 19, 0.56);
+            border-radius: 1.25rem;
+            padding: 1rem;
+        }
+        #section-account .account-subcard {
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.18);
+            padding: 1rem;
+        }
+        #section-account .account-summary-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-radius: 999px;
+            border: 1px solid rgba(251, 191, 36, 0.16);
+            background: rgba(251, 191, 36, 0.08);
+            color: #fde68a;
+            padding: 0.3rem 0.7rem;
+            font-size: 10px;
+            font-weight: 900;
+        }
     </style>
 
     <!-- Firebase SDKs -->
@@ -260,10 +514,10 @@
         <!-- Tab: Interactive Guide -->
         <div id="section-guide" class="tab-content active space-y-8 md:space-y-12">
             <div class="text-center relative">
-                <h2 class="text-2xl md:text-5xl font-black mb-3"><span data-i18n="hero_title_1">كيفاش تشري</span> <span class="text-amber-400" data-i18n="hero_title_2">من AliExpress؟</span></h2>
+                <h2 class="text-2xl md:text-5xl font-black mb-4"><span data-i18n="hero_title_1">كيفاش تشري</span> <span class="text-amber-400" data-i18n="hero_title_2">من AliExpress؟</span></h2>
                 <p class="text-slate-400 text-xs md:text-base max-w-2xl mx-auto italic italic leading-relaxed mb-6" data-i18n="hero_desc">دليلك الكامل باش قضيتك توصلك لباب دارك في تونس مريغلة، بكل أمان وشفافية.</p>
                 
-                <button onclick="switchTab('calc')" class="bg-amber-400 text-black px-8 py-3 rounded-2xl font-black text-sm shadow-[0_4px_20px_rgba(251,191,36,0.4)] hover:scale-105 transition-transform animate-bounce inline-flex items-center gap-2">
+                <button onclick="switchTab('calc')" class="bg-amber-400 text-black px-8 py-3.5 rounded-2xl font-black text-sm shadow-[0_14px_30px_rgba(251,191,36,0.28)] hover:scale-[1.03] inline-flex items-center gap-2">
                     <i class="fas fa-calculator"></i> <span data-i18n="hero_btn">ابدا احسب قضيتك من هنا</span>
                 </button>
             </div>
@@ -571,7 +825,7 @@
                         </div>
                         <input type="text" id="calc-name" data-i18n-placeholder="plc_name" placeholder="مثال: Cable USB Type C" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-xs md:text-sm font-bold text-white outline-none focus:border-amber-400 transition-all duration-300">
                     </div>
-                    <div>
+                    <div class="hidden">
                         <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest" data-i18n="lbl_spec">المواصفات (لون، مقاس...)</label>
                         <textarea id="calc-note" rows="2" data-i18n-placeholder="plc_spec" placeholder="مثال Bleu 1.5m" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-xs md:text-sm font-bold text-white outline-none focus:border-amber-400"></textarea>
                     </div>
@@ -594,7 +848,7 @@
                             </div>
                         </div>
                     </div>
-
+                        </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest text-amber-400 auto-align" data-i18n="lbl_price">السعر ($)</label>
@@ -989,7 +1243,7 @@
 
         <!-- Tab: Account -->
         <div id="section-account" class="tab-content space-y-8 auto-align">
-            <div class="glass-card p-6 md:p-10 rounded-3xl md:rounded-[40px] max-w-2xl mx-auto shadow-2xl border-t-2 border-amber-400">
+            <div class="account-shell glass-card p-6 md:p-8 rounded-3xl md:rounded-[40px] shadow-2xl border-t-2 border-amber-400">
                 <div class="text-center mb-8">
                     <div class="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-400/30">
                         <i class="fas fa-user-circle text-4xl text-amber-400"></i>
@@ -999,6 +1253,18 @@
                 </div>
 
                 <div class="space-y-4">
+                    <details class="account-panel" data-account-panel="overview" open>
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Overview & Sync</div>
+                                <p class="text-[11px] text-slate-500 font-bold">Cloud ID، sync status، وأرقام الحساب الأساسية</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-emerald-300">READY</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body space-y-4">
                     <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5">
                         <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1" data-i18n="acc_id_lbl">معرف الحساب (Cloud ID)</label>
                         <div class="flex items-center justify-between gap-3">
@@ -1025,14 +1291,28 @@
                             <div class="text-[9px] text-pink-400 font-bold uppercase mt-1" data-i18n="nav_wish">المفضلة</div>
                         </div>
                     </div>
+                        </div>
+                    </details>
 
+                    <details class="account-panel" data-account-panel="preferences">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Contact & Preferences</div>
+                                <p class="text-[11px] text-slate-500 font-bold">بيانات الحريف وطريقة التواصل المحفوظة</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="account-prefs-status" class="text-[10px] font-black text-slate-400">غير محفوظة</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
                     <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <h4 class="text-xs font-black text-white">بياناتك السريعة</h4>
                                 <p class="text-[10px] text-slate-500 font-bold">نخزنوهم محليًا باش الطلبات اليدوية وواتساب يوليوا أسرع</p>
                             </div>
-                            <span id="account-prefs-status" class="text-[9px] font-black text-slate-500">غير محفوظة</span>
+                            <span class="text-[9px] font-black text-amber-300">CLIENT DATA</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <input id="account-phone" type="tel" placeholder="رقم الهاتف" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
@@ -1059,7 +1339,21 @@
                             <div class="text-[9px] text-amber-400 font-bold uppercase mt-1">Manual Quotes</div>
                         </div>
                     </div>
+                        </div>
+                    </details>
 
+                    <details class="account-panel" data-account-panel="tools">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Client Tools</div>
+                                <p class="text-[11px] text-slate-500 font-bold">profile، packs، alerts، rewards</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-blue-300">TOOLS</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
                     <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
                         <div class="flex items-center justify-between gap-3">
                             <div>
@@ -1134,7 +1428,21 @@
                         </div>
                         <div id="runtime-referral-note" class="text-[10px] text-slate-400 font-bold leading-relaxed">Share your code to grow your rewards balance.</div>
                     </div>
+                        </div>
+                    </details>
 
+                    <details class="account-panel" data-account-panel="notifications">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Notification Center</div>
+                                <p class="text-[11px] text-slate-500 font-bold">آخر التحديثات متاع الطلبات، البروموات، والنشاط العام</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-amber-300">LIVE</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
                     <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-3">
                         <div class="flex items-center justify-between gap-3">
                             <div>
@@ -1147,6 +1455,21 @@
                             <div class="text-[10px] text-slate-500 italic">Loading notifications...</div>
                         </div>
                     </div>
+                        </div>
+                    </details>
+
+                    <details class="account-panel" data-account-panel="admin">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Admin Studio</div>
+                                <p class="text-[11px] text-slate-500 font-bold">المساحة الإدارية تبقى مغلقة حتى تتفتح بالـ PIN</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="admin-unlock-status" class="text-[10px] font-black text-red-300">Locked</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
 
                     <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
                         <div class="flex items-center justify-between gap-3">
@@ -1154,7 +1477,7 @@
                                 <h4 class="text-xs font-black text-white">لوحة الإدارة السريعة</h4>
                                 <p class="text-[10px] text-slate-500 font-bold">إدارة promo codes وstatuses متاع الطلبات من نفس الواجهة</p>
                             </div>
-                            <span id="admin-unlock-status" class="text-[9px] font-black text-red-300">Locked</span>
+                            <span class="text-[9px] font-black text-amber-300">ADMIN</span>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <input id="admin-pin" type="password" placeholder="PIN admin" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
@@ -1216,6 +1539,8 @@
                             </div>
                         </div>
                     </div>
+                        </div>
+                    </details>
 
                     <!-- PRO FEATURE: Level & Rank System (VIP Card Design) -->
                     <div id="vip-card-container" class="relative overflow-hidden rounded-3xl p-5 md:p-6 border border-white/10 bg-slate-900/90 mt-6 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group transition-all duration-500">
@@ -2195,6 +2520,6 @@
         setInterval(triggerSocialProof, 25000); 
     };
 </script>
-<script src="assets/script.js?v=20260403-2"></script>
+<script src="assets/script.js?v=20260403-3"></script>
 </body>
 </html>
