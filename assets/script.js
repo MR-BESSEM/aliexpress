@@ -529,6 +529,15 @@
         return `${formatUsd(value)} شحن`;
     }
 
+    function parseLocaleNumber(value) {
+        const normalized = String(value ?? "")
+            .trim()
+            .replace(/\s+/g, "")
+            .replace(/,/g, ".");
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
     function getRestrictionSummary(product) {
         if (!product?.restrictions) return "";
         if (product.restrictions.banned) return "خطر ديوانة مرتفع";
@@ -1120,40 +1129,18 @@
 
     function renderRecentLinks() {
         if (!dom.recentLinksCard || !dom.recentLinks) return;
-        const links = Array.isArray(state.recentLinks) ? state.recentLinks : [];
-        dom.recentLinksCard.classList.toggle("hidden", links.length === 0);
-        if (!links.length) {
-            dom.recentLinks.innerHTML = "";
-            return;
-        }
-
-        dom.recentLinks.innerHTML = links.map((item, index) => `
-            <button type="button" class="recent-link-chip px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-200 hover:border-amber-400 hover:text-white transition-all" data-recent-index="${index}">
-                ${escapeHtml(item.title || item.url || "AliExpress")}
-            </button>
-        `).join("");
+        state.recentLinks = [];
+        writeJsonStorage(RECENT_LINKS_KEY, []);
+        dom.recentLinks.innerHTML = "";
+        dom.recentLinksCard.classList.add("hidden");
     }
 
     function saveRecentLink(product) {
-        const url = dom.calcLink?.value.trim() || product?.url || "";
-        if (!url) return;
-
-        const title = dom.calcName?.value.trim() || product?.title || "AliExpress product";
-        const next = [{ url, title }].concat((state.recentLinks || []).filter((item) => item.url !== url)).slice(0, 6);
-        state.recentLinks = next;
-        writeJsonStorage(RECENT_LINKS_KEY, next);
-        renderRecentLinks();
+        return;
     }
 
     function useRecentLink(index) {
-        const item = state.recentLinks?.[index];
-        if (!item || !dom.calcLink) return;
-        dom.calcLink.value = item.url;
-        if (dom.calcName && !dom.calcName.value.trim() && item.title) {
-            dom.calcName.value = item.title;
-        }
-        setError("");
-        toast("تم تحميل الرابط بسرعة.");
+        return;
     }
 
     function clearRecentLinks() {
@@ -1626,8 +1613,8 @@
     }
 
     function calculatePricingData() {
-        const productUsd = Number.parseFloat(dom.usdPrice?.value || "0") || 0;
-        const shippingUsd = Number.parseFloat(dom.usdShip?.value || "0") || 0;
+        const productUsd = parseLocaleNumber(dom.usdPrice?.value || "0");
+        const shippingUsd = parseLocaleNumber(dom.usdShip?.value || "0");
         const rate = getEffectiveRate();
         const productTnd = productUsd * rate;
         const shippingTnd = shippingUsd * rate;
@@ -2435,7 +2422,10 @@
             incrementStat("fetches");
             if (dom.calcName) dom.calcName.value = data.title || "";
             if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0) > 0 && !data.priceUnavailable ? Number(data.price || 0).toFixed(2) : "";
-            if (dom.usdShip) dom.usdShip.value = "";
+            if (dom.usdShip) {
+                const shippingValue = Number(data.shipping);
+                dom.usdShip.value = Number.isFinite(shippingValue) && shippingValue >= 0 ? shippingValue.toFixed(2) : "";
+            }
 
             renderPreview(data);
             renderPricing();
