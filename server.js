@@ -454,7 +454,7 @@ function getBearerToken(req) {
 function requireAdminAuth(req, res, next) {
   const token = getBearerToken(req);
   if (!verifyAdminToken(token)) {
-    return res.status(401).json({ success: false, error: "Unauthorized admin session" });
+    return res.status(401).json({ success: false, error: "جلسة الإدارة غير صالحة" });
   }
   next();
 }
@@ -1205,10 +1205,10 @@ function buildSellerTrustScore(product) {
   if (product.priceUnavailable) score -= 5;
 
   const finalScore = Math.max(15, Math.min(98, Math.round(score)));
-  let label = "Fair";
-  if (finalScore >= 85) label = "Excellent";
-  else if (finalScore >= 72) label = "Strong";
-  else if (finalScore >= 58) label = "Good";
+  let label = "متوسط";
+  if (finalScore >= 85) label = "ممتاز";
+  else if (finalScore >= 72) label = "قوي";
+  else if (finalScore >= 58) label = "مليح";
 
   return { score: finalScore, label };
 }
@@ -1217,27 +1217,27 @@ function buildCustomsAdvisor(product) {
   const category = product.restrictions?.category || "general";
   const riskLevel = product.restrictions?.banned ? "high" : (product.restrictions?.restricted ? "medium" : "low");
   const docsMap = {
-    phone: ["IMEI / homologation proof", "Seller invoice"],
-    radio: ["Import authorization", "Seller invoice"],
-    "tv-box": ["Technical product reference", "Seller invoice"],
-    supplements: ["Ingredient list", "Seller invoice"],
-    knife: ["Manual review before order"],
-    general: ["Seller invoice"]
+    phone: ["إثبات IMEI أو المطابقة", "فاتورة البائع"],
+    radio: ["ترخيص توريد", "فاتورة البائع"],
+    "tv-box": ["مرجع تقني للمنتج", "فاتورة البائع"],
+    supplements: ["قائمة المكونات", "فاتورة البائع"],
+    knife: ["مراجعة يدوية قبل الطلب"],
+    general: ["فاتورة البائع"]
   };
   const saferAlternativeMap = {
-    phone: "Prefer accessories or spare parts instead of full phones.",
-    radio: "Prefer Bluetooth accessories without radio transmission hardware.",
-    "tv-box": "Prefer streaming accessories with standard certification.",
-    supplements: "Prefer non-ingestible wellness accessories.",
-    knife: "Prefer kitchen tools with low customs sensitivity.",
-    general: "Choose products with clear specs and normal shipping."
+    phone: "الأفضل تختار إكسسوارات أو قطع غيار بدل هاتف كامل.",
+    radio: "الأفضل تختار إكسسوارات Bluetooth من غير تجهيزات إرسال راديو.",
+    "tv-box": "الأفضل تختار إكسسوارات ستريمنغ بمواصفات وشهادات واضحة.",
+    supplements: "الأفضل تختار إكسسوارات عناية أو رفاهة غير قابلة للاستهلاك.",
+    knife: "الأفضل تختار أدوات مطبخ أقل حساسية في الديوانة.",
+    general: "اختار منتجات بمواصفات واضحة وشحن عادي."
   };
 
   return {
     level: riskLevel,
     category,
     docs: docsMap[category] || docsMap.general,
-    note: product.restrictions?.reasons?.[0] || "No major customs blocker detected.",
+    note: product.restrictions?.reasons?.[0] || "ما ثماش مانع ديوانة واضح حاليا.",
     saferAlternative: saferAlternativeMap[category] || saferAlternativeMap.general
   };
 }
@@ -1245,11 +1245,11 @@ function buildCustomsAdvisor(product) {
 function buildEstimatedTimeline(product) {
   const estimate = inferDeliveryEstimate(product.shipping);
   return [
-    { step: "Order Confirmed", status: "current", note: "Once payment is validated we place the order with the seller." },
-    { step: "Seller Processing", status: "upcoming", note: "Usually 1-4 days before dispatch." },
-    { step: "International Transit", status: "upcoming", note: estimate },
-    { step: "Tunisia Customs", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "Standard customs verification." },
-    { step: "Local Handoff", status: "upcoming", note: "Final delivery through local carrier or Poste." }
+    { step: "تأكيد الطلب", status: "current", note: "كي يتأكد الدفع، نثبتو الطلب مع البائع." },
+    { step: "تجهيز البائع", status: "upcoming", note: "عادة بين نهار و4 أيام قبل الإرسال." },
+    { step: "الشحن الدولي", status: "upcoming", note: estimate },
+    { step: "الديوانة التونسية", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "مراجعة ديوانية عادية." },
+    { step: "التسليم المحلي", status: "upcoming", note: "التسليم الأخير عبر الموزع المحلي أو البريد." }
   ];
 }
 
@@ -1264,7 +1264,7 @@ function buildVariantOfferProduct(baseProduct, offer) {
   const selectionLabel = Object.values(attributes).filter(Boolean).join(" / ");
 
   const variantProduct = {
-    title: baseProduct?.title || "AliExpress Product",
+    title: baseProduct?.title || "منتج AliExpress",
     description: baseProduct?.description || "",
     price,
     shipping,
@@ -1926,7 +1926,7 @@ async function fetchProduct(url) {
   const urlCandidates = getProductUrlCandidates(url);
   const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
   if (!canonicalUrl) {
-    const error = new Error("Invalid AliExpress URL");
+    const error = new Error("رابط AliExpress غير صالح");
     error.status = 400;
     throw error;
   }
@@ -1976,15 +1976,15 @@ async function fetchProduct(url) {
   }
 
   if (!pageData && !apiData && !partialPageData) {
-    const error = lastPageError || new Error("Unable to fetch product details from AliExpress right now");
+    const error = lastPageError || new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
     error.status = 502;
-    error.message = "Unable to fetch product details from AliExpress right now";
+    error.message = "ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا";
     throw error;
   }
 
   if (!pageData) {
     pageData = {
-      title: partialPageData?.title || `AliExpress Product #${productId}`,
+      title: partialPageData?.title || `منتج AliExpress #${productId}`,
       description: partialPageData?.description || "",
       price: Number(partialPageData?.price || 0),
       image: normalizeUrl(partialPageData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
@@ -2002,8 +2002,8 @@ async function fetchProduct(url) {
 
   const product = {
     success: true,
-    title: cleanupProductTitle(apiData?.title || pageData?.title || "AliExpress Product"),
-    description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "AliExpress Product"),
+    title: cleanupProductTitle(apiData?.title || pageData?.title || "منتج AliExpress"),
+    description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "منتج AliExpress"),
     price: Number(apiData?.price || pageData?.price || 0),
     shipping: pageData?.shipping != null
       ? Number(pageData.shipping)
@@ -2024,12 +2024,12 @@ async function fetchProduct(url) {
     : (product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`);
   if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title)) {
     product.title = product.description
-      ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "AliExpress Product"
-      : "AliExpress Product";
+      ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "منتج AliExpress"
+      : "منتج AliExpress";
   }
 
   if (isLowValueProductTitle(product.title)) {
-    product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "AliExpress Product";
+    product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "منتج AliExpress";
   }
 
   product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
@@ -2054,7 +2054,7 @@ async function fetchProduct(url) {
   }
 
   if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
-    const error = new Error("Unable to fetch product details from AliExpress right now");
+    const error = new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
     error.status = 502;
     throw error;
   }
@@ -2124,7 +2124,7 @@ function rateLimitMiddleware(req, res, next) {
   bucket.count += 1;
   rateBuckets.set(ip, bucket);
   if (bucket.count > RATE_LIMIT_MAX) {
-    return res.status(429).json({ success: false, error: "Too many requests. Please try again shortly." });
+    return res.status(429).json({ success: false, error: "برشا طلبات، عاود بعد شوية." });
   }
   next();
 }
@@ -2180,7 +2180,7 @@ app.get("/api/promos", rateLimitMiddleware, (req, res) => {
 app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
   try {
     if (!req.query.url) {
-      return res.status(400).json({ success: false, error: "Missing url query parameter" });
+      return res.status(400).json({ success: false, error: "لازم تبعث رابط المنتج" });
     }
     const product = await fetchProduct(req.query.url);
     res.json(product);
@@ -2195,7 +2195,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
     const previousOrder = payload.orderRef ? getOrderByRef(payload.orderRef) : null;
     const order = upsertOrderRecord(payload);
     if (!order) {
-      return res.status(400).json({ success: false, error: "Missing orderRef" });
+      return res.status(400).json({ success: false, error: "لازم تبعث orderRef" });
     }
 
     const promoCode = sanitizeText(payload.promoCode || "").toUpperCase();
@@ -2218,7 +2218,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
 app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
   const order = getOrderByRef(req.params.orderRef);
   if (!order) {
-    return res.status(404).json({ success: false, error: "Order not found" });
+    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
   }
 
   res.json({ success: true, order });
@@ -2227,7 +2227,7 @@ app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
 app.post("/api/admin/login", rateLimitMiddleware, (req, res) => {
   const pin = sanitizeText(req.body?.pin || "");
   if (!pin || pin !== ADMIN_PIN) {
-    return res.status(401).json({ success: false, error: "Invalid admin PIN" });
+    return res.status(401).json({ success: false, error: "PIN الإدارة غير صحيح" });
   }
 
   res.json({
@@ -2255,7 +2255,7 @@ app.post("/api/admin/promos", rateLimitMiddleware, requireAdminAuth, (req, res) 
   const store = loadAdminStore();
   const promo = normalizePromoRecord(req.body || {});
   if (!promo || promo.value <= 0) {
-    return res.status(400).json({ success: false, error: "Invalid promo payload" });
+    return res.status(400).json({ success: false, error: "بيانات البرومو غير صالحة" });
   }
 
   const index = store.promos.findIndex((entry) => entry.code === promo.code);
@@ -2285,7 +2285,7 @@ app.delete("/api/admin/promos/:code", rateLimitMiddleware, requireAdminAuth, (re
 app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (req, res) => {
   const current = getOrderByRef(req.params.orderRef);
   if (!current) {
-    return res.status(404).json({ success: false, error: "Order not found" });
+    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
   }
 
   const updated = upsertOrderRecord({
@@ -2299,7 +2299,7 @@ app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (r
 });
 
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: "Not found" });
+  res.status(404).json({ success: false, error: "المسار غير موجود" });
 });
 
 app.use((error, req, res, next) => {
@@ -2311,7 +2311,7 @@ app.use((error, req, res, next) => {
   });
   res.status(status).json({
     success: false,
-    error: status === 500 ? "Internal server error" : error.message,
+    error: status === 500 ? "خطأ داخلي في السيرفر" : error.message,
     requestId: res.locals.requestId
   });
 });
