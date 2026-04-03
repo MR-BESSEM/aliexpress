@@ -1992,6 +1992,30 @@
         return String(count);
     }
 
+    function buildDisplayProductTitle(title) {
+        const raw = String(title || "").replace(/\s+/g, " ").trim();
+        if (!raw) return "AliExpress Product";
+        const words = raw.split(" ");
+        if (raw.length <= 78 && words.length <= 11) return raw;
+
+        const stopWords = new Set(["for", "with", "and", "the", "a", "an", "of", "to", "in", "on", "wholesale"]);
+        const picked = [];
+        const seen = new Set();
+
+        for (const word of words) {
+            const clean = word.replace(/[^\w-]/g, "");
+            const key = clean.toLowerCase();
+            if (!clean) continue;
+            if (picked.length >= 10) break;
+            if (seen.has(key) && !stopWords.has(key)) continue;
+            picked.push(word);
+            seen.add(key);
+        }
+
+        const compact = picked.join(" ").trim();
+        return compact.length && compact.length < raw.length ? `${compact}...` : raw;
+    }
+
     function renderSellerTrust(product) {
         if (!dom.trustCard || !dom.trustBadge || !dom.trustRating || !dom.trustReviews || !dom.trustSold || !dom.trustNote) return;
         if (!product || (Number(product.rating || 0) <= 0 && Number(product.reviewCount || 0) <= 0 && Number(product.soldCount || 0) <= 0)) {
@@ -2564,7 +2588,9 @@
             dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
         }
         if (dom.previewTitle) {
-            dom.previewTitle.textContent = product.title || "AliExpress Product";
+            const fullTitle = product.title || "AliExpress Product";
+            dom.previewTitle.textContent = buildDisplayProductTitle(fullTitle);
+            dom.previewTitle.title = fullTitle;
         }
         if (dom.previewMeta) {
             dom.previewMeta.textContent = metaLabel;
@@ -2601,6 +2627,7 @@
         }
         if (previewDescriptionNode) {
             previewDescriptionNode.textContent = product.description || rt("preview_no_desc");
+            previewDescriptionNode.title = product.description || rt("preview_no_desc");
         }
         renderVariantSummary();
 
