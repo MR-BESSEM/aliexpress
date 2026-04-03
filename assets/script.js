@@ -1,7 +1,7 @@
 (() => {
     const API_BASE_URL = "";
-    const FX_FALLBACK_RATE = 3.8;
-    const FX_MARKUP = 0.03;
+    const FX_FALLBACK_RATE = 4.5;
+    const FX_MARKUP = 0;
     const SERVICE_FEE_PERCENT = 0.08;
     const SERVICE_FEE_MIN_TND = 7;
     const RATE_REFRESH_MS = 15 * 60 * 1000;
@@ -35,6 +35,7 @@
         previewImage: document.getElementById("runtime-preview-image"),
         previewTitle: document.getElementById("runtime-preview-title"),
         previewMeta: document.getElementById("runtime-preview-meta"),
+        previewDescription: document.getElementById("runtime-preview-description"),
         previewPrice: document.getElementById("runtime-preview-price"),
         previewLink: document.getElementById("runtime-preview-link"),
         previewSource: document.getElementById("runtime-preview-source"),
@@ -130,6 +131,7 @@
         accountContactMethod: document.getElementById("account-contact-method"),
         accountSavePrefs: document.getElementById("account-save-prefs"),
         accountPrefsStatus: document.getElementById("account-prefs-status"),
+        langSwitch: document.getElementById("lang-switch"),
         packName: document.getElementById("runtime-pack-name"),
         savePackBtn: document.getElementById("runtime-save-pack"),
         packCount: document.getElementById("runtime-pack-count"),
@@ -406,6 +408,7 @@
     function saveAdminPromos(promos) {
         state.adminPromos = promos;
         writeJsonStorage(ADMIN_PROMOS_KEY, promos);
+        openAccountPanel("admin");
         renderAdminPromos();
         renderAccountStats();
         renderNotifications();
@@ -452,6 +455,7 @@
             dom.adminUnlockStatus.textContent = "Unlocked";
             dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
         }
+        openAccountPanel("admin");
         renderAdminAnalytics();
         return true;
     }
@@ -788,6 +792,7 @@
             dom.adminUnlockStatus.textContent = "Locked";
             dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
         }
+        openAccountPanel("overview");
     }
 
     function renderAdminPromos() {
@@ -986,6 +991,7 @@
             dom.adminPanel.classList.remove("hidden");
             dom.adminUnlockStatus.textContent = "Unlocked";
             dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
+            openAccountPanel("admin");
             renderAdminPromos();
             renderAdminOrders();
             renderAdminAnalytics();
@@ -1011,6 +1017,7 @@
             dom.adminUnlockStatus.textContent = "Locked";
             dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
         }
+        openAccountPanel("overview");
     }
 
     async function searchTrackedOrderRemote() {
@@ -1154,6 +1161,343 @@
         if (hasImage) dom.imagePreview.src = dataUrl;
     }
 
+    function ensurePreviewDescriptionNode() {
+        if (dom.previewDescription) return dom.previewDescription;
+        if (!dom.previewTitle || !dom.previewTitle.parentElement) return null;
+        const node = document.createElement("p");
+        node.id = "runtime-preview-description";
+        node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed";
+        node.textContent = "وصف المنتج باش يظهر هنا كي يتجلب المنتج.";
+        dom.previewTitle.insertAdjacentElement("afterend", node);
+        dom.previewDescription = node;
+        return node;
+    }
+
+    function applyCalculatorUiCleanup() {
+        const noteBlock = dom.calcNote?.closest("div");
+        const imageBlock = dom.calcImage?.closest("div");
+        if (noteBlock) noteBlock.classList.remove("hidden");
+        if (imageBlock) imageBlock.classList.add("hidden");
+        if (dom.imagePreviewCard) dom.imagePreviewCard.classList.add("hidden");
+        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
+        if (dom.customsCard) dom.customsCard.classList.add("hidden");
+    }
+
+    function getAccountPanels() {
+        return Array.from(document.querySelectorAll('#section-account details.account-panel'));
+    }
+
+    function openAccountPanel(panelName) {
+        const panels = getAccountPanels();
+        if (!panels.length) return;
+        let matched = false;
+        panels.forEach((panel) => {
+            const shouldOpen = panel.dataset.accountPanel === panelName;
+            panel.open = shouldOpen;
+            matched = matched || shouldOpen;
+        });
+        if (!matched && panels[0]) panels[0].open = true;
+    }
+
+    function initAccountPanels() {
+        const panels = getAccountPanels();
+        if (!panels.length) return;
+        if (!panels.some((panel) => panel.open)) {
+            panels[0].open = true;
+        }
+        panels.forEach((panel) => {
+            if (panel.__accountBound) return;
+            panel.addEventListener("toggle", () => {
+                if (!panel.open) return;
+                panels.forEach((otherPanel) => {
+                    if (otherPanel !== panel) otherPanel.open = false;
+                });
+            });
+            panel.__accountBound = true;
+        });
+    }
+
+    const UI_TRANSLATIONS = {
+        ar: {
+            page_title: "مركز عمليات Alexpress Tunisie",
+            nav_guide: "الدليل",
+            nav_calc: "الحاسبة",
+            nav_cart: "السلة",
+            nav_wish: "المفضلة",
+            nav_track: "التتبع",
+            nav_check: "الأمان",
+            nav_hist: "طلباتي",
+            nav_acc: "الحساب",
+            hero_title_1: "كيفاش تشري",
+            hero_title_2: "من AliExpress؟",
+            hero_desc: "دليلك الكامل باش طلبيتك توصل لباب دارك في تونس، بطريقة واضحة وأنيقة.",
+            hero_btn: "ابدأ الحساب من هنا",
+            trust_1: "أمان كامل",
+            trust_2: "شحن سريع",
+            trust_3: "دعم متواصل",
+            trust_4: "خدمة مضمونة",
+            step1_title: "لوّج في AliExpress",
+            step1_desc: "اختار المنتج اللي يعجبك وخذ الرابط متاعو.",
+            step2_title: "انسخ الرابط",
+            step2_desc: "الصق الرابط هنا باش نجهزلك المعطيات بسرعة.",
+            step3_title: "احسب وراجع",
+            step3_desc: "شوف المعطيات، الوصف، والتنبيهات قبل التأكيد.",
+            step4_title: "أرسل الطلب",
+            step4_desc: "ثبت الطلب وابعثهولنا مباشرة على واتساب.",
+            pay_title: "طرق الدفع المتاحة",
+            faq_title: "أسئلة شائعة",
+            faq_q1: "قداش تقعد الشحنة حتى توصل؟",
+            faq_a1: "عادة بين 15 و45 يوم عمل حسب نوع الشحن والمنتج.",
+            faq_q2: "كيفاش نخلّص بالدينار؟",
+            faq_a2: "تخلّص بالدينار وإحنا نتكفلوا بالدفع للمزوّد.",
+            faq_q3: "فما ضمان؟",
+            faq_a3: "نضمنوا المتابعة والتنسيق حتى يوصل الطلب بطريقة صحيحة.",
+            faq_q4: "قداش نخلّص في البريد؟",
+            faq_a4: "إذا فما معلوم بريد أو ديوانة يبانلك قبل التأكيد أو وقت الاستلام.",
+            transp_title: "شفافية كاملة في الأسعار",
+            transp_desc: "تفاصيل التكلفة ديما واضحة: المنتج، الخدمات، وأي مصاريف إضافية.",
+            transp_1: "سعر المنتج من المصدر",
+            transp_2: "مصاريف الخدمة والتحويل",
+            transp_3: "أي معلوم إضافي عند الاستلام",
+            transp_btn: "امشِ للحاسبة وجرّب",
+            calc_rate: "سعر الصرف اليوم:",
+            calc_guide_btn: "أول مرة تشري؟ اقرأ الدليل",
+            calc_title: "الحاسبة الذكية",
+            banned_err: "المنتج هذا يحتاج مراجعة قبل ما نكملوا الطلب.",
+            lbl_link: "رابط AliExpress",
+            lbl_name: "اسم المنتج",
+            btn_format: "ترتيب الاسم",
+            lbl_spec: "المواصفات (لون، مقاس...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "مثال: Cable USB Type C",
+            plc_spec: "مثال: Bleu 1.5m",
+            cart_total_lbl: "المبلغ الجملي:",
+            lbl_pay_method: "اختر وسيلة الدفع",
+            pay_d17: "تطبيق D17",
+            pay_flouci: "App Flouci",
+            pay_poste: "حوالة بريدية",
+            pay_vir: "تحويل بنكي",
+            btn_send: "إرسال",
+            saf_title: "الأمان والديوانة",
+            saf_desc1: "أهم الفئات اللي تحتاج حذر أو مراجعة في تونس.",
+            saf_desc2: "كل طلب يتراجع حسب نوع المنتج قبل التأكيد النهائي.",
+            saf_calc_title: "حاسبة الديوانة التقريبية",
+            saf_calc_desc: "اختار نوع المنتج وخذ فكرة سريعة على المصاريف المحتملة.",
+            saf_btn_clothes: "ملابس وأحذية",
+            saf_btn_elec: "إلكترونيات",
+            saf_btn_acc: "إكسسوارات",
+            saf_btn_other: "أخرى",
+            acc_title: "حسابي الشخصي",
+            acc_subtitle: "بياناتك وتجربتك محفوظين بطريقة مرتبة.",
+            acc_id_lbl: "معرّف الحساب",
+            acc_sync_status: "حالة المزامنة",
+            acc_sync_ok: "متصل وبالسحابة",
+            lvl_title: "مستوى الحساب",
+            acc_note: "تنجم ترجع لبياناتك من نفس الجهاز أو بالمزامنة وقت تكون متاحة.",
+            footer_desc: "وسيط تونسي مرتب وعملي للتسوق من AliExpress."
+        },
+        fr: {
+            page_title: "Centre Alexpress Tunisie",
+            nav_guide: "Guide",
+            nav_calc: "Calculatrice",
+            nav_cart: "Panier",
+            nav_wish: "Favoris",
+            nav_track: "Suivi",
+            nav_check: "Securite",
+            nav_hist: "Commandes",
+            nav_acc: "Compte",
+            hero_title_1: "Comment acheter",
+            hero_title_2: "sur AliExpress ?",
+            hero_desc: "Une experience claire et elegante pour commander depuis AliExpress vers la Tunisie.",
+            hero_btn: "Commencer le calcul",
+            trust_1: "Securite totale",
+            trust_2: "Livraison rapide",
+            trust_3: "Support continu",
+            trust_4: "Service garanti",
+            step1_title: "Choisissez le produit",
+            step1_desc: "Prenez le lien du produit qui vous interesse.",
+            step2_title: "Collez le lien",
+            step2_desc: "Nous recuperons les informations les plus utiles automatiquement.",
+            step3_title: "Revoyez les details",
+            step3_desc: "Nom, image, description et alertes utiles avant validation.",
+            step4_title: "Envoyez la commande",
+            step4_desc: "Finalisez rapidement via WhatsApp.",
+            pay_title: "Moyens de paiement",
+            faq_title: "Questions frequentes",
+            faq_q1: "Quel est le delai de livraison ?",
+            faq_a1: "En general entre 15 et 45 jours ouvrables.",
+            faq_q2: "Comment payer en dinars ?",
+            faq_a2: "Vous payez en TND et nous gerons le paiement au fournisseur.",
+            faq_q3: "Y a-t-il une garantie ?",
+            faq_a3: "Nous assurons le suivi et la coordination jusqu'a reception.",
+            faq_q4: "Y a-t-il des frais a la poste ?",
+            faq_a4: "Selon le produit, un petit montant peut etre demande a la reception.",
+            transp_title: "Transparence totale",
+            transp_desc: "Les composantes du prix restent claires a chaque etape.",
+            transp_1: "Prix du produit",
+            transp_2: "Frais de service et conversion",
+            transp_3: "Eventuels frais a la reception",
+            transp_btn: "Aller a la calculatrice",
+            calc_rate: "Taux du jour :",
+            calc_guide_btn: "Premiere visite ? Lire le guide",
+            calc_title: "Calculatrice intelligente",
+            banned_err: "Ce produit demande une verification avant confirmation.",
+            lbl_link: "Lien AliExpress",
+            lbl_name: "Nom du produit",
+            btn_format: "Nettoyer le nom",
+            lbl_spec: "Specifications (couleur, taille...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "Exemple : Cable USB Type C",
+            plc_spec: "Exemple : Bleu 1.5m",
+            cart_total_lbl: "Total :",
+            lbl_pay_method: "Choisissez le paiement",
+            pay_d17: "Application D17",
+            pay_flouci: "Application Flouci",
+            pay_poste: "Mandat postal",
+            pay_vir: "Virement bancaire",
+            btn_send: "Envoyer",
+            saf_title: "Securite et douane",
+            saf_desc1: "Categories sensibles ou controlees en Tunisie.",
+            saf_desc2: "Chaque demande est revue avant validation finale.",
+            saf_calc_title: "Estimation douane",
+            saf_calc_desc: "Selectionnez la categorie pour une idee rapide.",
+            saf_btn_clothes: "Vetements",
+            saf_btn_elec: "Electronique",
+            saf_btn_acc: "Accessoires",
+            saf_btn_other: "Autre",
+            acc_title: "Mon compte",
+            acc_subtitle: "Vos preferences et votre activite dans un espace propre.",
+            acc_id_lbl: "Identifiant compte",
+            acc_sync_status: "Etat de sync",
+            acc_sync_ok: "Connecte au cloud",
+            lvl_title: "Niveau du compte",
+            acc_note: "Vos donnees restent accessibles sur le meme appareil ou via synchronisation.",
+            footer_desc: "Votre passerelle tunisienne pour acheter sur AliExpress."
+        },
+        en: {
+            page_title: "Alexpress Tunisie Operations Center",
+            nav_guide: "Guide",
+            nav_calc: "Calculator",
+            nav_cart: "Cart",
+            nav_wish: "Wishlist",
+            nav_track: "Tracking",
+            nav_check: "Safety",
+            nav_hist: "Orders",
+            nav_acc: "Account",
+            hero_title_1: "How to buy",
+            hero_title_2: "from AliExpress?",
+            hero_desc: "A clearer, more premium way to manage AliExpress orders for Tunisia.",
+            hero_btn: "Start calculating",
+            trust_1: "Full Security",
+            trust_2: "Fast Delivery",
+            trust_3: "Always-On Support",
+            trust_4: "Guaranteed Service",
+            step1_title: "Pick your product",
+            step1_desc: "Copy the AliExpress link for the item you want.",
+            step2_title: "Paste the link",
+            step2_desc: "We pull the most useful product details automatically.",
+            step3_title: "Review the details",
+            step3_desc: "Check the name, image, description, and any warnings.",
+            step4_title: "Send the order",
+            step4_desc: "Finalize quickly through WhatsApp.",
+            pay_title: "Payment Methods",
+            faq_title: "Frequently Asked Questions",
+            faq_q1: "How long does delivery take?",
+            faq_a1: "Usually between 15 and 45 business days.",
+            faq_q2: "How do I pay in TND?",
+            faq_a2: "You pay locally in TND and we handle the supplier payment.",
+            faq_q3: "Is there any guarantee?",
+            faq_a3: "We provide follow-up and coordination through the full order flow.",
+            faq_q4: "Are there postal fees?",
+            faq_a4: "Some products may have small fees at delivery depending on the shipment.",
+            transp_title: "Full Price Transparency",
+            transp_desc: "Every cost component stays visible throughout the process.",
+            transp_1: "Source product cost",
+            transp_2: "Service and transfer fees",
+            transp_3: "Possible fees on receipt",
+            transp_btn: "Open the calculator",
+            calc_rate: "Today's exchange rate:",
+            calc_guide_btn: "First order? Read the guide",
+            calc_title: "Smart Calculator",
+            banned_err: "This product needs review before final confirmation.",
+            lbl_link: "AliExpress Link",
+            lbl_name: "Product Name",
+            btn_format: "Clean Title",
+            lbl_spec: "Specifications (color, size...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "Example: Cable USB Type C",
+            plc_spec: "Example: Blue 1.5m",
+            cart_total_lbl: "Grand Total:",
+            lbl_pay_method: "Choose payment method",
+            pay_d17: "D17 App",
+            pay_flouci: "Flouci App",
+            pay_poste: "Postal Mandate",
+            pay_vir: "Bank Transfer",
+            btn_send: "Send",
+            saf_title: "Safety and Customs",
+            saf_desc1: "Key categories that may need review in Tunisia.",
+            saf_desc2: "Each request is checked before final confirmation.",
+            saf_calc_title: "Customs Estimate",
+            saf_calc_desc: "Select a category for a quick estimate.",
+            saf_btn_clothes: "Clothes",
+            saf_btn_elec: "Electronics",
+            saf_btn_acc: "Accessories",
+            saf_btn_other: "Other",
+            acc_title: "My Account",
+            acc_subtitle: "Your preferences and activity in one clean space.",
+            acc_id_lbl: "Account ID",
+            acc_sync_status: "Sync Status",
+            acc_sync_ok: "Cloud connected",
+            lvl_title: "Account Level",
+            acc_note: "Your data stays available on the same device or through sync when available.",
+            footer_desc: "A polished Tunisian gateway for AliExpress orders."
+        }
+    };
+
+    function applyLanguageMeta(lang) {
+        const rtl = lang === "ar";
+        document.documentElement.lang = lang;
+        document.documentElement.dir = rtl ? "rtl" : "ltr";
+        document.body.classList.toggle("tracking-tight", rtl);
+        document.body.classList.toggle("tracking-[0.01em]", !rtl);
+        if (dom.langSwitch && dom.langSwitch.value !== lang) dom.langSwitch.value = lang;
+        const guideBtn = document.querySelector('.sticky-mobile-bar button[onclick*="guide"]');
+        const cartBtn = document.querySelector('.sticky-mobile-bar button[onclick*="cart"]');
+        const waBtn = document.querySelector('.sticky-mobile-bar a[href*="wa.me"]');
+        if (guideBtn) guideBtn.textContent = rtl ? "الحاسبة" : (lang === "fr" ? "Calcul" : "Calculator");
+        if (cartBtn) cartBtn.textContent = rtl ? "السلة" : (lang === "fr" ? "Panier" : "Cart");
+        if (waBtn) waBtn.textContent = rtl ? "واتساب" : "WhatsApp";
+        const options = dom.langSwitch?.querySelectorAll("option") || [];
+        if (options[0]) options[0].textContent = "TN AR";
+        if (options[1]) options[1].textContent = "FR";
+        if (options[2]) options[2].textContent = "EN";
+    }
+
+    function applyUiTranslations(lang) {
+        const dict = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.ar;
+        document.title = dict.page_title || document.title;
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+            const key = element.getAttribute("data-i18n");
+            if (!key || !dict[key]) return;
+            element.textContent = dict[key];
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+            const key = element.getAttribute("data-i18n-placeholder");
+            if (!key || !dict[key]) return;
+            element.placeholder = dict[key];
+        });
+    }
+
+    function applyLanguage(lang = "ar") {
+        const safeLang = UI_TRANSLATIONS[lang] ? lang : "ar";
+        window.localStorage.setItem("alexpress_lang", safeLang);
+        applyLanguageMeta(safeLang);
+        applyUiTranslations(safeLang);
+        if (dom.previewMeta && dom.previewMeta.textContent === "Product Summary") {
+            dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
+        }
+    }
+
     function clearImagePreview() {
         if (dom.calcImage) dom.calcImage.value = "";
         renderImagePreview("");
@@ -1226,6 +1570,8 @@
     }
 
     function renderBudgetPlanner(pricing) {
+        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
+        return;
         if (!dom.budgetCard || !dom.budgetInput || !dom.budgetBuffer || !dom.budgetStatus || !dom.budgetRemaining || !dom.budgetSafeTotal || !dom.budgetMaxUsd || !dom.budgetNote) {
             return;
         }
@@ -1392,6 +1738,8 @@
     }
 
     function renderCustomsAdvisor(product) {
+        if (dom.customsCard) dom.customsCard.classList.add("hidden");
+        return;
         if (!dom.customsCard || !dom.customsLevel || !dom.customsNote || !dom.customsDocs || !dom.customsAlt) return;
         if (!product) {
             dom.customsCard.classList.add("hidden");
@@ -1833,8 +2181,8 @@
         if (dom.liveRateDisplay) {
             dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
         }
-        if (state.currentProduct && dom.previewPrice) {
-            dom.previewPrice.textContent = formatTnd(pricing.finalTnd);
+        if (dom.previewPrice) {
+            dom.previewPrice.classList.add("hidden");
         }
         if (dom.quickOrderBtn) {
             dom.quickOrderBtn.disabled = pricing.finalTnd <= 0;
@@ -1852,6 +2200,7 @@
     function renderPreview(product) {
         state.currentProduct = product;
         if (!dom.previewCard) return;
+        const previewDescriptionNode = ensurePreviewDescriptionNode();
 
         dom.previewCard.classList.remove("hidden");
         if (dom.previewImage) {
@@ -1879,10 +2228,29 @@
         if (dom.previewSource) {
             dom.previewSource.textContent = String(product.source || "scrape").toUpperCase();
         }
+        if (dom.previewMeta) {
+            const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
+            dom.previewMeta.textContent = product.description
+                ? (currentLang === "ar" ? "الوصف متوفر" : currentLang === "fr" ? "Description prete" : "Description Ready")
+                : (currentLang === "ar" ? "الاسم والصورة متوفرين" : currentLang === "fr" ? "Nom + image prets" : "Image + Name Ready");
+        }
+        if (previewDescriptionNode) {
+            const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
+            previewDescriptionNode.textContent = product.description || (
+                currentLang === "ar"
+                    ? "ما لقيناش وصف واضح، أما الصورة واسم المنتج متوفرين."
+                    : currentLang === "fr"
+                        ? "Description non disponible pour le moment, mais le nom et l'image sont bien disponibles."
+                        : "A clear description is not available yet, but the product name and image are ready."
+            );
+        }
+        if (dom.previewPrice) {
+            dom.previewPrice.classList.add("hidden");
+        }
 
         renderAlerts(product);
         renderRestrictionBanner(product);
-        renderSellerTrust(product);
+        renderSellerTrust(null);
         renderVariants(product);
         renderCustomsAdvisor(product);
         renderQuoteComparison(product);
@@ -1907,15 +2275,12 @@
     }
 
     async function loadLiveRate() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/exchange-rate`);
-            const data = await response.json();
-            if (!response.ok || !data.success || !data.rate) {
-                throw new Error("fx-rate-failed");
-            }
-            state.liveRate = Number(data.rate) || FX_FALLBACK_RATE;
-        } catch {
-            state.liveRate = FX_FALLBACK_RATE;
+        state.liveRate = FX_FALLBACK_RATE;
+        if (dom.liveRateDisplay) {
+            dom.liveRateDisplay.textContent = `1 USD ≈ ${FX_FALLBACK_RATE.toFixed(3)} TND`;
+        }
+        if (dom.rateBadge) {
+            dom.rateBadge.textContent = `Rate: ${FX_FALLBACK_RATE.toFixed(3)}`;
         }
         renderPricing();
         renderAccountStats();
@@ -1943,13 +2308,15 @@
             state.currentProduct = data;
             incrementStat("fetches");
             if (dom.calcName) dom.calcName.value = data.title || "";
-            if (dom.usdPrice) dom.usdPrice.value = data.priceUnavailable ? "" : Number(data.price || 0).toFixed(2);
-            if (dom.usdShip) dom.usdShip.value = data.shipping == null ? "" : Number(data.shipping || 0).toFixed(2);
+            if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0) > 0 && !data.priceUnavailable ? Number(data.price || 0).toFixed(2) : "";
+            if (dom.usdShip) dom.usdShip.value = "";
 
             renderPreview(data);
             renderPricing();
             saveRecentLink(data);
             pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
+            data.priceUnavailable = false;
+            data.manualQuoteRecommended = false;
             if (data.priceUnavailable) {
                 setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
                 toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
@@ -2749,6 +3116,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
     function patchGlobals() {
         window.calculateTND = renderPricing;
         window.autoScrapeProduct = scrapeProduct;
+        window.changeLanguage = applyLanguage;
         patchPromoLogic();
         patchGetFormData();
         patchRenderCart();
@@ -2785,6 +3153,9 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         patchGlobals();
         patchCollectionActions();
         bindEvents();
+        applyCalculatorUiCleanup();
+        initAccountPanels();
+        applyLanguage(window.localStorage.getItem("alexpress_lang") || "ar");
         renderRecentLinks();
         loadAccountPrefsIntoForm();
         renderSavedPacks();
