@@ -1788,7 +1788,7 @@
 
     function renderSellerTrust(product) {
         if (!dom.trustCard || !dom.trustBadge || !dom.trustRating || !dom.trustReviews || !dom.trustSold || !dom.trustNote) return;
-        if (!product) {
+        if (!product || (Number(product.rating || 0) <= 0 && Number(product.reviewCount || 0) <= 0 && Number(product.soldCount || 0) <= 0)) {
             dom.trustCard.classList.add("hidden");
             return;
         }
@@ -2330,16 +2330,20 @@
             dom.previewSource.textContent = String(product.source || "scrape").toUpperCase();
         }
         if (dom.previewShipping) {
-            dom.previewShipping.textContent = product.shipping === 0 ? "Free" : getShippingLabel(product.shipping);
+            const shippingKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
+            dom.previewShipping.textContent = !shippingKnown
+                ? "N/A"
+                : (product.shipping === 0 ? "Free" : getShippingLabel(product.shipping));
         }
         if (dom.previewDelivery) {
-            dom.previewDelivery.textContent = product.deliveryEstimate || "Not available";
+            const deliveryKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
+            dom.previewDelivery.textContent = deliveryKnown ? (product.deliveryEstimate || "Not available") : "N/A";
         }
         if (dom.previewRating) {
             dom.previewRating.textContent = Number(product.rating || 0) > 0 ? Number(product.rating || 0).toFixed(1) : "N/A";
         }
         if (dom.previewReviews) {
-            dom.previewReviews.textContent = formatCompactCount(product.reviewCount || 0);
+            dom.previewReviews.textContent = Number(product.reviewCount || 0) > 0 ? formatCompactCount(product.reviewCount || 0) : "N/A";
         }
         if (dom.previewMeta) {
             const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
