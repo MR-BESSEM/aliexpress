@@ -553,8 +553,6 @@ function getProductUrlCandidates(input) {
   const productId = extractProductId(input);
   const candidates = [];
 
-  if (validInput) candidates.push(validInput);
-
   if (productId) {
     candidates.push(
       `https://www.aliexpress.com/item/${productId}.html`,
@@ -564,15 +562,28 @@ function getProductUrlCandidates(input) {
     );
   }
 
+  if (validInput) candidates.push(validInput);
+
   return Array.from(new Set(candidates.filter(Boolean)));
 }
 
 function isAliExpressBlockedTitle(title) {
-  return /封禁|blocked|access denied|forbidden|ip ban|verification required/i.test(String(title || ""));
+  return /封禁|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
 }
 
 function isGenericAliExpressTitle(title) {
   return /^(aliexpress|ali express|aliexpress\.com)$/i.test(sanitizeText(title || ""));
+}
+
+function isLowValueProductTitle(title) {
+  const cleaned = sanitizeText(title || "");
+  if (!cleaned) return true;
+  return Boolean(
+    isGenericAliExpressTitle(cleaned) ||
+    /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
+    /^(resp|response|result|data|dto)$/i.test(cleaned) ||
+    /^smarter shopping, better living!?$/i.test(cleaned)
+  );
 }
 
 function getClientIp(req) {
@@ -1429,7 +1440,7 @@ function extractProductFieldsFromObjectTree(source) {
 
         if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname|itemname|tradename|name)/i.test(lowerKey)) {
           const title = sanitizeText(value);
-          if (title && !/^aliexpress$/i.test(title)) result.title = title;
+          if (title && !isLowValueProductTitle(title)) result.title = title;
         }
 
         if (!result.description && typeof value === "string" && /(?:description|summary|subtitle|sellingpoint|feature|overview|seoDescription)/i.test(lowerKey)) {
@@ -1577,7 +1588,7 @@ async function withRetries(label, task) {
 }
 
 async function fetchAliExpressApiProduct(productId) {
-  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId) {
+  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !process.env.ALIEXPRESS_ACCESS_TOKEN) {
     return null;
   }
 
@@ -1589,6 +1600,7 @@ async function fetchAliExpressApiProduct(productId) {
     timestamp: formatTopTimestamp(),
     v: "2.0",
     product_id: productId,
+    access_token: process.env.ALIEXPRESS_ACCESS_TOKEN,
     ship_to_country: "TN",
     target_currency: "USD",
     target_language: "en_US"
@@ -1598,7 +1610,8 @@ async function fetchAliExpressApiProduct(productId) {
 
   const response = await axios.get(ALIEXPRESS_API_BASE_URL, {
     params,
-    timeout: 20_000
+    timeout: 20_000,
+    proxy: false
   });
 
   const extracted = extractProductFieldsFromObjectTree(response.data);
@@ -1828,7 +1841,7 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
 
-    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title)) || !merged.image) {
+    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title) || isAliExpressBlockedTitle(merged.title) || isAliExpressBlockedTitle(merged.description)) || !merged.image) {
       log("warn", "Playwright extracted partial product data", {
         url,
         title: merged.title || null,
@@ -1866,6 +1879,7 @@ async function scrapeWithPlaywright(url) {
 async function scrapeWithHttp(url) {
   const response = await axios.get(url, {
     timeout: Math.min(SCRAPE_TIMEOUT_MS, 20_000),
+    proxy: false,
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
       "accept-language": "en-US,en;q=0.9"
@@ -1873,7 +1887,7 @@ async function scrapeWithHttp(url) {
   });
 
   const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title)) || !parsed.image) {
+  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title) || isAliExpressBlockedTitle(parsed.title) || isAliExpressBlockedTitle(parsed.description)) || !parsed.image) {
     const error = new Error("HTTP fallback returned incomplete product data");
     error.partialData = {
       title: parsed.title,
@@ -1929,7 +1943,6 @@ async function fetchProduct(url) {
       lastPageError = error;
       if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
       log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
-      if (canUsePartialData()) break;
     }
   }
 
@@ -1942,7 +1955,6 @@ async function fetchProduct(url) {
         lastPageError = error;
         if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
         log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
-        if (canUsePartialData()) break;
       }
     }
   }
@@ -2000,6 +2012,10 @@ async function fetchProduct(url) {
       : "AliExpress Product";
   }
 
+  if (isLowValueProductTitle(product.title)) {
+    product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "AliExpress Product";
+  }
+
   product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
@@ -2037,13 +2053,13 @@ async function fetchExchangeRate() {
 
   const providers = [
     async () => {
-      const response = await axios.get(FX_API_URL, { timeout: 12_000 });
+      const response = await axios.get(FX_API_URL, { timeout: 12_000, proxy: false });
       const rate = Number(response.data?.rates?.TND);
       if (!Number.isFinite(rate) || rate <= 0) throw new Error("Primary FX provider missing TND rate");
       return { success: true, base: "USD", quote: "TND", rate, source: "primary", fetchedAt: new Date().toISOString() };
     },
     async () => {
-      const response = await axios.get(FX_FALLBACK_URL, { timeout: 12_000 });
+      const response = await axios.get(FX_FALLBACK_URL, { timeout: 12_000, proxy: false });
       const rate = Number(response.data?.rates?.TND || response.data?.result);
       if (!Number.isFinite(rate) || rate <= 0) throw new Error("Fallback FX provider missing TND rate");
       return { success: true, base: "USD", quote: "TND", rate, source: "fallback", fetchedAt: new Date().toISOString() };
