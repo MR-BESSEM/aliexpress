@@ -586,6 +586,16 @@ function isLowValueProductTitle(title) {
   );
 }
 
+function isBadCachedProduct(product = {}) {
+  return Boolean(
+    product?.source === "partial-fallback" ||
+    product?.priceUnavailable ||
+    isLowValueProductTitle(product?.title) ||
+    isAliExpressBlockedTitle(product?.title) ||
+    isAliExpressBlockedTitle(product?.description)
+  );
+}
+
 function getClientIp(req) {
   return req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
 }
@@ -1921,7 +1931,10 @@ async function fetchProduct(url) {
   const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
   const cacheKey = `product:${productId}`;
   const cached = getCache(productCache, cacheKey);
-  if (cached) return { ...cached, cached: true };
+  if (cached && !isBadCachedProduct(cached)) return { ...cached, cached: true };
+  if (cached && isBadCachedProduct(cached)) {
+    productCache.delete(cacheKey);
+  }
 
   let apiData = null;
   try {
@@ -2043,7 +2056,9 @@ async function fetchProduct(url) {
     throw error;
   }
 
-  setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+  if (!isBadCachedProduct(product)) {
+    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+  }
   return product;
 }
 
