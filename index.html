@@ -1371,7 +1371,7 @@
                         </div>
                         <div id="runtime-bundle-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Add at least two items to unlock bundle suggestions.</div>
                     </div>
-                    <div id="runtime-voice-card" class="bg-slate-900/70 border border-white/5 rounded-2xl p-5 space-y-4 mb-6">
+                    <div id="runtime-voice-card" class="hidden bg-slate-900/70 border border-white/5 rounded-2xl p-5 space-y-4 mb-6" style="display:none !important;">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <div class="text-[10px] font-black text-white">Voice Note Order Support</div>
@@ -1434,6 +1434,54 @@
                     </div>
                     
                     <div id="customs-result" class="hidden mt-4 p-4 rounded-xl text-xs leading-relaxed bg-blue-500/10 border border-blue-500/30 text-blue-500 md:text-blue-300 relative z-10 text-center font-bold"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="bg-slate-900/70 border border-red-500/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-red-300 uppercase tracking-[0.25em] mb-3">ممنوع 100%</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>درون و GPS Trackers</div>
+                            <div>Spy Cameras و أجهزة تنصت</div>
+                            <div>Vapes و أسلحة و لوازم صيد</div>
+                            <div>TV Box / Receivers و أجهزة لاسلكية حساسة</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/70 border border-amber-400/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-amber-300 uppercase tracking-[0.25em] mb-3">قد يطلب ترخيص</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>هواتف و بعض الإلكترونيات الحساسة</div>
+                            <div>أجهزة إرسال / استقبال</div>
+                            <div>مكملات غذائية و مواد شبه طبية</div>
+                            <div>منتجات فيها بطاريات كبيرة أو wireless modules</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/70 border border-emerald-500/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-emerald-300 uppercase tracking-[0.25em] mb-3">قبل ما تطلب</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>اختار title واضح و product specs واضحة</div>
+                            <div>تجنب listings الغامضة أو فيها hidden keywords</div>
+                            <div>خلي invoice والسعر ظاهرين</div>
+                            <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">وثائق تنجم تنفع</div>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Seller Invoice</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Order Screenshot</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Product Specs</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Tracking Proof</span>
+                        </div>
+                    </div>
+                    <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">تنبيه مهم</div>
+                        <p class="text-[11px] text-slate-300 leading-relaxed font-bold">
+                            التقديرات هاذي تقريبية فقط. القرار النهائي يبقى عند الديوانة والبوسطة التونسية حسب نوع المنتج، القيمة المصرح بها، وطريقة الشحن.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
