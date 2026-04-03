@@ -472,6 +472,10 @@ function isAliExpressBlockedTitle(title) {
   return /封禁|blocked|access denied|forbidden|ip ban|verification required/i.test(String(title || ""));
 }
 
+function isGenericAliExpressTitle(title) {
+  return /^(aliexpress|ali express|aliexpress\.com)$/i.test(sanitizeText(title || ""));
+}
+
 function getClientIp(req) {
   return req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
 }
@@ -1424,6 +1428,12 @@ async function fetchProduct(url) {
   };
 
   product.shippingLabel = product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`;
+  if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title)) {
+    product.title = product.description
+      ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "AliExpress Product"
+      : "AliExpress Product";
+  }
+
   product.deliveryEstimate = inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
@@ -1441,7 +1451,7 @@ async function fetchProduct(url) {
     product.manualQuoteRecommended = true;
   }
 
-  if (!hasUsableImage(product.image) || (!product.title && !product.description) || /^aliexpress$/i.test(product.title)) {
+  if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
     error.status = 502;
     throw error;
