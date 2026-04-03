@@ -191,9 +191,7 @@
 
     const state = {
         liveRate: FX_FALLBACK_RATE,
-        baseProduct: null,
         currentProduct: null,
-        activeVariantOffer: null,
         recentLinks: [],
         accountPrefs: null,
         budgetPrefs: null,
@@ -506,126 +504,6 @@
         } catch {
             return value;
         }
-    }
-
-    function normalizeVariantToken(value) {
-        return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
-    }
-
-    function buildVariantOfferKey(attributes = {}) {
-        return Object.entries(attributes || {})
-            .map(([name, value]) => [normalizeVariantToken(name), normalizeVariantToken(value)])
-            .filter(([, value]) => value)
-            .sort(([left], [right]) => left.localeCompare(right))
-            .map(([name, value]) => `${name}:${value}`)
-            .join("|");
-    }
-
-    function getBaseProduct() {
-        return state.baseProduct || state.currentProduct || null;
-    }
-
-    function getVariantGroupNames(product) {
-        return (Array.isArray(product?.variants) ? product.variants : [])
-            .map((group) => String(group?.name || "").trim())
-            .filter(Boolean);
-    }
-
-    function hasVariantSensitivePricing(product = state.currentProduct, selection = state.selectedVariants) {
-        const hasGroups = Array.isArray(product?.variants) && product.variants.length > 0;
-        const hasSelection = Object.values(selection || {}).some((value) => String(value || "").trim());
-        return hasGroups || hasSelection;
-    }
-
-    function buildVariantPriceNotice(product = state.currentProduct, selection = state.selectedVariants) {
-        if (!hasVariantSensitivePricing(product, selection)) return "";
-        return "ملاحظة: السعر ينجم يتبدل حسب الخيار المختار (لون / مقاس / نسخة) ونأكدوه قبل الطلب.";
-    }
-
-    function syncProductInputs(product) {
-        if (!product) return;
-        if (dom.calcName) dom.calcName.value = product.title || "";
-        if (dom.usdPrice) {
-            const priceValue = Number(product.price || 0);
-            dom.usdPrice.value = priceValue > 0 && !product.priceUnavailable ? priceValue.toFixed(2) : "";
-        }
-        if (dom.usdShip) {
-            const shippingValue = Number(product.shipping);
-            dom.usdShip.value = Number.isFinite(shippingValue) && shippingValue >= 0 ? shippingValue.toFixed(2) : "";
-        }
-    }
-
-    function buildVariantAdjustedProduct(baseProduct, offer) {
-        const product = cloneData(baseProduct || {});
-        const shippingValue = offer?.shipping != null ? Number(offer.shipping) : (baseProduct?.shipping != null ? Number(baseProduct.shipping) : null);
-        const priceValue = Number(offer?.price || 0) > 0 ? Number(offer.price) : Number(baseProduct?.price || 0);
-
-        product.price = priceValue;
-        product.shipping = Number.isFinite(shippingValue) ? shippingValue : null;
-        product.image = offer?.image || baseProduct?.image || "";
-        product.deliveryEstimate = offer?.deliveryEstimate || baseProduct?.deliveryEstimate || "";
-        product.shippingLabel = offer?.shippingLabel || (product.shipping == null
-            ? "غير متوفر"
-            : (product.shipping === 0 ? "شحن مجاني" : `${Number(product.shipping).toFixed(2)} USD`));
-        product.priceUnavailable = typeof offer?.priceUnavailable === "boolean"
-            ? offer.priceUnavailable
-            : (priceValue <= 0 && Boolean(baseProduct?.priceUnavailable));
-        product.alerts = Array.isArray(offer?.alerts) ? cloneData(offer.alerts) : cloneData(baseProduct?.alerts || []);
-        product.restrictions = offer?.restrictions ? cloneData(offer.restrictions) : cloneData(baseProduct?.restrictions || null);
-        product.trustScore = offer?.trustScore ? cloneData(offer.trustScore) : cloneData(baseProduct?.trustScore || null);
-        product.customsAdvisor = offer?.customsAdvisor ? cloneData(offer.customsAdvisor) : cloneData(baseProduct?.customsAdvisor || null);
-        product.deliveryTimeline = Array.isArray(offer?.deliveryTimeline) ? cloneData(offer.deliveryTimeline) : cloneData(baseProduct?.deliveryTimeline || []);
-        product.manualQuoteRecommended = typeof offer?.manualQuoteRecommended === "boolean"
-            ? offer.manualQuoteRecommended
-            : Boolean(baseProduct?.manualQuoteRecommended);
-        product.variantSelectionLabel = offer?.variantSelectionLabel || "";
-        product.variantSelection = cloneData(offer?.attributes || {});
-        return product;
-    }
-
-    function resolveSelectedVariantOffer(product, selection) {
-        const baseProduct = product || getBaseProduct();
-        const offers = Array.isArray(baseProduct?.variantOffers) ? baseProduct.variantOffers.filter((offer) => offer?.attributes) : [];
-        const selectedEntries = Object.entries(selection || {}).filter(([, value]) => String(value || "").trim());
-        if (!baseProduct || !offers.length || !selectedEntries.length) {
-            return { matched: false, pending: false, offer: null, product: cloneData(baseProduct) };
-        }
-
-        const selectedMap = Object.fromEntries(selectedEntries.map(([group, value]) => [normalizeVariantToken(group), normalizeVariantToken(value)]));
-        const candidates = offers.filter((offer) => Object.entries(selectedMap).every(([group, value]) => {
-            const match = Object.entries(offer.attributes || {}).find(([offerGroup]) => normalizeVariantToken(offerGroup) === group);
-            return match ? normalizeVariantToken(match[1]) === value : false;
-        }));
-
-        if (!candidates.length) {
-            return { matched: false, pending: false, offer: null, product: cloneData(baseProduct) };
-        }
-
-        const requiredGroups = getVariantGroupNames(baseProduct).map((group) => normalizeVariantToken(group));
-        const isCompleteSelection = requiredGroups.length
-            ? requiredGroups.every((group) => selectedMap[group])
-            : candidates.every((offer) => Object.keys(offer.attributes || {}).length <= selectedEntries.length);
-
-        if (!isCompleteSelection && candidates.length > 1) {
-            return { matched: false, pending: true, offer: null, product: cloneData(baseProduct) };
-        }
-
-        const rankedOffer = cloneData(candidates.sort((left, right) => {
-            const leftCount = Object.keys(left.attributes || {}).length;
-            const rightCount = Object.keys(right.attributes || {}).length;
-            if (leftCount !== rightCount) return rightCount - leftCount;
-            const leftPrice = Number(left.price || 0);
-            const rightPrice = Number(right.price || 0);
-            if (leftPrice > 0 && rightPrice > 0 && leftPrice !== rightPrice) return leftPrice - rightPrice;
-            return buildVariantOfferKey(left.attributes || {}).localeCompare(buildVariantOfferKey(right.attributes || {}));
-        })[0]);
-
-        return {
-            matched: true,
-            pending: false,
-            offer: rankedOffer,
-            product: buildVariantAdjustedProduct(baseProduct, rankedOffer)
-        };
     }
 
     function parseDeliveryWindow(label) {
@@ -2170,7 +2048,6 @@
         dom.variantsCard.classList.toggle("hidden", groups.length === 0);
         if (!groups.length) {
             state.selectedVariants = {};
-            state.activeVariantOffer = null;
             renderVariantSummary();
             return;
         }
@@ -2180,7 +2057,7 @@
                 <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
                 <div class="flex flex-wrap gap-2">
                     ${group.values.map((value) => `
-                        <button type="button" data-variant-group="${escapeHtml(group.name || `Option ${index + 1}`)}" data-variant-value="${escapeHtml(value)}" class="px-3 py-2 rounded-xl border text-[9px] font-black transition-colors ${normalizeVariantToken(state.selectedVariants?.[group.name || `Option ${index + 1}`]) === normalizeVariantToken(value) ? "is-active bg-fuchsia-500/15 border-fuchsia-400 text-white shadow-[0_0_0_1px_rgba(232,121,249,0.25)]" : "bg-slate-900 border-slate-700 text-slate-200 hover:border-fuchsia-400 hover:text-white"}">
+                        <button type="button" data-variant-group="${escapeHtml(group.name || `Option ${index + 1}`)}" data-variant-value="${escapeHtml(value)}" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200 hover:border-fuchsia-400 hover:text-white transition-colors">
                             ${escapeHtml(value)}
                         </button>
                     `).join("")}
@@ -2509,7 +2386,6 @@
                 button.classList.toggle("is-active", isMatch);
             });
         }
-        state.activeVariantOffer = null;
         renderVariantSummary();
         toast(`${group} set to ${value}`);
     }
@@ -2660,17 +2536,12 @@
         return pricing;
     }
 
-    function renderPreview(product, options = {}) {
-        const resetSelection = Boolean(options.resetSelection);
-        if (resetSelection) {
-            state.baseProduct = cloneData(product);
-            state.selectedVariants = {};
-            state.activeVariantOffer = null;
-        }
+    function renderPreview(product) {
         state.currentProduct = product;
         if (!dom.previewCard) return;
         const previewDescriptionNode = ensurePreviewDescriptionNode();
         const currentLang = currentUiLanguage();
+        state.selectedVariants = {};
 
         const pricing = calculatePricingData();
         const sourceKey = String(product?.source || "scrape").toLowerCase();
@@ -2763,7 +2634,7 @@
         renderAlerts(product);
         renderRestrictionBanner(product);
         renderSellerTrust(product);
-        renderVariants(getBaseProduct() || product);
+        renderVariants(product);
         renderCustomsAdvisor(product);
         renderQuoteComparison(product);
         checkPriceAlerts(product);
@@ -2817,12 +2688,16 @@
                 throw new Error(data.error || "فشل الجلب التلقائي، حاول مرة أخرى");
             }
 
-            state.baseProduct = cloneData(data);
-            state.currentProduct = cloneData(data);
-            state.activeVariantOffer = null;
+            state.currentProduct = data;
             incrementStat("fetches");
-            syncProductInputs(state.currentProduct);
-            renderPreview(state.currentProduct, { resetSelection: true });
+            if (dom.calcName) dom.calcName.value = data.title || "";
+            if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0) > 0 && !data.priceUnavailable ? Number(data.price || 0).toFixed(2) : "";
+            if (dom.usdShip) {
+                const shippingValue = Number(data.shipping);
+                dom.usdShip.value = Number.isFinite(shippingValue) && shippingValue >= 0 ? shippingValue.toFixed(2) : "";
+            }
+
+            renderPreview(data);
             renderPricing();
             saveRecentLink(data);
             pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
@@ -2857,7 +2732,6 @@
         const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
         const note = dom.calcNote?.value.trim() || "بدون ملاحظات";
         const restrictions = getRestrictionSummary(state.currentProduct);
-        const variantPriceNotice = buildVariantPriceNotice();
 
         return [
             "سلام، نحب تسعيرة يدوية للمنتج هذا:",
@@ -2868,7 +2742,6 @@
             `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `المواصفات: ${note}`,
-            variantPriceNotice,
             restrictions ? `ملاحظة: ${restrictions}` : ""
         ].filter(Boolean).join("\n");
     }
@@ -2901,7 +2774,6 @@
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
         const delivery = state.currentProduct?.deliveryEstimate || "غير متوفر";
         const shippingText = pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd);
-        const variantPriceNotice = buildVariantPriceNotice();
 
         const message = [
             "سلام، نحب نطلب المنتج هذا:",
@@ -2912,8 +2784,7 @@
             `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `التوصيل المتوقع: ${delivery}`,
-            `المواصفات: ${note}`,
-            variantPriceNotice
+            `المواصفات: ${note}`
         ].join("\n");
 
         saveRecentLink(state.currentProduct || { url: link, title });
@@ -3152,8 +3023,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             trustScore: state.currentProduct?.trustScore || null,
             reviewCount: Number(state.currentProduct?.reviewCount || 0),
             soldCount: Number(state.currentProduct?.soldCount || 0),
-            source: state.currentProduct?.source || "manual",
-            variantSelection: cloneData(state.selectedVariants || {})
+            source: state.currentProduct?.source || "manual"
         };
     }
 
@@ -3178,7 +3048,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             item.reviewCount = meta.reviewCount;
             item.soldCount = meta.soldCount;
             item.source = meta.source;
-            item.variantSelection = meta.variantSelection;
 
             return item;
         };
@@ -3188,9 +3057,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         const lines = [`🚀 *طلب جديد Alexpress Tunisie*`, ``, `🧾 *المرجع:* ${orderRef}`, `💳 *الدفع:* ${paymentLabel}`, ``];
 
         items.forEach((item, index) => {
-            const itemVariantPriceNotice = (item?.variantSelection && Object.keys(item.variantSelection).length)
-                ? "⚠️ السعر ينجم يتبدل حسب الخيار المختار، والتأكيد النهائي يكون بعد مراجعة النسخة المطلوبة."
-                : "";
             lines.push(`📦 *منتج ${index + 1}:* ${item.name}`);
             lines.push(`🔗 الرابط: ${item.link || "غير متوفر"}`);
             lines.push(`🔢 الكمية: ${item.qty || 1}`);
@@ -3200,7 +3066,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             lines.push(`🧰 عمولة الخدمة: ${formatTnd(item.serviceFeeTnd || 0)}`);
             lines.push(`💰 الإجمالي: ${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}`);
             if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
-            if (itemVariantPriceNotice) lines.push(itemVariantPriceNotice);
             if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: خطر ديوانة مرتفع`);
             else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: يلزم تثبت قبل الطلب`);
             lines.push(`────────────`);
