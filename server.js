@@ -1131,6 +1131,15 @@ async function buildPlaywrightContext(browser) {
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
   });
 
+  await context.route("**/*", async (route) => {
+    const type = route.request().resourceType();
+    if (type === "font" || type === "media") {
+      await route.abort();
+      return;
+    }
+    await route.continue();
+  }).catch(() => {});
+
   await context.addCookies([
     {
       name: "aep_usuc_f",
@@ -1150,8 +1159,16 @@ async function scrapeWithPlaywright(url) {
   const page = await context.newPage();
 
   try {
-    await page.goto(url, { waitUntil: "networkidle", timeout: SCRAPE_TIMEOUT_MS });
-    await page.waitForTimeout(1500);
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: SCRAPE_TIMEOUT_MS });
+    await Promise.race([
+      page.waitForLoadState("load", { timeout: 8_000 }).catch(() => {}),
+      page.waitForSelector("h1, img, meta[property='og:title'], script", { timeout: 8_000 }).catch(() => {}),
+      page.waitForFunction(
+        () => Boolean(document?.body?.innerText?.trim()?.length > 120 || document?.querySelector("img")),
+        { timeout: 8_000 }
+      ).catch(() => {})
+    ]);
+    await page.waitForTimeout(800);
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
