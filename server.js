@@ -114,6 +114,19 @@ function hasUsefulPartialProductData(partial = {}) {
   );
 }
 
+function mergePartialProductData(current = null, incoming = null, fallbackUrl = "") {
+  const base = current && typeof current === "object" ? current : {};
+  const next = incoming && typeof incoming === "object" ? incoming : {};
+  return {
+    title: sanitizeText(next.title || base.title || ""),
+    image: normalizeUrl(next.image || base.image || ""),
+    price: pickLowestPositive([Number(next.price || 0), Number(base.price || 0)]),
+    shipping: next.shipping != null ? Number(next.shipping) : (base.shipping != null ? Number(base.shipping) : null),
+    rating: pickLowestPositive([Number(next.rating || 0), Number(base.rating || 0)]),
+    url: next.url || base.url || fallbackUrl
+  };
+}
+
 function getCache(map, key) {
   const hit = map.get(key);
   if (!hit || hit.expiresAt < Date.now()) {
@@ -1286,7 +1299,7 @@ async function fetchProduct(url) {
   let pageData = null;
   let lastPageError = null;
   let partialPageData = null;
-  const canUsePartialData = () => Boolean(partialPageData && hasUsableImage(partialPageData.image));
+  const canUsePartialData = () => Boolean(partialPageData && hasUsefulPartialProductData(partialPageData));
 
   for (const candidateUrl of urlCandidates) {
     try {
@@ -1294,20 +1307,20 @@ async function fetchProduct(url) {
       if (pageData) break;
     } catch (error) {
       lastPageError = error;
-      if (error?.partialData) partialPageData = { ...(partialPageData || {}), ...error.partialData, url: candidateUrl };
+      if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
       log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
       if (canUsePartialData()) break;
     }
   }
 
-  if (!pageData) {
+  if (!pageData && !canUsePartialData()) {
     for (const candidateUrl of urlCandidates) {
       try {
         pageData = await withRetries("http-scrape", () => scrapeWithHttp(candidateUrl));
         if (pageData) break;
       } catch (error) {
         lastPageError = error;
-        if (error?.partialData) partialPageData = { ...(partialPageData || {}), ...error.partialData, url: candidateUrl };
+        if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
         log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
         if (canUsePartialData()) break;
       }
