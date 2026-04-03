@@ -6,6 +6,9 @@
     const SERVICE_FEE_MIN_TND = 7;
     const RATE_REFRESH_MS = 15 * 60 * 1000;
     const WHATSAPP_NUMBER = "21627498276";
+    const RECENT_LINKS_KEY = "alex_recent_links_v1";
+    const ACCOUNT_PREFS_KEY = "alex_account_prefs_v1";
+    const LOCAL_STATS_KEY = "alex_local_stats_v1";
 
     const dom = {
         calcLink: document.getElementById("calc-link"),
@@ -27,6 +30,9 @@
         previewPrice: document.getElementById("runtime-preview-price"),
         previewLink: document.getElementById("runtime-preview-link"),
         previewSource: document.getElementById("runtime-preview-source"),
+        recentLinksCard: document.getElementById("runtime-recent-links-card"),
+        recentLinks: document.getElementById("runtime-recent-links"),
+        clearLinksBtn: document.getElementById("runtime-clear-links"),
         breakdownCard: document.getElementById("runtime-breakdown-card"),
         breakdownProduct: document.getElementById("runtime-breakdown-product"),
         breakdownShipping: document.getElementById("runtime-breakdown-shipping"),
@@ -40,13 +46,32 @@
         bannedErrorText: document.querySelector("#banned-error p"),
         manualQuoteBtn: document.getElementById("runtime-manual-quote"),
         quickOrderBtn: document.getElementById("runtime-quick-order"),
+        imagePreviewCard: document.getElementById("runtime-image-preview-card"),
+        imagePreview: document.getElementById("runtime-image-preview"),
+        imageClearBtn: document.getElementById("runtime-image-clear"),
         historyList: document.getElementById("history-items-list"),
-        trackResult: document.getElementById("search-result")
+        trackResult: document.getElementById("search-result"),
+        accountPhone: document.getElementById("account-phone"),
+        accountCity: document.getElementById("account-city"),
+        accountAddress: document.getElementById("account-address"),
+        accountContactMethod: document.getElementById("account-contact-method"),
+        accountSavePrefs: document.getElementById("account-save-prefs"),
+        accountPrefsStatus: document.getElementById("account-prefs-status"),
+        accountOrders: document.getElementById("acc-stat-orders"),
+        accountWish: document.getElementById("acc-stat-wish"),
+        accountFetches: document.getElementById("acc-stat-fetches"),
+        accountQuotes: document.getElementById("acc-stat-quotes")
     };
 
     const state = {
         liveRate: FX_FALLBACK_RATE,
-        currentProduct: null
+        currentProduct: null,
+        recentLinks: [],
+        accountPrefs: null,
+        stats: {
+            fetches: 0,
+            manualQuotes: 0
+        }
     };
 
     const original = {
@@ -71,6 +96,40 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function readJsonStorage(key, fallback) {
+        try {
+            const raw = window.localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function writeJsonStorage(key, value) {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+            // ignore quota/storage errors
+        }
+    }
+
+    function getAccountPrefs() {
+        if (state.accountPrefs) return state.accountPrefs;
+        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
+            phone: "",
+            city: "",
+            address: "",
+            contactMethod: "whatsapp"
+        });
+        return state.accountPrefs;
+    }
+
+    function getLocalStats() {
+        if (state.stats && typeof state.stats.fetches === "number") return state.stats;
+        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
+        return state.stats;
     }
 
     function formatUsd(value) {
@@ -98,6 +157,108 @@
         if (product.restrictions.banned) return "خطر ديوانة مرتفع";
         if (product.restrictions.restricted) return "يلزم تثبت قبل الطلب";
         return "مقبول مبدئيًا";
+    }
+
+    function incrementStat(key) {
+        const stats = getLocalStats();
+        stats[key] = Number(stats[key] || 0) + 1;
+        state.stats = stats;
+        writeJsonStorage(LOCAL_STATS_KEY, stats);
+        renderAccountStats();
+    }
+
+    function renderAccountStats() {
+        const stats = getLocalStats();
+        if (dom.accountFetches) dom.accountFetches.textContent = Number(stats.fetches || 0);
+        if (dom.accountQuotes) dom.accountQuotes.textContent = Number(stats.manualQuotes || 0);
+        if (dom.accountOrders && typeof orderHistory !== "undefined" && Array.isArray(orderHistory)) {
+            dom.accountOrders.textContent = orderHistory.length;
+        }
+        if (dom.accountWish && typeof wishlist !== "undefined" && Array.isArray(wishlist)) {
+            dom.accountWish.textContent = wishlist.length;
+        }
+    }
+
+    function renderRecentLinks() {
+        if (!dom.recentLinksCard || !dom.recentLinks) return;
+        const links = Array.isArray(state.recentLinks) ? state.recentLinks : [];
+        dom.recentLinksCard.classList.toggle("hidden", links.length === 0);
+        if (!links.length) {
+            dom.recentLinks.innerHTML = "";
+            return;
+        }
+
+        dom.recentLinks.innerHTML = links.map((item, index) => `
+            <button type="button" class="recent-link-chip px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[10px] font-black text-slate-200 hover:border-amber-400 hover:text-white transition-all" data-recent-index="${index}">
+                ${escapeHtml(item.title || item.url || "AliExpress")}
+            </button>
+        `).join("");
+    }
+
+    function saveRecentLink(product) {
+        const url = dom.calcLink?.value.trim() || product?.url || "";
+        if (!url) return;
+
+        const title = dom.calcName?.value.trim() || product?.title || "AliExpress product";
+        const next = [{ url, title }].concat((state.recentLinks || []).filter((item) => item.url !== url)).slice(0, 6);
+        state.recentLinks = next;
+        writeJsonStorage(RECENT_LINKS_KEY, next);
+        renderRecentLinks();
+    }
+
+    function useRecentLink(index) {
+        const item = state.recentLinks?.[index];
+        if (!item || !dom.calcLink) return;
+        dom.calcLink.value = item.url;
+        if (dom.calcName && !dom.calcName.value.trim() && item.title) {
+            dom.calcName.value = item.title;
+        }
+        setError("");
+        toast("تم تحميل الرابط بسرعة.");
+    }
+
+    function clearRecentLinks() {
+        state.recentLinks = [];
+        writeJsonStorage(RECENT_LINKS_KEY, []);
+        renderRecentLinks();
+    }
+
+    function renderImagePreview(dataUrl) {
+        if (!dom.imagePreviewCard || !dom.imagePreview) return;
+        const hasImage = Boolean(dataUrl);
+        dom.imagePreviewCard.classList.toggle("hidden", !hasImage);
+        if (hasImage) dom.imagePreview.src = dataUrl;
+    }
+
+    function clearImagePreview() {
+        if (dom.calcImage) dom.calcImage.value = "";
+        renderImagePreview("");
+    }
+
+    function loadAccountPrefsIntoForm() {
+        const prefs = getAccountPrefs();
+        if (dom.accountPhone) dom.accountPhone.value = prefs.phone || "";
+        if (dom.accountCity) dom.accountCity.value = prefs.city || "";
+        if (dom.accountAddress) dom.accountAddress.value = prefs.address || "";
+        if (dom.accountContactMethod) dom.accountContactMethod.value = prefs.contactMethod || "whatsapp";
+        if (dom.accountPrefsStatus) {
+            const hasPrefs = Boolean(prefs.phone || prefs.city || prefs.address);
+            dom.accountPrefsStatus.textContent = hasPrefs ? "محفوظة" : "غير محفوظة";
+            dom.accountPrefsStatus.className = `text-[9px] font-black ${hasPrefs ? "text-emerald-400" : "text-slate-500"}`;
+        }
+    }
+
+    function saveAccountPrefs() {
+        const prefs = {
+            phone: dom.accountPhone?.value.trim() || "",
+            city: dom.accountCity?.value.trim() || "",
+            address: dom.accountAddress?.value.trim() || "",
+            contactMethod: dom.accountContactMethod?.value || "whatsapp"
+        };
+        state.accountPrefs = prefs;
+        writeJsonStorage(ACCOUNT_PREFS_KEY, prefs);
+        loadAccountPrefsIntoForm();
+        toast("تم حفظ بياناتك السريعة.");
     }
 
     function getEffectiveRate() {
@@ -246,7 +407,9 @@
             dom.previewMeta.textContent = metaParts.join(" • ");
         }
         if (dom.previewPrice) {
-            dom.previewPrice.textContent = formatTnd(calculatePricingData().finalTnd);
+            dom.previewPrice.textContent = product?.priceUnavailable
+                ? "تسعيرة يدوية"
+                : formatTnd(calculatePricingData().finalTnd);
         }
         if (dom.previewLink) {
             dom.previewLink.href = product.url || "#";
@@ -310,12 +473,14 @@
             }
 
             state.currentProduct = data;
+            incrementStat("fetches");
             if (dom.calcName) dom.calcName.value = data.title || "";
             if (dom.usdPrice) dom.usdPrice.value = data.priceUnavailable ? "" : Number(data.price || 0).toFixed(2);
             if (dom.usdShip) dom.usdShip.value = data.shipping == null ? "" : Number(data.shipping || 0).toFixed(2);
 
             renderPreview(data);
             renderPricing();
+            saveRecentLink(data);
             if (data.priceUnavailable) {
                 setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
                 toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
@@ -329,6 +494,16 @@
         } finally {
             setLoading(false);
         }
+    }
+
+    function buildCustomerSummaryLines() {
+        const prefs = getAccountPrefs();
+        const lines = [];
+        if (prefs.phone) lines.push(`الهاتف: ${prefs.phone}`);
+        if (prefs.city) lines.push(`المدينة: ${prefs.city}`);
+        if (prefs.address) lines.push(`العنوان: ${prefs.address}`);
+        if (prefs.contactMethod) lines.push(`طريقة التواصل: ${prefs.contactMethod}`);
+        return lines;
     }
 
     function buildManualQuoteMessage() {
@@ -361,7 +536,9 @@
             toast("حط الرابط أو اسم المنتج أولاً");
             return;
         }
-        openWhatsAppMessage(buildManualQuoteMessage());
+        incrementStat("manualQuotes");
+        saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || "AliExpress product" });
+        openWhatsAppMessage([buildManualQuoteMessage()].concat(buildCustomerSummaryLines()).join("\n"));
     }
 
     function quickOrderFromForm() {
@@ -389,7 +566,8 @@
             `المواصفات: ${note}`
         ].join("\n");
 
-        openWhatsAppMessage(message);
+        saveRecentLink(state.currentProduct || { url: link, title });
+        openWhatsAppMessage([message].concat(buildCustomerSummaryLines()).join("\n"));
     }
 
     function getCurrentProductMeta() {
@@ -507,7 +685,9 @@
                 }
             }
 
-            const message = buildOrderMessage(cart, paymentLabel, finalTotal, orderRef);
+            const message = [buildOrderMessage(cart, paymentLabel, finalTotal, orderRef)]
+                .concat(buildCustomerSummaryLines())
+                .join("\n");
             pushOrderHistory({
                 id: Date.now(),
                 orderRef,
@@ -605,6 +785,7 @@
 
             dom.historyList.innerHTML = orderHistory.map(renderHistoryCard).join("");
             renderTrackingHint();
+            renderAccountStats();
         };
     }
 
@@ -632,15 +813,55 @@
             </div>`;
     }
 
+    function patchCollectionActions() {
+        const wrappers = [
+            "addItemToCart",
+            "addItemToWishlist",
+            "removeFromCart",
+            "removeFromWish",
+            "moveWishToCart"
+        ];
+
+        wrappers.forEach((name) => {
+            if (typeof window[name] !== "function" || window[name].__runtimeWrapped) return;
+            const originalFn = window[name];
+            const wrapped = function patchedCollectionAction(...args) {
+                const result = originalFn.apply(this, args);
+                window.setTimeout(renderAccountStats, 0);
+                return result;
+            };
+            wrapped.__runtimeWrapped = true;
+            window[name] = wrapped;
+        });
+    }
+
     function bindEvents() {
         dom.scrapeBtn?.addEventListener("click", scrapeProduct);
         dom.manualQuoteBtn?.addEventListener("click", sendManualQuote);
         dom.quickOrderBtn?.addEventListener("click", quickOrderFromForm);
+        dom.clearLinksBtn?.addEventListener("click", clearRecentLinks);
+        dom.imageClearBtn?.addEventListener("click", clearImagePreview);
+        dom.accountSavePrefs?.addEventListener("click", saveAccountPrefs);
         dom.calcLink?.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
                 scrapeProduct();
             }
+        });
+        dom.calcImage?.addEventListener("change", (event) => {
+            const file = event.target?.files?.[0];
+            if (!file) {
+                renderImagePreview("");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => renderImagePreview(String(reader.result || ""));
+            reader.readAsDataURL(file);
+        });
+        dom.recentLinks?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-recent-index]");
+            if (!trigger) return;
+            useRecentLink(Number(trigger.getAttribute("data-recent-index")));
         });
         dom.usdPrice?.addEventListener("input", renderPricing);
         dom.usdShip?.addEventListener("input", renderPricing);
@@ -660,8 +881,20 @@
     }
 
     function boot() {
+        state.recentLinks = readJsonStorage(RECENT_LINKS_KEY, []);
+        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
+            phone: "",
+            city: "",
+            address: "",
+            contactMethod: "whatsapp"
+        });
+        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
         patchGlobals();
+        patchCollectionActions();
         bindEvents();
+        renderRecentLinks();
+        loadAccountPrefsIntoForm();
+        renderAccountStats();
         loadLiveRate();
         renderPricing();
         if (typeof window.renderHistory === "function") window.renderHistory();
