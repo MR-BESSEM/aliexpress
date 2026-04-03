@@ -1508,8 +1508,11 @@ function extractHtmlProduct(html, url, source) {
     ...extractJsonObjectsFromHtml(html, $),
     ...jsonLdObjects
   ]);
+  const safeEmbeddedTitle = !isLowValueProductTitle(embedded.title) && !isAliExpressBlockedTitle(embedded.title)
+    ? embedded.title
+    : "";
   const title =
-    embedded.title ||
+    safeEmbeddedTitle ||
     sanitizeText($("meta[property='og:title']").attr("content")) ||
     sanitizeText($("meta[name='twitter:title']").attr("content")) ||
     sanitizeText($("meta[name='title']").attr("content")) ||
