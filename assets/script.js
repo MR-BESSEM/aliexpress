@@ -64,6 +64,7 @@
         breakdownCard: document.getElementById("runtime-breakdown-card"),
         breakdownProduct: document.getElementById("runtime-breakdown-product"),
         breakdownShipping: document.getElementById("runtime-breakdown-shipping"),
+        breakdownServiceLabel: document.getElementById("runtime-breakdown-service-label"),
         breakdownService: document.getElementById("runtime-breakdown-service"),
         breakdownTotal: document.getElementById("runtime-breakdown-total"),
         budgetCard: document.getElementById("runtime-budget-card"),
@@ -504,6 +505,38 @@
         } catch {
             return value;
         }
+    }
+
+    function getProductOptionGroups(product = state.currentProduct) {
+        return Array.isArray(product?.variants)
+            ? product.variants.filter((group) => Array.isArray(group?.values) && group.values.length)
+            : [];
+    }
+
+    function productHasOptions(product = state.currentProduct) {
+        return getProductOptionGroups(product).length > 0;
+    }
+
+    function getSpecsPlaceholder(product = state.currentProduct) {
+        return productHasOptions(product)
+            ? "اكتب الخيار المطلوب هنا: لون، مقاس، طول، نسخة..."
+            : "مثال: Bleu 1.5m";
+    }
+
+    function getSpecsValueText(product = state.currentProduct) {
+        const note = String(dom.calcNote?.value || "").trim();
+        if (note) return note;
+        if (productHasOptions(product)) return "يرجى كتابة اللون / المقاس / الطول المطلوب في خانة المواصفات";
+        return "بدون ملاحظات";
+    }
+
+    function getServiceFeeDisplayText(pricing, product = state.currentProduct) {
+        return productHasOptions(product) ? "مشمولة" : formatTnd(pricing.serviceFee);
+    }
+
+    function updateSpecsGuidance(product = state.currentProduct) {
+        if (!dom.calcNote) return;
+        dom.calcNote.placeholder = getSpecsPlaceholder(product);
     }
 
     function parseDeliveryWindow(label) {
@@ -1547,9 +1580,9 @@
             action_share: "مشاركة الإحالة",
             trust_title: "ثقة البائع",
             trust_desc: "تقييم سريع حسب التقييم والمراجعات والشحن والمخاطر",
-            variant_title: "اختيار النسخة",
-            variant_desc: "اختار اللون أو المقاس أو النسخة وتتسجل وحدها في المواصفات",
-            variant_auto: "تلقائي",
+            variant_title: "ملاحظة على الخيارات",
+            variant_desc: "إذا المنتج فيه لون أو مقاس أو طول، اكتب الخيار المطلوب في المواصفات لأن السعر ينجم يتبدل",
+            variant_auto: "SPEC",
             quote_pdf: "PDF / عرض سعر",
             export_csv: "تصدير CSV",
             account_overview: "نظرة عامة",
@@ -1599,9 +1632,9 @@
             action_share: "Partager l'affiliation",
             trust_title: "Confiance vendeur",
             trust_desc: "Resume rapide selon note, avis, livraison et risque douane",
-            variant_title: "Choix de variante",
-            variant_desc: "Choisissez couleur, taille ou version et on l'ajoute aux specifications",
-            variant_auto: "AUTO",
+            variant_title: "Note options",
+            variant_desc: "Si le produit a couleur, taille ou longueur, ecrivez l'option dans les specifications car le prix peut changer",
+            variant_auto: "SPEC",
             quote_pdf: "PDF / Devis",
             export_csv: "Exporter CSV",
             account_overview: "Vue d'ensemble",
@@ -1651,9 +1684,9 @@
             action_share: "Share Referral",
             trust_title: "Seller Trust Score",
             trust_desc: "Quick view based on rating, reviews, shipping, and customs risk",
-            variant_title: "Variant Picker",
-            variant_desc: "Choose color, size, or version and save it into the specs field",
-            variant_auto: "AUTO",
+            variant_title: "Options Note",
+            variant_desc: "If the product has color, size, or length choices, write the option in specs because the price may change",
+            variant_auto: "SPEC",
             quote_pdf: "PDF / Quote",
             export_csv: "Export CSV",
             account_overview: "Overview",
@@ -1862,7 +1895,8 @@
 
         if (dom.breakdownProduct) dom.breakdownProduct.textContent = formatTnd(pricing.productTnd);
         if (dom.breakdownShipping) dom.breakdownShipping.textContent = pricing.shippingUsd === 0 ? "شحن مجاني" : formatTnd(pricing.shippingTnd);
-        if (dom.breakdownService) dom.breakdownService.textContent = formatTnd(pricing.serviceFee);
+        if (dom.breakdownServiceLabel) dom.breakdownServiceLabel.textContent = "عمولة الخدمة";
+        if (dom.breakdownService) dom.breakdownService.textContent = getServiceFeeDisplayText(pricing);
         if (dom.breakdownTotal) dom.breakdownTotal.textContent = formatTnd(pricing.finalTnd);
     }
 
@@ -2048,22 +2082,36 @@
         dom.variantsCard.classList.toggle("hidden", groups.length === 0);
         if (!groups.length) {
             state.selectedVariants = {};
+            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
             renderVariantSummary();
             return;
         }
 
-        dom.variantGroups.innerHTML = groups.map((group, index) => `
-            <div class="space-y-2">
-                <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
-                <div class="flex flex-wrap gap-2">
-                    ${group.values.map((value) => `
-                        <button type="button" data-variant-group="${escapeHtml(group.name || `Option ${index + 1}`)}" data-variant-value="${escapeHtml(value)}" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200 hover:border-fuchsia-400 hover:text-white transition-colors">
-                            ${escapeHtml(value)}
-                        </button>
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-fuchsia-400/15 bg-black/20 p-4 space-y-3">
+                <div class="text-[10px] text-fuchsia-100 font-black leading-relaxed">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
+                    المواصفات: لون، مقاس، طول، نسخة، pack...
+                </div>
+                <div class="space-y-2">
+                    ${groups.map((group, index) => `
+                        <div class="space-y-2">
+                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                            <div class="flex flex-wrap gap-2">
+                                ${group.values.map((value) => `
+                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                        ${escapeHtml(value)}
+                                    </span>
+                                `).join("")}
+                            </div>
+                        </div>
                     `).join("")}
                 </div>
             </div>
-        `).join("");
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
         renderVariantSummary();
     }
 
@@ -2544,6 +2592,7 @@
             state.activeVariantOffer = null;
         }
         state.currentProduct = product;
+        updateSpecsGuidance(getBaseProduct() || product);
         if (!dom.previewCard) return;
         const previewDescriptionNode = ensurePreviewDescriptionNode();
         const currentLang = currentUiLanguage();
@@ -2731,7 +2780,7 @@
         const pricing = calculatePricingData();
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
         const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
-        const note = dom.calcNote?.value.trim() || "بدون ملاحظات";
+        const note = getSpecsValueText(state.currentProduct);
         const restrictions = getRestrictionSummary(state.currentProduct);
 
         return [
@@ -2740,7 +2789,7 @@
             `الرابط: ${link || "غير متوفر"}`,
             `السعر: ${formatUsd(pricing.productUsd)}`,
             `الشحن: ${pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd)}`,
-            `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
+            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `المواصفات: ${note}`,
             restrictions ? `ملاحظة: ${restrictions}` : ""
@@ -2771,7 +2820,7 @@
         }
 
         const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
-        const note = dom.calcNote?.value.trim() || "بدون ملاحظات";
+        const note = getSpecsValueText(state.currentProduct);
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
         const delivery = state.currentProduct?.deliveryEstimate || "غير متوفر";
         const shippingText = pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd);
@@ -2782,7 +2831,7 @@
             `الرابط: ${link || "غير متوفر"}`,
             `سعر المنتج: ${formatUsd(pricing.productUsd)}`,
             `الشحن: ${shippingText}`,
-            `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
+            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `التوصيل المتوقع: ${delivery}`,
             `المواصفات: ${note}`
@@ -3017,6 +3066,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             shippingUsd: pricing.shippingUsd,
             productUsd: pricing.productUsd,
             serviceFeeTnd: pricing.serviceFee,
+            serviceFeeDisplay: getServiceFeeDisplayText(pricing, state.currentProduct),
             finalTnd: pricing.finalTnd,
             deliveryEstimate: state.currentProduct?.deliveryEstimate || "",
             alerts: state.currentProduct?.alerts || [],
@@ -3024,7 +3074,8 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             trustScore: state.currentProduct?.trustScore || null,
             reviewCount: Number(state.currentProduct?.reviewCount || 0),
             soldCount: Number(state.currentProduct?.soldCount || 0),
-            source: state.currentProduct?.source || "manual"
+            source: state.currentProduct?.source || "manual",
+            hasOptions: productHasOptions(state.currentProduct)
         };
     }
 
@@ -3041,6 +3092,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             item.shippingUsd = meta.shippingUsd;
             item.productUsd = meta.productUsd;
             item.serviceFeeTnd = meta.serviceFeeTnd;
+            item.serviceFeeDisplay = meta.serviceFeeDisplay;
             item.totalWithFee = meta.finalTnd;
             item.deliveryEstimate = meta.deliveryEstimate;
             item.alerts = meta.alerts;
@@ -3049,6 +3101,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             item.reviewCount = meta.reviewCount;
             item.soldCount = meta.soldCount;
             item.source = meta.source;
+            item.hasOptions = meta.hasOptions;
 
             return item;
         };
@@ -3061,10 +3114,10 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             lines.push(`📦 *منتج ${index + 1}:* ${item.name}`);
             lines.push(`🔗 الرابط: ${item.link || "غير متوفر"}`);
             lines.push(`🔢 الكمية: ${item.qty || 1}`);
-            lines.push(`📝 المواصفات: ${item.note || "بدون ملاحظات"}`);
+            lines.push(`📝 المواصفات: ${item.note || (item.hasOptions ? "يرجى تحديد اللون / المقاس / الطول المطلوب" : "بدون ملاحظات")}`);
             lines.push(`💵 سعر المنتج: ${formatUsd(item.productUsd || item.usd || 0)}`);
             lines.push(`🚚 الشحن: ${Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0)}`);
-            lines.push(`🧰 عمولة الخدمة: ${formatTnd(item.serviceFeeTnd || 0)}`);
+            lines.push(`🧰 عمولة الخدمة: ${item.serviceFeeDisplay || (item.hasOptions ? "مشمولة" : formatTnd(item.serviceFeeTnd || 0))}`);
             lines.push(`💰 الإجمالي: ${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}`);
             if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
             if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: خطر ديوانة مرتفع`);
