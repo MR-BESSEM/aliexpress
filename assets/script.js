@@ -2496,7 +2496,8 @@
             dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
         }
         if (dom.previewPrice) {
-            dom.previewPrice.classList.add("hidden");
+            dom.previewPrice.textContent = state.currentProduct?.priceUnavailable ? "Manual Quote" : formatTnd(pricing.finalTnd);
+            dom.previewPrice.classList.toggle("hidden", pricing.finalTnd <= 0 && !state.currentProduct?.priceUnavailable);
         }
         if (dom.quickOrderBtn) {
             dom.quickOrderBtn.disabled = pricing.finalTnd <= 0;
@@ -2518,6 +2519,46 @@
         const currentLang = currentUiLanguage();
         state.selectedVariants = {};
 
+        const pricing = calculatePricingData();
+        const sourceKey = String(product?.source || "scrape").toLowerCase();
+        const hasShippingValue = product?.shipping != null && product.shipping !== "" && Number.isFinite(Number(product.shipping));
+        const hasDeliveryValue = Boolean(String(product?.deliveryEstimate || "").trim());
+        const hasRatingValue = Number(product?.rating || 0) > 0;
+        const hasReviewValue = Number(product?.reviewCount || 0) > 0;
+        const sourceLabelMap = {
+            ar: {
+                "api+scrape": "بيانات مؤكدة",
+                "scrape": "جلب مباشر",
+                "partial-fallback": "بيانات جزئية",
+                "api-fallback": "بيانات الكاتالوج"
+            },
+            fr: {
+                "api+scrape": "Donnees verifiees",
+                "scrape": "Capture live",
+                "partial-fallback": "Donnees partielles",
+                "api-fallback": "Catalogue"
+            },
+            en: {
+                "api+scrape": "Verified Data",
+                "scrape": "Live Capture",
+                "partial-fallback": "Partial Data",
+                "api-fallback": "Catalog Data"
+            }
+        };
+        const sourceUiMap = {
+            "api+scrape": { label: sourceLabelMap[currentLang]["api+scrape"], classes: "runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20" },
+            "scrape": { label: sourceLabelMap[currentLang]["scrape"], classes: "runtime-preview-chip bg-sky-500/10 text-sky-300 border-sky-500/20" },
+            "partial-fallback": { label: sourceLabelMap[currentLang]["partial-fallback"], classes: "runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20" },
+            "api-fallback": { label: sourceLabelMap[currentLang]["api-fallback"], classes: "runtime-preview-chip bg-violet-500/10 text-violet-200 border-violet-500/20" }
+        };
+        const sourceUi = sourceUiMap[sourceKey] || {
+            label: String(product?.source || "scrape").replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+            classes: "runtime-preview-chip bg-white/5 text-slate-200 border-white/10"
+        };
+        const metaLabel = product?.manualQuoteRecommended
+            ? rt("preview_review")
+            : rt("preview_ready");
+
         dom.previewCard.classList.remove("hidden");
         if (dom.previewImage) {
             dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
@@ -2526,59 +2567,40 @@
             dom.previewTitle.textContent = product.title || "AliExpress Product";
         }
         if (dom.previewMeta) {
-            const metaParts = [
-                getShippingLabel(product.shipping),
-                `⭐ ${(Number(product.rating) || 0).toFixed(1)}`,
-                product.deliveryEstimate ? product.deliveryEstimate : ""
-            ].filter(Boolean);
-            dom.previewMeta.textContent = metaParts.join(" • ");
+            dom.previewMeta.textContent = metaLabel;
+            dom.previewMeta.className = `runtime-preview-chip ${
+                product?.manualQuoteRecommended
+                    ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
+                    : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+            }`;
         }
         if (dom.previewPrice) {
-            dom.previewPrice.textContent = product?.priceUnavailable
-                ? "تسعيرة يدوية"
-                : formatTnd(calculatePricingData().finalTnd);
+            dom.previewPrice.textContent = product?.priceUnavailable ? "Manual Quote" : formatTnd(pricing.finalTnd);
+            dom.previewPrice.classList.toggle("hidden", pricing.finalTnd <= 0 && !product?.priceUnavailable);
         }
         if (dom.previewLink) {
             dom.previewLink.href = product.url || "#";
         }
         if (dom.previewSource) {
-            dom.previewSource.textContent = String(product.source || "scrape").toUpperCase();
+            dom.previewSource.textContent = sourceUi.label;
+            dom.previewSource.className = sourceUi.classes;
         }
         if (dom.previewShipping) {
-            const shippingKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
-            dom.previewShipping.textContent = !shippingKnown
-                ? rt("reviews_na")
-                : (product.shipping === 0 ? rt("shipping_free") : getShippingLabel(product.shipping));
+            dom.previewShipping.textContent = hasShippingValue
+                ? (Number(product.shipping) === 0 ? rt("shipping_free") : getShippingLabel(product.shipping))
+                : rt("reviews_na");
         }
         if (dom.previewDelivery) {
-            const deliveryKnown = Number(product.shipping || 0) > 0 || String(product.source || "").toLowerCase() === "api+scrape";
-            dom.previewDelivery.textContent = deliveryKnown ? (product.deliveryEstimate || rt("reviews_na")) : rt("reviews_na");
+            dom.previewDelivery.textContent = hasDeliveryValue ? product.deliveryEstimate : rt("reviews_na");
         }
         if (dom.previewRating) {
-            dom.previewRating.textContent = Number(product.rating || 0) > 0 ? Number(product.rating || 0).toFixed(1) : rt("rating_na");
+            dom.previewRating.textContent = hasRatingValue ? Number(product.rating || 0).toFixed(1) : rt("rating_na");
         }
         if (dom.previewReviews) {
-            dom.previewReviews.textContent = Number(product.reviewCount || 0) > 0 ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
-        }
-        if (dom.previewMeta) {
-            dom.previewMeta.textContent = product.description
-                ? (currentLang === "ar" ? "الوصف متوفر" : currentLang === "fr" ? "Description prete" : "Description Ready")
-                : (currentLang === "ar" ? "الاسم والصورة متوفرين" : currentLang === "fr" ? "Nom + image prets" : "Image + Name Ready");
-        }
-        if (dom.previewMeta) {
-            dom.previewMeta.textContent = product?.manualQuoteRecommended ? rt("preview_review") : rt("preview_ready");
+            dom.previewReviews.textContent = hasReviewValue ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
         }
         if (previewDescriptionNode) {
-            previewDescriptionNode.textContent = product.description || (
-                currentLang === "ar"
-                    ? rt("preview_no_desc")
-                    : currentLang === "fr"
-                        ? rt("preview_no_desc", "fr")
-                        : rt("preview_no_desc", "en")
-            );
-        }
-        if (dom.previewPrice) {
-            dom.previewPrice.classList.add("hidden");
+            previewDescriptionNode.textContent = product.description || rt("preview_no_desc");
         }
         renderVariantSummary();
 
@@ -2652,8 +2674,6 @@
             renderPricing();
             saveRecentLink(data);
             pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
-            data.priceUnavailable = false;
-            data.manualQuoteRecommended = false;
             if (data.priceUnavailable) {
                 setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
                 toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
