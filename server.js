@@ -1698,15 +1698,6 @@ async function scrapeWithPlaywright(url) {
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
-      const isUsefulVariantValue = (value) => {
-        const text = clean(value);
-        return Boolean(
-          text &&
-          text.length <= 48 &&
-          !/^select|choose|view more|seller|shipping|delivery|reviews?/i.test(text) &&
-          !/^https?:\/\//i.test(text)
-        );
-      };
       const queryText = (selectors) => {
         for (const selector of selectors) {
           const element = document.querySelector(selector);
@@ -1733,46 +1724,6 @@ async function scrapeWithPlaywright(url) {
           });
         });
         return Array.from(new Set(values));
-      };
-      const readElementTexts = (element) => {
-        if (!element) return [];
-        return [
-          clean(element.textContent),
-          clean(element.getAttribute?.("title")),
-          clean(element.getAttribute?.("aria-label")),
-          clean(element.getAttribute?.("data-title")),
-          clean(element.getAttribute?.("data-name")),
-          clean(element.getAttribute?.("data-value")),
-          clean(element.getAttribute?.("data-sku-title")),
-          clean(element.getAttribute?.("alt"))
-        ].filter(isUsefulVariantValue);
-      };
-      const collectVariantGroups = () => {
-        const groups = new Map();
-        const addGroup = (name, values = []) => {
-          const label = clean(name || "Option");
-          const filtered = Array.from(new Set(values.filter(isUsefulVariantValue)));
-          if (!label || filtered.length < 2) return;
-          groups.set(label, Array.from(new Set([...(groups.get(label) || []), ...filtered])).slice(0, 12));
-        };
-
-        const titlePattern = /(nom de la couleur|color|colour|couleur|size|taille|bundle|pack|set|style|model|storage|capacity|version)/i;
-        document.querySelectorAll("div, section, form, li").forEach((container) => {
-          const blockText = clean(container.textContent);
-          if (!titlePattern.test(blockText) || blockText.length > 260) return;
-
-          const header = container.querySelector("h1,h2,h3,h4,label,dt,strong,[class*='title'],[class*='Title']");
-          const groupName = clean(header?.textContent || blockText.split(":")[0] || "Option");
-          const values = Array.from(container.querySelectorAll("button,li,label,[role='button'],img,[title],[aria-label],[data-title],[data-sku-title],[data-value]"))
-            .flatMap((element) => readElementTexts(element));
-          addGroup(groupName, values);
-        });
-
-        const fallbackValues = Array.from(document.querySelectorAll("[class*='sku'] button, [class*='Sku'] button, [class*='variant'] button, [class*='Variant'] button, [class*='property'] li, [class*='Property'] li, [role='button'][title], [role='button'][aria-label], select option, img[alt]"))
-          .flatMap((element) => readElementTexts(element));
-        addGroup("Option", fallbackValues);
-
-        return Array.from(groups.entries()).map(([name, values]) => ({ name, values }));
       };
 
       const globalSnapshots = [];
@@ -1816,15 +1767,9 @@ async function scrapeWithPlaywright(url) {
           "[class*='sku'] button",
           "[class*='Sku'] button",
           "[class*='variant'] button",
-          "[class*='Variant'] button",
           "[class*='property'] li",
-          "[class*='Property'] li",
-          "[role='button'][title]",
-          "[role='button'][aria-label]",
-          "select option",
-          "img[alt]"
+          "select option"
         ]),
-        variantGroups: collectVariantGroups(),
         pageTitle: clean(document.title),
         bodyText: clean(document.body?.innerText || ""),
         globalSnapshots
@@ -1860,10 +1805,7 @@ async function scrapeWithPlaywright(url) {
       shipping: parseShippingTexts(runtime.shippingTexts) ?? fromGlobals.shipping ?? parsed.shipping,
       deliveryEstimate: extractDeliveryEstimateFromTexts(runtime.shippingTexts) || fromGlobals.deliveryEstimate || parsed.deliveryEstimate || "",
       variants: mergeVariantGroups(
-        mergeVariantGroups(
-          mergeVariantGroups(fromGlobals.variants, parsed.variants),
-          runtime.variantGroups
-        ),
+        mergeVariantGroups(fromGlobals.variants, parsed.variants),
         extractVariantGroupsFromTextList(runtime.variantTexts)
       )
     };
