@@ -165,6 +165,28 @@
         /* Custom styling for details summary to hide default marker */
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
+        .recent-link-chip { transition: all 0.25s ease; }
+        .recent-link-chip:hover { transform: translateY(-2px); }
+        .sticky-mobile-bar {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 120;
+            width: min(92vw, 420px);
+        }
+        .screenshot-preview-grid {
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+        @media (max-width: 767px) {
+            .sticky-mobile-bar { display: block; }
+        }
+        @media (min-width: 768px) {
+            .sticky-mobile-bar { display: none; }
+        }
     </style>
 
     <!-- Firebase SDKs -->
@@ -362,6 +384,39 @@
                 </div>
             </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 auto-align">
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center"><i class="fas fa-star"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">آية من صفاقس</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Smartwatch + écouteurs</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">الخدمة واضحة والسعر النهائي كان مطابق تقريبًا، والمتابعة على واتساب كانت سريعة برشة.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center"><i class="fas fa-box-open"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">محمد من سوسة</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Pièces auto + accessoires</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">عجبني خاصة إنو عطاوني تنبيه قبل ما نأكد على منتج فيه ريسك ديوانة، وهذا زاد ثقة كبيرة.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-pink-500/10 text-pink-400 flex items-center justify-center"><i class="fas fa-heart"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">إيناس من تونس</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Mode + cadeaux</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">الواجهة سهلة برشة على التليفون، ونجمّت نبعث الطلب مباشرة من الحاسبة من غير تعقيد.</p>
+                </div>
+            </div>
+
             <div class="glass-card p-5 md:p-8 rounded-3xl md:rounded-[40px] border border-white/5 shadow-2xl">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                     <div class="auto-align">
@@ -439,6 +494,16 @@
                             </div>
                         </div>
                     </div>
+                    <div id="runtime-recent-links-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">آخر الروابط اللي خدمت عليهم</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تنجم ترجع لهم بسرعة وتعاود الجلب</div>
+                            </div>
+                            <button id="runtime-clear-links" type="button" class="text-[9px] font-black text-slate-400 hover:text-red-300 transition-colors">مسح</button>
+                        </div>
+                        <div id="runtime-recent-links" class="flex flex-wrap gap-2"></div>
+                    </div>
                     <!-- Smart Format Feature JS Version -->
                     <div>
                         <div class="flex justify-between items-center mb-2">
@@ -458,6 +523,19 @@
                     <div>
                         <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest" data-i18n="lbl_img">صورة المنتج (Capture)</label>
                         <input type="file" id="calc-image" accept="image/*" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-400 file:text-slate-900 hover:file:bg-amber-500 outline-none transition-all cursor-pointer">
+                    </div>
+                    <div id="runtime-image-preview-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5">
+                        <div class="screenshot-preview-grid auto-align">
+                            <img id="runtime-image-preview" src="" alt="Screenshot preview" class="w-24 h-24 rounded-2xl object-cover border border-white/10 bg-slate-900">
+                            <div class="space-y-2">
+                                <div class="text-[10px] font-black text-white">Capture مضافة للطلب</div>
+                                <p class="text-[9px] text-slate-500 leading-relaxed">إذا الجلب التلقائي ما ينجحش، الـ capture تساعدنا نراجع التسعيرة يدويًا بسرعة.</p>
+                                <button id="runtime-image-clear" type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-[9px] font-black text-white hover:bg-slate-700 transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
+                                    <span>حذف الـ capture</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -682,6 +760,40 @@
                         </div>
                     </div>
 
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">بياناتك السريعة</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">نخزنوهم محليًا باش الطلبات اليدوية وواتساب يوليوا أسرع</p>
+                            </div>
+                            <span id="account-prefs-status" class="text-[9px] font-black text-slate-500">غير محفوظة</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input id="account-phone" type="tel" placeholder="رقم الهاتف" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                            <input id="account-city" type="text" placeholder="المدينة" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                        </div>
+                        <textarea id="account-address" rows="3" placeholder="العنوان أو نقطة الاستلام" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400"></textarea>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <select id="account-contact-method" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="call">Appel</option>
+                                <option value="message">SMS</option>
+                            </select>
+                            <button id="account-save-prefs" type="button" class="w-full bg-amber-400 text-black font-black rounded-xl py-3 text-xs hover:bg-amber-500 transition-colors shadow-lg">حفظ البيانات</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-fetches">0</div>
+                            <div class="text-[9px] text-emerald-400 font-bold uppercase mt-1">Fetches</div>
+                        </div>
+                        <div class="bg-amber-400/10 p-4 rounded-2xl border border-amber-400/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-quotes">0</div>
+                            <div class="text-[9px] text-amber-400 font-bold uppercase mt-1">Manual Quotes</div>
+                        </div>
+                    </div>
+
                     <!-- PRO FEATURE: Level & Rank System (VIP Card Design) -->
                     <div id="vip-card-container" class="relative overflow-hidden rounded-3xl p-5 md:p-6 border border-white/10 bg-slate-900/90 mt-6 shadow-[0_10px_30px_rgba(0,0,0,0.3)] group transition-all duration-500">
                         <!-- Dynamic Background Glow -->
@@ -744,6 +856,14 @@
         </div>
 
     </main>
+
+    <div class="sticky-mobile-bar">
+        <div class="glass-card rounded-3xl border border-white/10 px-3 py-3 flex items-center justify-between gap-2 shadow-[0_12px_35px_rgba(0,0,0,0.4)]">
+            <button onclick="switchTab('calc')" class="flex-1 py-3 rounded-2xl bg-amber-400 text-black text-[10px] font-black">الحاسبة</button>
+            <a href="https://wa.me/21627498276" target="_blank" rel="noopener noreferrer" class="flex-1 py-3 rounded-2xl bg-green-500 text-white text-[10px] font-black text-center">واتساب</a>
+            <button onclick="switchTab('cart')" class="flex-1 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white text-[10px] font-black">السلة</button>
+        </div>
+    </div>
 
     <footer class="p-8 border-t border-white/5 glass-card mt-auto">
         <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
@@ -1652,6 +1772,6 @@
         setInterval(triggerSocialProof, 25000); 
     };
 </script>
-<script src="assets/script.js?v=20260402-3"></script>
+<script src="assets/script.js?v=20260403-1"></script>
 </body>
 </html>
