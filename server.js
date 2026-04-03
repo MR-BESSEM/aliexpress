@@ -109,6 +109,7 @@ function hasUsefulPartialProductData(partial = {}) {
   return Boolean(
     hasUsableImage(partial.image) ||
     sanitizeText(partial.title) ||
+    sanitizeText(partial.description) ||
     Number(partial.price || 0) > 0 ||
     Number(partial.rating || 0) > 0
   );
@@ -119,6 +120,7 @@ function mergePartialProductData(current = null, incoming = null, fallbackUrl = 
   const next = incoming && typeof incoming === "object" ? incoming : {};
   return {
     title: sanitizeText(next.title || base.title || ""),
+    description: sanitizeText(next.description || base.description || ""),
     image: normalizeUrl(next.image || base.image || ""),
     price: pickLowestPositive([Number(next.price || 0), Number(base.price || 0)]),
     shipping: next.shipping != null ? Number(next.shipping) : (base.shipping != null ? Number(base.shipping) : null),
@@ -788,6 +790,18 @@ function cleanupProductTitle(title) {
     .trim();
 }
 
+function cleanupProductDescription(text, fallbackTitle = "") {
+  const cleaned = sanitizeText(text)
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\-\|\s]+|[\-\|\s]+$/g, "")
+    .trim();
+
+  if (!cleaned) return "";
+  if (/^ae.+ip.+模板/i.test(cleaned)) return "";
+  if (fallbackTitle && cleaned.toLowerCase() === String(fallbackTitle).trim().toLowerCase()) return "";
+  return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
+}
+
 function extractPriceFromTextList(texts = []) {
   return pickLowestPositive(texts.flatMap((text) => extractUsdValuesFromText(text)));
 }
@@ -898,17 +912,22 @@ function extractJsonObjectsFromHtml(html, $) {
 }
 
 function extractProductFieldsFromObjectTree(source) {
-  const result = { title: "", image: "", price: 0, rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
+  const result = { title: "", description: "", image: "", price: 0, rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
 
   walkObject(source, (node) => {
     if (Array.isArray(node)) return;
     for (const [key, value] of Object.entries(node)) {
       const lowerKey = key.toLowerCase();
 
-      if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname|itemname|tradename|name)/i.test(lowerKey)) {
-        const title = sanitizeText(value);
-        if (title && !/^aliexpress$/i.test(title)) result.title = title;
-      }
+        if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname|itemname|tradename|name)/i.test(lowerKey)) {
+          const title = sanitizeText(value);
+          if (title && !/^aliexpress$/i.test(title)) result.title = title;
+        }
+
+        if (!result.description && typeof value === "string" && /(?:description|summary|subtitle|sellingpoint|feature|overview|seoDescription)/i.test(lowerKey)) {
+          const description = cleanupProductDescription(value, result.title);
+          if (description) result.description = description;
+        }
 
       if (!result.image && /(?:image|img|cover|thumb|pic)/i.test(lowerKey)) {
         const image = readImage(value);
@@ -956,8 +975,18 @@ function extractHtmlProduct(html, url, source) {
     sanitizeText($("meta[name='twitter:title']").attr("content")) ||
     sanitizeText($("meta[name='title']").attr("content")) ||
     sanitizeText($("[data-pl='product-title']").first().text()) ||
-    sanitizeText($("h1").first().text()) ||
-    sanitizeText($("title").text());
+      sanitizeText($("h1").first().text()) ||
+      sanitizeText($("title").text());
+  const description = cleanupProductDescription(
+    embedded.description ||
+    sanitizeText($("meta[property='og:description']").attr("content")) ||
+    sanitizeText($("meta[name='description']").attr("content")) ||
+    sanitizeText($("meta[name='twitter:description']").attr("content")) ||
+    sanitizeText($("[class*='description']").first().text()) ||
+    sanitizeText($("[class*='Description']").first().text()) ||
+    sanitizeText($("body").text().slice(0, 600)),
+    title
+  );
   const image =
     embedded.image ||
     normalizeUrl($("meta[property='og:image']").attr("content")) ||
@@ -992,12 +1021,13 @@ function extractHtmlProduct(html, url, source) {
   ]);
   const variants = embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($);
 
-  return {
-    success: true,
-    title: isAliExpressBlockedTitle(title) ? "" : title,
-    price,
-    shipping,
-    image,
+    return {
+      success: true,
+      title: isAliExpressBlockedTitle(title) ? "" : title,
+      description,
+      price,
+      shipping,
+      image,
     rating: rating || 4.5,
     reviewCount,
     soldCount,
@@ -1048,14 +1078,15 @@ async function fetchAliExpressApiProduct(productId) {
   });
 
   const extracted = extractProductFieldsFromObjectTree(response.data);
-  if (!extracted.title && !extracted.image && !extracted.price) {
+  if (!extracted.title && !extracted.image && !extracted.description && !extracted.price) {
     throw new Error("AliExpress API returned no usable product fields");
   }
 
-  return {
-    title: extracted.title,
-    image: extracted.image,
-    price: extracted.price,
+    return {
+      title: extracted.title,
+      description: extracted.description,
+      image: extracted.image,
+      price: extracted.price,
     rating: extracted.rating || 4.5,
     reviewCount: extracted.reviewCount || 0,
     soldCount: extracted.soldCount || 0,
@@ -1169,6 +1200,9 @@ async function scrapeWithPlaywright(url) {
 
       return {
         title: queryText(["h1[data-pl='product-title']", "h1[class*='title']", "h1"]),
+        description:
+          queryText(["meta[property='og:description']", "meta[name='description']", "[class*='description']", "[class*='Description']"]) ||
+          "",
         image:
           queryAttr(["meta[property='og:image']", "meta[name='twitter:image']"], "content") ||
           queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "currentSrc") ||
@@ -1197,6 +1231,7 @@ async function scrapeWithPlaywright(url) {
     const merged = {
       ...parsed,
       title: sanitizeText(runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
+      description: cleanupProductDescription(runtime.description || fromGlobals.description || parsed.description || runtime.bodyText, runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
       image: normalizeUrl(runtime.image || fromGlobals.image || parsed.image),
       price: extractPriceFromTextList([...runtime.priceTexts, runtime.bodyText]) || fromGlobals.price || parsed.price,
       rating: extractRatingFromTextList(runtime.ratingTexts) || parsed.rating,
@@ -1207,6 +1242,7 @@ async function scrapeWithPlaywright(url) {
       const error = new Error("AliExpress blocked this host for the current URL");
       error.partialData = {
         title: "",
+        description: merged.description,
         image: merged.image,
         price: merged.price,
         shipping: merged.shipping,
@@ -1216,10 +1252,11 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
 
-    if (!merged.title || /^aliexpress$/i.test(merged.title) || !merged.image || merged.price <= 0) {
+    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title)) || !merged.image) {
       log("warn", "Playwright extracted partial product data", {
         url,
         title: merged.title || null,
+        description: merged.description ? true : false,
         image: Boolean(merged.image),
         price: merged.price || 0,
         shipping: merged.shipping,
@@ -1228,12 +1265,13 @@ async function scrapeWithPlaywright(url) {
       const error = new Error("Playwright scrape returned incomplete product data");
       error.partialData = {
         title: merged.title,
+        description: merged.description,
         image: merged.image,
         price: merged.price,
         shipping: merged.shipping,
         rating: merged.rating
       };
-      if (hasUsableImage(merged.image) && (!merged.title || merged.price <= 0)) {
+      if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
         error.nonRetryable = true;
       }
       throw error;
@@ -1257,16 +1295,17 @@ async function scrapeWithHttp(url) {
   });
 
   const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (!parsed.title || /^aliexpress$/i.test(parsed.title) || !parsed.image || parsed.price <= 0) {
+  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title)) || !parsed.image) {
     const error = new Error("HTTP fallback returned incomplete product data");
     error.partialData = {
       title: parsed.title,
+      description: parsed.description,
       image: parsed.image,
       price: parsed.price,
       shipping: parsed.shipping,
       rating: parsed.rating
     };
-    if (hasUsableImage(parsed.image) && (!parsed.title || parsed.price <= 0)) {
+    if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
       error.nonRetryable = true;
     }
     throw error;
@@ -1337,6 +1376,7 @@ async function fetchProduct(url) {
   if (!pageData) {
     pageData = {
       title: partialPageData?.title || `AliExpress Product #${productId}`,
+      description: partialPageData?.description || "",
       price: Number(partialPageData?.price || 0),
       image: normalizeUrl(partialPageData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
       rating: Number(partialPageData?.rating || 4.5),
@@ -1352,6 +1392,7 @@ async function fetchProduct(url) {
   const product = {
     success: true,
     title: cleanupProductTitle(apiData?.title || pageData?.title || "AliExpress Product"),
+    description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "AliExpress Product"),
     price: Number(apiData?.price || pageData?.price || 0),
     shipping: Number(pageData?.shipping ?? DEFAULT_SHIPPING_USD),
     image: apiData?.image || pageData?.image || "",
@@ -1383,7 +1424,7 @@ async function fetchProduct(url) {
     product.manualQuoteRecommended = true;
   }
 
-  if (!hasUsableImage(product.image) || (!product.priceUnavailable && product.price <= 0) || /^aliexpress$/i.test(product.title)) {
+  if (!hasUsableImage(product.image) || (!product.title && !product.description) || /^aliexpress$/i.test(product.title)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
     error.status = 502;
     throw error;
