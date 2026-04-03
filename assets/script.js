@@ -9,6 +9,14 @@
     const RECENT_LINKS_KEY = "alex_recent_links_v1";
     const ACCOUNT_PREFS_KEY = "alex_account_prefs_v1";
     const LOCAL_STATS_KEY = "alex_local_stats_v1";
+    const BUDGET_PREFS_KEY = "alex_budget_prefs_v1";
+    const SAVED_PACKS_KEY = "alex_saved_packs_v1";
+    const PRICE_ALERTS_KEY = "alex_price_alerts_v1";
+    const REFERRAL_STATE_KEY = "alex_referral_state_v1";
+    const ADMIN_PROMOS_KEY = "alex_admin_promos_v1";
+    const ADMIN_PIN_KEY = "alex_admin_pin_v1";
+    const ADMIN_TOKEN_KEY = "alex_admin_token_v1";
+    const ACTIVITY_LOG_KEY = "alex_activity_log_v1";
 
     const dom = {
         calcLink: document.getElementById("calc-link"),
@@ -30,6 +38,20 @@
         previewPrice: document.getElementById("runtime-preview-price"),
         previewLink: document.getElementById("runtime-preview-link"),
         previewSource: document.getElementById("runtime-preview-source"),
+        createAlertBtn: document.getElementById("runtime-create-alert"),
+        shareReferralBtn: document.getElementById("runtime-copy-referral-share"),
+        trustCard: document.getElementById("runtime-trust-card"),
+        trustBadge: document.getElementById("runtime-trust-badge"),
+        trustRating: document.getElementById("runtime-trust-rating"),
+        trustReviews: document.getElementById("runtime-trust-reviews"),
+        trustSold: document.getElementById("runtime-trust-sold"),
+        trustNote: document.getElementById("runtime-trust-note"),
+        variantsCard: document.getElementById("runtime-variants-card"),
+        variantGroups: document.getElementById("runtime-variant-groups"),
+        metricOrders: document.getElementById("runtime-metric-orders"),
+        metricPromos: document.getElementById("runtime-metric-promos"),
+        metricFetches: document.getElementById("runtime-metric-fetches"),
+        metricRate: document.getElementById("runtime-metric-rate"),
         recentLinksCard: document.getElementById("runtime-recent-links-card"),
         recentLinks: document.getElementById("runtime-recent-links"),
         clearLinksBtn: document.getElementById("runtime-clear-links"),
@@ -38,6 +60,32 @@
         breakdownShipping: document.getElementById("runtime-breakdown-shipping"),
         breakdownService: document.getElementById("runtime-breakdown-service"),
         breakdownTotal: document.getElementById("runtime-breakdown-total"),
+        budgetCard: document.getElementById("runtime-budget-card"),
+        budgetInput: document.getElementById("runtime-budget-input"),
+        budgetBuffer: document.getElementById("runtime-budget-buffer"),
+        budgetStatus: document.getElementById("runtime-budget-status"),
+        budgetRemaining: document.getElementById("runtime-budget-remaining"),
+        budgetSafeTotal: document.getElementById("runtime-budget-safe-total"),
+        budgetMaxUsd: document.getElementById("runtime-budget-max-usd"),
+        budgetNote: document.getElementById("runtime-budget-note"),
+        customsCard: document.getElementById("runtime-customs-card"),
+        customsLevel: document.getElementById("runtime-customs-level"),
+        customsNote: document.getElementById("runtime-customs-note"),
+        customsDocs: document.getElementById("runtime-customs-docs"),
+        customsAlt: document.getElementById("runtime-customs-alt"),
+        quoteCompareCard: document.getElementById("runtime-quote-compare-card"),
+        quoteCompareStatus: document.getElementById("runtime-quote-compare-status"),
+        quoteAuto: document.getElementById("runtime-quote-auto"),
+        quoteSimilar: document.getElementById("runtime-quote-similar"),
+        quoteManual: document.getElementById("runtime-quote-manual"),
+        quoteNote: document.getElementById("runtime-quote-note"),
+        resellerStatus: document.getElementById("runtime-reseller-status"),
+        resellerPrice: document.getElementById("runtime-reseller-price"),
+        resellerQty: document.getElementById("runtime-reseller-qty"),
+        profitUnit: document.getElementById("runtime-profit-unit"),
+        profitTotal: document.getElementById("runtime-profit-total"),
+        profitRoi: document.getElementById("runtime-profit-roi"),
+        profitBreakEven: document.getElementById("runtime-profit-break-even"),
         insightsCard: document.getElementById("runtime-insights-card"),
         deliveryEstimate: document.getElementById("runtime-delivery-estimate"),
         riskBadge: document.getElementById("runtime-risk-badge"),
@@ -50,17 +98,86 @@
         imagePreview: document.getElementById("runtime-image-preview"),
         imageClearBtn: document.getElementById("runtime-image-clear"),
         historyList: document.getElementById("history-items-list"),
+        historySearch: document.getElementById("runtime-history-search"),
+        historyStatus: document.getElementById("runtime-history-status"),
+        repeatOrders: document.getElementById("runtime-repeat-orders"),
         trackResult: document.getElementById("search-result"),
+        notifications: document.getElementById("runtime-notifications"),
+        cartInsightsCard: document.getElementById("runtime-cart-insights-card"),
+        cartHealth: document.getElementById("runtime-cart-health"),
+        cartUnits: document.getElementById("runtime-cart-units"),
+        cartService: document.getElementById("runtime-cart-service"),
+        cartFreeShip: document.getElementById("runtime-cart-free-ship"),
+        cartRisk: document.getElementById("runtime-cart-risk"),
+        cartEta: document.getElementById("runtime-cart-eta"),
+        cartRecommendation: document.getElementById("runtime-cart-recommendation"),
+        bundleCard: document.getElementById("runtime-bundle-card"),
+        bundleBadge: document.getElementById("runtime-bundle-badge"),
+        bundleSavings: document.getElementById("runtime-bundle-savings"),
+        bundleTitle: document.getElementById("runtime-bundle-title"),
+        bundleNote: document.getElementById("runtime-bundle-note"),
+        voiceRecordBtn: document.getElementById("runtime-voice-record"),
+        voiceStopBtn: document.getElementById("runtime-voice-stop"),
+        voiceUpload: document.getElementById("runtime-voice-upload"),
+        voicePlayer: document.getElementById("runtime-voice-player"),
+        voiceStatus: document.getElementById("runtime-voice-status"),
+        voiceNote: document.getElementById("runtime-voice-note"),
+        downloadQuoteBtn: document.getElementById("runtime-download-quote"),
+        exportCsvBtn: document.getElementById("runtime-export-csv"),
         accountPhone: document.getElementById("account-phone"),
         accountCity: document.getElementById("account-city"),
         accountAddress: document.getElementById("account-address"),
         accountContactMethod: document.getElementById("account-contact-method"),
         accountSavePrefs: document.getElementById("account-save-prefs"),
         accountPrefsStatus: document.getElementById("account-prefs-status"),
+        packName: document.getElementById("runtime-pack-name"),
+        savePackBtn: document.getElementById("runtime-save-pack"),
+        packCount: document.getElementById("runtime-pack-count"),
+        savedPacks: document.getElementById("runtime-saved-packs"),
+        alertCount: document.getElementById("runtime-alert-count"),
+        alertWatchlist: document.getElementById("runtime-alert-watchlist"),
+        referralTier: document.getElementById("runtime-referral-tier"),
+        referralCode: document.getElementById("runtime-referral-code"),
+        referralCredits: document.getElementById("runtime-referral-credits"),
+        referralInput: document.getElementById("runtime-referral-input"),
+        referralApply: document.getElementById("runtime-referral-apply"),
+        referralCopy: document.getElementById("runtime-referral-copy"),
+        referralNote: document.getElementById("runtime-referral-note"),
         accountOrders: document.getElementById("acc-stat-orders"),
         accountWish: document.getElementById("acc-stat-wish"),
         accountFetches: document.getElementById("acc-stat-fetches"),
-        accountQuotes: document.getElementById("acc-stat-quotes")
+        accountQuotes: document.getElementById("acc-stat-quotes"),
+        customerTier: document.getElementById("runtime-customer-tier"),
+        loyaltyPoints: document.getElementById("runtime-loyalty-points"),
+        customerTagCount: document.getElementById("runtime-customer-tag-count"),
+        customerTags: document.getElementById("runtime-customer-tags"),
+        trackRef: document.getElementById("runtime-track-ref"),
+        trackSearchBtn: document.getElementById("runtime-track-search-btn"),
+        trackStatusCard: document.getElementById("runtime-track-status-card"),
+        trackStatusRef: document.getElementById("runtime-track-status-ref"),
+        trackStatusBadge: document.getElementById("runtime-track-status-badge"),
+        trackStatusNote: document.getElementById("runtime-track-status-note"),
+        trackStatusExtra: document.getElementById("runtime-track-status-extra"),
+        trackTimeline: document.getElementById("runtime-track-timeline"),
+        adminPin: document.getElementById("admin-pin"),
+        adminUnlockBtn: document.getElementById("admin-unlock-btn"),
+        adminLockBtn: document.getElementById("admin-lock-btn"),
+        adminUnlockStatus: document.getElementById("admin-unlock-status"),
+        adminPanel: document.getElementById("runtime-admin-panel"),
+        adminPromoCode: document.getElementById("admin-promo-code"),
+        adminPromoType: document.getElementById("admin-promo-type"),
+        adminPromoValue: document.getElementById("admin-promo-value"),
+        adminPromoLimit: document.getElementById("admin-promo-limit"),
+        adminPromoExpiry: document.getElementById("admin-promo-expiry"),
+        adminPromoSave: document.getElementById("admin-promo-save"),
+        adminPromos: document.getElementById("runtime-admin-promos"),
+        adminOrderRef: document.getElementById("admin-order-ref"),
+        adminOrderStatus: document.getElementById("admin-order-status"),
+        adminOrderTracking: document.getElementById("admin-order-tracking"),
+        adminOrderUpdate: document.getElementById("admin-order-update"),
+        adminOrders: document.getElementById("runtime-admin-orders"),
+        adminActivity: document.getElementById("runtime-admin-activity"),
+        adminAnalytics: document.getElementById("runtime-admin-analytics")
     };
 
     const state = {
@@ -68,6 +185,19 @@
         currentProduct: null,
         recentLinks: [],
         accountPrefs: null,
+        budgetPrefs: null,
+        savedPacks: [],
+        priceAlerts: [],
+        referral: null,
+        voiceNote: null,
+        mediaRecorder: null,
+        audioChunks: [],
+        adminAnalytics: null,
+        adminUnlocked: false,
+        adminToken: "",
+        adminPromos: [],
+        activePromoCode: "",
+        activityLog: [],
         stats: {
             fetches: 0,
             manualQuotes: 0
@@ -115,6 +245,49 @@
         }
     }
 
+    function getStoredAdminToken() {
+        try {
+            return window.sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
+        } catch {
+            return "";
+        }
+    }
+
+    function setStoredAdminToken(token) {
+        try {
+            if (token) {
+                window.sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+            } else {
+                window.sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+            }
+        } catch {
+            // ignore storage errors
+        }
+    }
+
+    async function apiFetch(endpoint, options = {}, requiresAuth = false) {
+        const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+        if (requiresAuth && state.adminToken) {
+            headers.Authorization = `Bearer ${state.adminToken}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, Object.assign({}, options, { headers }));
+        let data = {};
+        try {
+            data = await response.json();
+        } catch {
+            data = {};
+        }
+
+        if (!response.ok || data.success === false) {
+            const error = new Error(data.error || `Request failed (${response.status})`);
+            error.status = response.status;
+            throw error;
+        }
+
+        return data;
+    }
+
     function getAccountPrefs() {
         if (state.accountPrefs) return state.accountPrefs;
         state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
@@ -126,10 +299,177 @@
         return state.accountPrefs;
     }
 
+    function getBudgetPrefs() {
+        if (state.budgetPrefs) return state.budgetPrefs;
+        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
+            budget: "",
+            buffer: "10"
+        });
+        return state.budgetPrefs;
+    }
+
+    function saveBudgetPrefs(prefs) {
+        state.budgetPrefs = prefs;
+        writeJsonStorage(BUDGET_PREFS_KEY, prefs);
+    }
+
+    function getSavedPacks() {
+        if (Array.isArray(state.savedPacks) && state.savedPacks.length) return state.savedPacks;
+        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
+        return state.savedPacks;
+    }
+
+    function saveSavedPacks(packs) {
+        state.savedPacks = packs.slice(0, 8);
+        writeJsonStorage(SAVED_PACKS_KEY, state.savedPacks);
+        renderSavedPacks();
+    }
+
+    function getPriceAlerts() {
+        if (Array.isArray(state.priceAlerts) && state.priceAlerts.length) return state.priceAlerts;
+        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
+        return state.priceAlerts;
+    }
+
+    function savePriceAlerts(alerts) {
+        state.priceAlerts = alerts.slice(0, 20);
+        writeJsonStorage(PRICE_ALERTS_KEY, state.priceAlerts);
+        renderPriceAlerts();
+    }
+
+    function buildReferralCode() {
+        let seed = window.userId || window.localStorage.getItem("alexpress_user_id") || window.localStorage.getItem("alex_referral_seed") || "";
+        if (!seed) {
+            seed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+            window.localStorage.setItem("alex_referral_seed", seed);
+        }
+        seed = String(seed).replace(/[^A-Z0-9]/gi, "").toUpperCase();
+        return `ALEX-${seed.slice(-6).padStart(6, "0")}`;
+    }
+
+    function getReferralState() {
+        if (state.referral) return state.referral;
+        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
+            code: buildReferralCode(),
+            credits: 0,
+            appliedCodes: [],
+            usedOwnCode: false
+        });
+        return state.referral;
+    }
+
+    function saveReferralState(referral) {
+        state.referral = referral;
+        writeJsonStorage(REFERRAL_STATE_KEY, referral);
+        renderReferralCard();
+    }
+
     function getLocalStats() {
         if (state.stats && typeof state.stats.fetches === "number") return state.stats;
         state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
         return state.stats;
+    }
+
+    function getActivityLog() {
+        if (Array.isArray(state.activityLog) && state.activityLog.length) return state.activityLog;
+        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
+        return state.activityLog;
+    }
+
+    function saveActivityLog(entries) {
+        state.activityLog = entries.slice(0, 12);
+        writeJsonStorage(ACTIVITY_LOG_KEY, state.activityLog);
+    }
+
+    function pushActivityLog(type, text) {
+        const next = [{
+            id: Date.now(),
+            type,
+            text,
+            at: new Date().toLocaleString("ar-TN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
+        }].concat(getActivityLog()).slice(0, 12);
+        saveActivityLog(next);
+        renderActivityLog();
+        renderNotifications();
+    }
+
+    function getAdminPin() {
+        return window.localStorage.getItem(ADMIN_PIN_KEY) || "2749";
+    }
+
+    function getAdminPromos() {
+        if (Array.isArray(state.adminPromos) && state.adminPromos.length) return state.adminPromos;
+        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
+        return state.adminPromos;
+    }
+
+    function saveAdminPromos(promos) {
+        state.adminPromos = promos;
+        writeJsonStorage(ADMIN_PROMOS_KEY, promos);
+        renderAdminPromos();
+        renderAccountStats();
+        renderNotifications();
+    }
+
+    function mergeOrderIntoHistory(order) {
+        if (!order || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        const ref = String(order.orderRef || order.id || "");
+        const index = orderHistory.findIndex((item) => String(item.orderRef || item.id || "") === ref);
+        if (index >= 0) {
+            orderHistory[index] = Object.assign({}, orderHistory[index], order);
+        } else {
+            orderHistory.unshift(order);
+        }
+    }
+
+    function syncOrdersFromServer(orders) {
+        if (!Array.isArray(orders) || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        orders.forEach(mergeOrderIntoHistory);
+        if (typeof saveData === "function") saveData();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+    }
+
+    async function refreshPublicPromos() {
+        try {
+            const data = await apiFetch("/api/promos");
+            if (Array.isArray(data.promos)) {
+                saveAdminPromos(data.promos);
+            }
+        } catch {
+            // keep local fallback
+        }
+    }
+
+    async function refreshAdminState() {
+        if (!state.adminToken) return false;
+        const data = await apiFetch("/api/admin/state", {}, true);
+        state.adminUnlocked = true;
+        state.adminAnalytics = data.analytics || null;
+        saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+        syncOrdersFromServer(Array.isArray(data.orders) ? data.orders : []);
+        if (dom.adminPanel) dom.adminPanel.classList.remove("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = "Unlocked";
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
+        }
+        renderAdminAnalytics();
+        return true;
+    }
+
+    async function persistOrderToBackend(order) {
+        try {
+            const data = await apiFetch("/api/orders/register", {
+                method: "POST",
+                body: JSON.stringify(order)
+            });
+            if (data.order) {
+                mergeOrderIntoHistory(data.order);
+                if (typeof saveData === "function") saveData();
+                if (typeof window.renderHistory === "function") window.renderHistory();
+            }
+        } catch {
+            // local fallback already exists
+        }
     }
 
     function formatUsd(value) {
@@ -138,6 +478,31 @@
 
     function formatTnd(value) {
         return `${Number(value || 0).toFixed(3)} TND`;
+    }
+
+    function formatDateLabel(dateLike) {
+        const date = dateLike ? new Date(dateLike) : new Date();
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleDateString("en-GB");
+    }
+
+    function cloneData(value) {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return value;
+        }
+    }
+
+    function parseDeliveryWindow(label) {
+        const values = String(label || "").match(/\d+/g);
+        if (!values || !values.length) return null;
+        const numbers = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+        if (!numbers.length) return null;
+        if (numbers.length === 1) {
+            return { min: numbers[0], max: numbers[0] };
+        }
+        return { min: Math.min(...numbers), max: Math.max(...numbers) };
     }
 
     function toast(message) {
@@ -169,13 +534,572 @@
 
     function renderAccountStats() {
         const stats = getLocalStats();
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
         if (dom.accountFetches) dom.accountFetches.textContent = Number(stats.fetches || 0);
         if (dom.accountQuotes) dom.accountQuotes.textContent = Number(stats.manualQuotes || 0);
-        if (dom.accountOrders && typeof orderHistory !== "undefined" && Array.isArray(orderHistory)) {
-            dom.accountOrders.textContent = orderHistory.length;
+        if (dom.accountOrders) dom.accountOrders.textContent = ordersCount;
+        if (dom.accountWish) dom.accountWish.textContent = wishCount;
+        if (dom.metricOrders) dom.metricOrders.textContent = ordersCount;
+        if (dom.metricPromos) {
+            dom.metricPromos.textContent = getCombinedPromos().length;
         }
-        if (dom.accountWish && typeof wishlist !== "undefined" && Array.isArray(wishlist)) {
-            dom.accountWish.textContent = wishlist.length;
+        if (dom.metricFetches) {
+            dom.metricFetches.textContent = Number(stats.fetches || 0);
+        }
+        if (dom.metricRate) {
+            dom.metricRate.textContent = Number(state.liveRate || FX_FALLBACK_RATE).toFixed(3);
+        }
+        renderCustomerProfile();
+        renderNavBadges();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderAdminAnalytics();
+        renderRepeatOrders();
+    }
+
+    function getCustomerProfile() {
+        const stats = getLocalStats();
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
+        const points = (ordersCount * 120) + (Number(stats.fetches || 0) * 5) + (Number(stats.manualQuotes || 0) * 15) + (wishCount * 8);
+        const tags = [];
+
+        if (ordersCount >= 8) tags.push({ label: "VIP CLIENT", tone: "amber" });
+        else if (ordersCount >= 3) tags.push({ label: "RETURNING", tone: "blue" });
+        else tags.push({ label: "NEW CLIENT", tone: "slate" });
+
+        if (Number(stats.fetches || 0) >= 10) tags.push({ label: "POWER SEARCHER", tone: "emerald" });
+        if (Number(stats.manualQuotes || 0) >= 3) tags.push({ label: "QUOTE READY", tone: "purple" });
+        if (wishCount >= 4) tags.push({ label: "HIGH INTENT", tone: "pink" });
+
+        let tier = "BRONZE";
+        if (points >= 1800) tier = "PLATINUM";
+        else if (points >= 900) tier = "GOLD";
+        else if (points >= 350) tier = "SILVER";
+
+        return { points, tags, tier };
+    }
+
+    function renderCustomerProfile() {
+        if (!dom.customerTier || !dom.loyaltyPoints || !dom.customerTagCount || !dom.customerTags) return;
+        const profile = getCustomerProfile();
+        const toneMap = {
+            amber: "bg-amber-400/10 text-amber-300 border-amber-400/20",
+            blue: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+            emerald: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+            purple: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+            pink: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+            slate: "bg-white/5 text-slate-300 border-white/10"
+        };
+
+        dom.customerTier.textContent = profile.tier;
+        dom.loyaltyPoints.textContent = profile.points;
+        dom.customerTagCount.textContent = profile.tags.length;
+        dom.customerTags.innerHTML = profile.tags.map((tag) => `
+            <span class="px-3 py-1 rounded-full border text-[9px] font-black ${toneMap[tag.tone] || toneMap.slate}">
+                ${escapeHtml(tag.label)}
+            </span>
+        `).join("");
+    }
+
+    function ensureNavBadge(buttonId, badgeId, classes) {
+        const button = document.getElementById(buttonId);
+        if (!button) return null;
+        let badge = document.getElementById(badgeId);
+        if (!badge) {
+            button.classList.add("relative");
+            badge = document.createElement("span");
+            badge.id = badgeId;
+            badge.className = classes;
+            badge.textContent = "0";
+            button.appendChild(badge);
+        }
+        return badge;
+    }
+
+    function renderNavBadges() {
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const pendingCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory)
+            ? orderHistory.filter((order) => ["pending", "processing", "shipped"].includes(String(order.status || "pending"))).length
+            : 0;
+        const notificationsCount = Math.min(9, getActivityLog().length);
+
+        const historyBadge = ensureNavBadge("tab-history", "runtime-history-badge", "absolute -top-1 -left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
+        const accountBadge = ensureNavBadge("tab-account", "runtime-account-badge", "absolute -top-1 -left-1 bg-amber-400 text-black text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
+
+        if (historyBadge) {
+            historyBadge.textContent = pendingCount;
+            historyBadge.classList.toggle("hidden", pendingCount === 0);
+        }
+        if (accountBadge) {
+            accountBadge.textContent = notificationsCount || ordersCount;
+            accountBadge.classList.toggle("hidden", (notificationsCount || ordersCount) === 0);
+        }
+    }
+
+    function renderActivityLog() {
+        if (!dom.adminActivity) return;
+        const entries = getActivityLog();
+        if (!entries.length) {
+            dom.adminActivity.innerHTML = `<div class="text-[10px] text-slate-500 italic">No activity yet.</div>`;
+            return;
+        }
+
+        dom.adminActivity.innerHTML = entries.map((entry) => `
+            <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-[9px] font-black text-white uppercase">${escapeHtml(entry.type || "info")}</span>
+                    <span class="text-[9px] text-slate-500 font-bold">${escapeHtml(entry.at || "")}</span>
+                </div>
+                <div class="text-[10px] text-slate-300 mt-2">${escapeHtml(entry.text || "")}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderNotifications() {
+        if (!dom.notifications) return;
+        const toneMap = {
+            blue: "border-blue-400/20 bg-blue-500/10",
+            emerald: "border-emerald-400/20 bg-emerald-500/10",
+            amber: "border-amber-400/20 bg-amber-400/10",
+            slate: "border-white/5 bg-slate-900/60"
+        };
+        const notices = [];
+        const promos = getCombinedPromos();
+        const latestOrder = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) && orderHistory.length ? orderHistory[0] : null;
+        const stats = getLocalStats();
+
+        if (latestOrder) {
+            notices.push({
+                tone: "blue",
+                title: `Latest order: ${latestOrder.orderRef || latestOrder.id}`,
+                body: latestOrder.adminTracking || latestOrder.trackingHint || getStatusUi(latestOrder.status || "pending").label
+            });
+        }
+        if (promos.length) {
+            notices.push({
+                tone: "emerald",
+                title: `${promos.length} active promos`,
+                body: `Top code: ${promos[0].code}`
+            });
+        }
+        if (stats.manualQuotes > 0) {
+            notices.push({
+                tone: "amber",
+                title: "Manual quote activity",
+                body: `${stats.manualQuotes} quote requests prepared from this device`
+            });
+        }
+        if (!notices.length) {
+            notices.push({
+                tone: "slate",
+                title: "System ready",
+                body: "ابدأ scrape جديد أو اطلب quote باش يبان النشاط هنا."
+            });
+        }
+
+        dom.notifications.innerHTML = notices.slice(0, 4).map((item) => `
+            <div class="rounded-xl border p-3 ${toneMap[item.tone] || toneMap.slate}">
+                <div class="text-[10px] font-black text-white">${escapeHtml(item.title)}</div>
+                <div class="text-[9px] text-slate-300 mt-1 leading-relaxed">${escapeHtml(item.body)}</div>
+            </div>
+        `).join("");
+    }
+
+    function getStatusUi(status) {
+        const statusMap = {
+            pending: { label: "قيد المراجعة", classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+            processing: { label: "تم الشراء", classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
+            shipped: { label: "في الطريق", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
+            delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
+        };
+        return statusMap[status] || statusMap.pending;
+    }
+
+    function findOrderByRef(ref) {
+        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return null;
+        return orderHistory.find((order) => String(order.orderRef || order.id || "").toLowerCase() === String(ref || "").trim().toLowerCase()) || null;
+    }
+
+    function renderTrackLookupResult(order) {
+        if (!dom.trackStatusCard || !dom.trackStatusRef || !dom.trackStatusBadge || !dom.trackStatusNote || !dom.trackStatusExtra) return;
+        if (!order) {
+            dom.trackStatusCard.classList.add("hidden");
+            renderTrackingTimeline(null);
+            return;
+        }
+        const statusUi = getStatusUi(order.status || "pending");
+        dom.trackStatusCard.classList.remove("hidden");
+        dom.trackStatusRef.textContent = order.orderRef || String(order.id || "");
+        dom.trackStatusBadge.textContent = statusUi.label;
+        dom.trackStatusBadge.className = `text-[10px] px-3 py-1 rounded-full font-black border ${statusUi.classes}`;
+        dom.trackStatusNote.textContent = order.trackingHint || order.adminTracking || "مازال ما فماش tracking note مضافة.";
+        dom.trackStatusExtra.textContent = order.adminTracking ? `Tracking: ${order.adminTracking}` : "";
+        renderTrackingTimeline(order);
+    }
+
+    async function searchTrackedOrder() {
+        const ref = dom.trackRef?.value.trim() || "";
+        if (!ref) {
+            toast("دخل مرجع الطلب أولًا.");
+            return;
+        }
+        let order = null;
+        try {
+            const data = await apiFetch(`/api/orders/${encodeURIComponent(ref)}`);
+            order = data.order || null;
+            if (order) {
+                mergeOrderIntoHistory(order);
+                if (typeof saveData === "function") saveData();
+            }
+        } catch {
+            order = null;
+        }
+        if (!order) order = findOrderByRef(ref);
+        if (!order) {
+            renderTrackLookupResult(null);
+            toast("ما لقيناش الطلب بهذا المرجع.");
+            return;
+        }
+        renderTrackLookupResult(order);
+    }
+
+    async function unlockAdmin() {
+        const pin = dom.adminPin?.value.trim() || "";
+        state.adminUnlocked = pin === getAdminPin();
+        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
+        dom.adminPanel.classList.toggle("hidden", !state.adminUnlocked);
+        dom.adminUnlockStatus.textContent = state.adminUnlocked ? "Unlocked" : "Locked";
+        dom.adminUnlockStatus.className = `text-[9px] font-black ${state.adminUnlocked ? "text-emerald-300" : "text-red-300"}`;
+        if (!state.adminUnlocked) {
+            toast("PIN admin غالط.");
+            return;
+        }
+        renderAdminPromos();
+        renderAdminOrders();
+        toast("تم فتح لوحة الإدارة.");
+    }
+
+    function lockAdmin() {
+        state.adminUnlocked = false;
+        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+        }
+    }
+
+    function renderAdminPromos() {
+        if (!dom.adminPromos) return;
+        const promos = getAdminPromos();
+        if (!promos.length) {
+            dom.adminPromos.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش promo codes محليين توّا.</div>`;
+            return;
+        }
+        dom.adminPromos.innerHTML = promos.map((promo, index) => `
+            <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-black text-white">${escapeHtml(promo.code)}</div>
+                    <div class="text-[9px] text-slate-400">
+                        ${promo.type === "percent" ? `${promo.value}%` : `${promo.value} TND`} • 
+                        used ${Number(promo.used || 0)}/${Number(promo.limit || 0) || "∞"} • 
+                        ${promo.expiresAt || "no expiry"}
+                    </div>
+                </div>
+                <button type="button" class="text-[9px] font-black text-red-300 hover:text-red-200 transition-colors" data-remove-promo="${index}">Delete</button>
+            </div>
+        `).join("");
+    }
+
+    function renderAdminOrders() {
+        if (!dom.adminOrders) return;
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.slice(0, 8) : [];
+        if (!orders.length) {
+            dom.adminOrders.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش طلبات حتى الآن.</div>`;
+            return;
+        }
+        dom.adminOrders.innerHTML = orders.map((order) => {
+            const statusUi = getStatusUi(order.status || "pending");
+            return `
+                <button type="button" class="w-full text-right rounded-2xl border border-white/5 bg-slate-900/70 p-3 hover:border-amber-400/30 transition-colors" data-fill-order="${escapeHtml(order.orderRef || String(order.id || ""))}">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</span>
+                        <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
+                    </div>
+                    <div class="text-[9px] text-slate-500 mt-2">${escapeHtml(order.adminTracking || order.trackingHint || "")}</div>
+                </button>
+            `;
+        }).join("");
+    }
+
+    function saveAdminPromo() {
+        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
+        const type = dom.adminPromoType?.value || "percent";
+        const value = Number(dom.adminPromoValue?.value || 0);
+        const limit = Number(dom.adminPromoLimit?.value || 0);
+        const expiresAt = dom.adminPromoExpiry?.value || "";
+        if (!code || value <= 0) {
+            toast("كمّل بيانات الـ promo code.");
+            return;
+        }
+        const promos = getAdminPromos().filter((promo) => promo.code !== code);
+        promos.unshift({ code, type, value, limit, expiresAt, used: 0 });
+        saveAdminPromos(promos);
+        if (dom.adminPromoCode) dom.adminPromoCode.value = "";
+        if (dom.adminPromoValue) dom.adminPromoValue.value = "";
+        if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
+        if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
+        toast("تم حفظ الـ promo code.");
+    }
+
+    function normalizePromo(promo) {
+        if (!promo) return null;
+        const code = String(promo.code || "").trim().toUpperCase();
+        if (!code) return null;
+        return {
+            code,
+            type: promo.type || (promo.discountType === "fixed" ? "fixed" : "percent"),
+            value: Number(promo.value ?? promo.discount ?? 0),
+            limit: Number(promo.limit ?? promo.usageLimit ?? 0),
+            used: Number(promo.used || 0),
+            expiresAt: promo.expiresAt || promo.expiry || promo.expires || ""
+        };
+    }
+
+    function getCombinedPromos() {
+        const cloud = Array.isArray(window.availablePromos) ? window.availablePromos : [];
+        const combined = [...getAdminPromos(), ...cloud].map(normalizePromo).filter(Boolean);
+        const seen = new Set();
+        return combined.filter((promo) => {
+            if (seen.has(promo.code)) return false;
+            seen.add(promo.code);
+            return true;
+        });
+    }
+
+    function applyPromoCode() {
+        const codeInput = document.getElementById("promo-code");
+        const msg = document.getElementById("promo-message");
+        const discountBadge = document.getElementById("discount-badge");
+        const code = String(codeInput?.value || "").trim().toUpperCase();
+        if (!code || typeof currentDiscount === "undefined") {
+            toast("دخل promo code صحيح.");
+            return;
+        }
+
+        const now = new Date();
+        const promo = getCombinedPromos().find((item) => item.code === code);
+        const expired = promo?.expiresAt ? new Date(promo.expiresAt) < now : false;
+        const limitReached = promo?.limit > 0 && promo.used >= promo.limit;
+
+        if (!promo || promo.value <= 0 || expired || limitReached) {
+            currentDiscount = 0;
+            discountType = "";
+            state.activePromoCode = "";
+            if (msg) {
+                msg.classList.remove("hidden", "text-green-400");
+                msg.classList.add("text-red-400");
+                msg.textContent = "الكود غالط، منتهي، أو limit متاعو كمل.";
+            }
+            discountBadge?.classList.add("hidden");
+            if (typeof renderCart === "function") renderCart();
+            toast("الـ promo code موش صالح.");
+            return;
+        }
+
+        currentDiscount = promo.value;
+        discountType = promo.type;
+        state.activePromoCode = promo.code;
+        if (msg) {
+            msg.classList.remove("hidden", "text-red-400");
+            msg.classList.add("text-green-400");
+            msg.textContent = promo.type === "percent"
+                ? `تم تفعيل ${promo.code} بخصم ${promo.value}%`
+                : `تم تفعيل ${promo.code} بخصم ${promo.value} TND`;
+        }
+        discountBadge?.classList.remove("hidden");
+        if (typeof renderCart === "function") renderCart();
+        toast("تم تفعيل الـ promo code.");
+    }
+
+    function markPromoUsed(code) {
+        if (!code) return;
+        const promos = getAdminPromos().slice();
+        const index = promos.findIndex((promo) => String(promo.code || "").trim().toUpperCase() === String(code).trim().toUpperCase());
+        if (index === -1) return;
+        promos[index].used = Number(promos[index].used || 0) + 1;
+        saveAdminPromos(promos);
+    }
+
+    function removeAdminPromo(index) {
+        const promos = getAdminPromos().slice();
+        promos.splice(index, 1);
+        saveAdminPromos(promos);
+        toast("تم حذف الـ promo code.");
+    }
+
+    function fillAdminOrder(ref) {
+        const order = findOrderByRef(ref);
+        if (!order) return;
+        if (dom.adminOrderRef) dom.adminOrderRef.value = order.orderRef || String(order.id || "");
+        if (dom.adminOrderStatus) dom.adminOrderStatus.value = order.status || "pending";
+        if (dom.adminOrderTracking) dom.adminOrderTracking.value = order.adminTracking || order.trackingHint || "";
+    }
+
+    function updateAdminOrder() {
+        const ref = dom.adminOrderRef?.value.trim() || "";
+        if (!ref || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) {
+            toast("دخل مرجع طلب صحيح.");
+            return;
+        }
+        const target = findOrderByRef(ref);
+        if (!target) {
+            toast("الطلب هذا موش موجود.");
+            return;
+        }
+        target.status = dom.adminOrderStatus?.value || "pending";
+        target.adminTracking = dom.adminOrderTracking?.value.trim() || "";
+        target.trackingHint = target.adminTracking || target.trackingHint || "";
+        if (typeof saveData === "function") saveData();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+        renderTrackLookupResult(target);
+        renderAdminOrders();
+        toast("تم تحديث status الطلب.");
+    }
+
+    async function unlockAdminRemote() {
+        const pin = dom.adminPin?.value.trim() || "";
+        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
+
+        try {
+            const data = await apiFetch("/api/admin/login", {
+                method: "POST",
+                body: JSON.stringify({ pin })
+            });
+            state.adminToken = data.token || "";
+            state.adminUnlocked = Boolean(state.adminToken);
+            setStoredAdminToken(state.adminToken);
+            state.adminAnalytics = data.state?.analytics || null;
+            saveAdminPromos(Array.isArray(data.state?.promos) ? data.state.promos : []);
+            syncOrdersFromServer(Array.isArray(data.state?.orders) ? data.state.orders : []);
+            dom.adminPanel.classList.remove("hidden");
+            dom.adminUnlockStatus.textContent = "Unlocked";
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
+            renderAdminPromos();
+            renderAdminOrders();
+            renderAdminAnalytics();
+            pushActivityLog("admin", "Admin session unlocked and synced.");
+            toast("Admin synced.");
+        } catch (error) {
+            state.adminUnlocked = false;
+            state.adminToken = "";
+            setStoredAdminToken("");
+            dom.adminPanel.classList.add("hidden");
+            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+            toast(error.message || "Admin login failed.");
+        }
+    }
+
+    function lockAdminRemote() {
+        state.adminUnlocked = false;
+        state.adminToken = "";
+        setStoredAdminToken("");
+        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+        }
+    }
+
+    async function searchTrackedOrderRemote() {
+        return searchTrackedOrder();
+    }
+
+    async function saveAdminPromoRemote() {
+        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
+        const type = dom.adminPromoType?.value || "percent";
+        const value = Number(dom.adminPromoValue?.value || 0);
+        const limit = Number(dom.adminPromoLimit?.value || 0);
+        const expiresAt = dom.adminPromoExpiry?.value || "";
+
+        if (!code || value <= 0) {
+            toast("Promo data is incomplete.");
+            return;
+        }
+        if (!state.adminToken) {
+            toast("Unlock admin first.");
+            return;
+        }
+
+        try {
+            const data = await apiFetch("/api/admin/promos", {
+                method: "POST",
+                body: JSON.stringify({ code, type, value, limit, expiresAt, used: 0 })
+            }, true);
+            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+            if (dom.adminPromoCode) dom.adminPromoCode.value = "";
+            if (dom.adminPromoValue) dom.adminPromoValue.value = "";
+            if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
+            if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
+            pushActivityLog("promo", `Saved promo ${code}.`);
+            toast("Promo saved.");
+        } catch (error) {
+            toast(error.message || "Promo save failed.");
+        }
+    }
+
+    async function removeAdminPromoRemote(index) {
+        const promo = getAdminPromos().slice()[index];
+        if (!promo?.code) return;
+        if (!state.adminToken) {
+            toast("Unlock admin first.");
+            return;
+        }
+
+        try {
+            const data = await apiFetch(`/api/admin/promos/${encodeURIComponent(promo.code)}`, {
+                method: "DELETE"
+            }, true);
+            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+            pushActivityLog("promo", `Deleted promo ${promo.code}.`);
+            toast("Promo deleted.");
+        } catch (error) {
+            toast(error.message || "Promo delete failed.");
+        }
+    }
+
+    async function updateAdminOrderRemote() {
+        const ref = dom.adminOrderRef?.value.trim() || "";
+        if (!ref) {
+            toast("Order ref required.");
+            return;
+        }
+        if (!state.adminToken) {
+            toast("Unlock admin first.");
+            return;
+        }
+
+        try {
+            const data = await apiFetch(`/api/admin/orders/${encodeURIComponent(ref)}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    status: dom.adminOrderStatus?.value || "pending",
+                    adminTracking: dom.adminOrderTracking?.value.trim() || ""
+                })
+            }, true);
+            if (data.order) {
+                mergeOrderIntoHistory(data.order);
+                if (typeof saveData === "function") saveData();
+                if (typeof window.renderHistory === "function") window.renderHistory();
+                renderTrackLookupResult(data.order);
+                renderAdminOrders();
+                pushActivityLog("order", `Updated ${ref} to ${dom.adminOrderStatus?.value || "pending"}.`);
+            }
+            toast("Order updated.");
+        } catch (error) {
+            toast(error.message || "Order update failed.");
         }
     }
 
@@ -301,6 +1225,540 @@
         if (dom.breakdownTotal) dom.breakdownTotal.textContent = formatTnd(pricing.finalTnd);
     }
 
+    function renderBudgetPlanner(pricing) {
+        if (!dom.budgetCard || !dom.budgetInput || !dom.budgetBuffer || !dom.budgetStatus || !dom.budgetRemaining || !dom.budgetSafeTotal || !dom.budgetMaxUsd || !dom.budgetNote) {
+            return;
+        }
+
+        const prefs = getBudgetPrefs();
+        if (document.activeElement !== dom.budgetInput && prefs.budget && !dom.budgetInput.value) {
+            dom.budgetInput.value = prefs.budget;
+        }
+        if (prefs.buffer && dom.budgetBuffer.value !== prefs.buffer) {
+            dom.budgetBuffer.value = prefs.buffer;
+        }
+
+        const budget = Number.parseFloat(dom.budgetInput.value || prefs.budget || "0") || 0;
+        const buffer = Number.parseFloat(dom.budgetBuffer.value || prefs.buffer || "10") || 0;
+        const hasBudget = budget > 0;
+        const hasPricing = pricing.productUsd > 0 || pricing.shippingUsd > 0;
+
+        dom.budgetCard.classList.toggle("hidden", !hasBudget && !hasPricing);
+        if (!hasBudget && !hasPricing) return;
+
+        const safeSpend = Math.max(0, budget * (1 - (buffer / 100)));
+        const remaining = budget - pricing.finalTnd;
+        const subtotalThreshold = SERVICE_FEE_MIN_TND / SERVICE_FEE_PERCENT;
+        const safeSubtotalTnd = safeSpend >= subtotalThreshold * (1 + SERVICE_FEE_PERCENT)
+            ? safeSpend / (1 + SERVICE_FEE_PERCENT)
+            : Math.max(0, safeSpend - SERVICE_FEE_MIN_TND);
+        const maxProductUsd = Math.max(0, (safeSubtotalTnd / Math.max(pricing.rate || getEffectiveRate(), 0.0001)) - pricing.shippingUsd);
+
+        let statusText = "READY";
+        let statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-slate-500/10 text-slate-200";
+        let note = "أدخل budget باش تشوف التوصية الذكية.";
+
+        if (!hasBudget) {
+            note = "المنتج محضر. زيد budget بالدينار باش نوريولك margin الأمان.";
+        } else if (!hasPricing) {
+            note = `عندك safe spend حتى ${formatTnd(safeSpend)} بعد buffer ${buffer}%. كمل السعر والشحن باش نقارنوهم بالميزانية.`;
+        } else if (pricing.finalTnd <= safeSpend) {
+            statusText = "SAFE";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-300";
+            note = `المنتج داخل الـ safe zone. يبقالك ${formatTnd(Math.max(0, remaining))} من budget الكلي.`;
+        } else if (pricing.finalTnd <= budget) {
+            statusText = "TIGHT";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-amber-400/10 text-amber-300";
+            note = `المنتج داخل budget، أما buffer الأمان تقريبًا تستهلك. max product price المقترح هو ${maxProductUsd.toFixed(2)} USD مع نفس الشحن.`;
+        } else {
+            statusText = "OVER";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-red-500/10 text-red-300";
+            note = `المنتج فوق budget بحوالي ${formatTnd(Math.abs(remaining))}. جرّب تنقص سعر المنتج، تبدل الشحن، أو اطلب manual quote.`;
+        }
+
+        dom.budgetStatus.textContent = statusText;
+        dom.budgetStatus.className = statusClasses;
+        dom.budgetRemaining.textContent = hasBudget && hasPricing ? formatTnd(remaining) : formatTnd(0);
+        dom.budgetRemaining.className = `text-lg font-black ${remaining < 0 ? "text-red-300" : "text-white"}`;
+        dom.budgetSafeTotal.textContent = formatTnd(safeSpend);
+        dom.budgetMaxUsd.textContent = `${maxProductUsd.toFixed(2)} USD`;
+        dom.budgetNote.textContent = note;
+    }
+
+    function getCartInsights() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        const deliveryWindows = items
+            .map((item) => parseDeliveryWindow(item.deliveryEstimate))
+            .filter(Boolean);
+        const freeShipping = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
+        const riskyItems = items.filter((item) => item?.restrictions?.banned || item?.restrictions?.restricted).length;
+        const totalUnits = items.reduce((sum, item) => sum + Number(item.qty || 1), 0);
+        const totalService = items.reduce((sum, item) => sum + (Number(item.serviceFeeTnd || 0) * Number(item.qty || 1)), 0);
+        const etaMin = deliveryWindows.length ? Math.min(...deliveryWindows.map((window) => window.min)) : null;
+        const etaMax = deliveryWindows.length ? Math.max(...deliveryWindows.map((window) => window.max)) : null;
+        const mixedEta = etaMin != null && etaMax != null && (etaMax - etaMin >= 10);
+        const splitRecommended = riskyItems > 0 || mixedEta;
+
+        let recommendation = "Cart متوازن وجاهز للإرسال كطلب واحد.";
+        if (riskyItems > 0) {
+            recommendation = "في cart هذا توجد منتجات فيها customs risk. الأفضل تعمل split للمنتجات الحساسة أو تأخذ manual confirmation قبل الإرسال.";
+        } else if (mixedEta) {
+            recommendation = "مواعيد التوصيل متباعدة برشة. تقسيم المنتجات السريعة على طلب منفصل ينجم يسرّع الاستلام.";
+        } else if (totalUnits >= 6) {
+            recommendation = "Cart كبير. تأكد من المقاسات والمواصفات قبل الإرسال النهائي باش نتفاداو التأخير.";
+        }
+
+        return {
+            totalUnits,
+            totalService,
+            freeShipping,
+            riskyItems,
+            etaLabel: etaMin != null && etaMax != null ? `${etaMin}-${etaMax} days` : "--",
+            splitRecommended,
+            recommendation
+        };
+    }
+
+    function renderCartInsights() {
+        if (!dom.cartInsightsCard || !dom.cartHealth || !dom.cartUnits || !dom.cartService || !dom.cartFreeShip || !dom.cartRisk || !dom.cartEta || !dom.cartRecommendation) {
+            return;
+        }
+
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        const hasItems = items.length > 0;
+        dom.cartInsightsCard.classList.toggle("hidden", !hasItems);
+        if (!hasItems) return;
+
+        const insights = getCartInsights();
+        dom.cartUnits.textContent = String(insights.totalUnits);
+        dom.cartService.textContent = formatTnd(insights.totalService);
+        dom.cartFreeShip.textContent = String(insights.freeShipping);
+        dom.cartRisk.textContent = String(insights.riskyItems);
+        dom.cartEta.textContent = `ETA: ${insights.etaLabel}`;
+        dom.cartRecommendation.textContent = insights.recommendation;
+        dom.cartHealth.textContent = insights.splitRecommended ? "SPLIT" : "READY";
+        dom.cartHealth.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            insights.splitRecommended ? "bg-amber-400/10 text-amber-300" : "bg-emerald-500/10 text-emerald-300"
+        }`;
+    }
+
+    function formatCompactCount(value) {
+        const count = Number(value || 0);
+        if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+        if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+        return String(count);
+    }
+
+    function renderSellerTrust(product) {
+        if (!dom.trustCard || !dom.trustBadge || !dom.trustRating || !dom.trustReviews || !dom.trustSold || !dom.trustNote) return;
+        if (!product) {
+            dom.trustCard.classList.add("hidden");
+            return;
+        }
+
+        const trust = product.trustScore || { score: 60, label: "Good" };
+        dom.trustCard.classList.remove("hidden");
+        dom.trustBadge.textContent = `${trust.score} / 100`;
+        dom.trustBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            trust.score >= 80 ? "bg-emerald-500/10 text-emerald-300" :
+            trust.score >= 65 ? "bg-blue-500/10 text-blue-300" :
+            "bg-amber-400/10 text-amber-300"
+        }`;
+        dom.trustRating.textContent = Number(product.rating || 0).toFixed(1);
+        dom.trustReviews.textContent = formatCompactCount(product.reviewCount || 0);
+        dom.trustSold.textContent = formatCompactCount(product.soldCount || 0);
+        dom.trustNote.textContent = `Trust ${trust.label}. ${product.restrictions?.banned ? "Customs risk high." : (product.restrictions?.restricted ? "Needs customs review." : "No major block detected.")}`;
+    }
+
+    function renderVariants(product) {
+        if (!dom.variantsCard || !dom.variantGroups) return;
+        const groups = Array.isArray(product?.variants) ? product.variants.filter((group) => Array.isArray(group.values) && group.values.length) : [];
+        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
+        if (!groups.length) return;
+
+        dom.variantGroups.innerHTML = groups.map((group, index) => `
+            <div class="space-y-2">
+                <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                <div class="flex flex-wrap gap-2">
+                    ${group.values.map((value) => `
+                        <button type="button" data-variant-group="${escapeHtml(group.name || `Option ${index + 1}`)}" data-variant-value="${escapeHtml(value)}" class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200 hover:border-fuchsia-400 hover:text-white transition-colors">
+                            ${escapeHtml(value)}
+                        </button>
+                    `).join("")}
+                </div>
+            </div>
+        `).join("");
+    }
+
+    function renderCustomsAdvisor(product) {
+        if (!dom.customsCard || !dom.customsLevel || !dom.customsNote || !dom.customsDocs || !dom.customsAlt) return;
+        if (!product) {
+            dom.customsCard.classList.add("hidden");
+            return;
+        }
+
+        const advisor = product.customsAdvisor || {};
+        dom.customsCard.classList.remove("hidden");
+        dom.customsLevel.textContent = String(advisor.level || "low").toUpperCase();
+        dom.customsLevel.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            advisor.level === "high" ? "bg-red-500/10 text-red-300" :
+            advisor.level === "medium" ? "bg-amber-400/10 text-amber-300" :
+            "bg-emerald-500/10 text-emerald-300"
+        }`;
+        dom.customsNote.textContent = advisor.note || "No customs issue detected yet.";
+        dom.customsDocs.innerHTML = (Array.isArray(advisor.docs) ? advisor.docs : []).map((doc) => `
+            <span class="px-3 py-1 rounded-full bg-black/20 border border-white/5 text-[9px] font-black text-slate-200">${escapeHtml(doc)}</span>
+        `).join("");
+        dom.customsAlt.textContent = advisor.saferAlternative || "";
+    }
+
+    function getSimilarOrderAverage(title) {
+        const normalized = String(title || "").trim().toLowerCase();
+        if (!normalized || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return 0;
+        const matches = orderHistory.flatMap((order) => Array.isArray(order.items) ? order.items : [])
+            .filter((item) => String(item.name || "").toLowerCase().includes(normalized.slice(0, 8)) || normalized.includes(String(item.name || "").toLowerCase().slice(0, 8)))
+            .map((item) => Number(item.totalWithFee || item.tnd || 0))
+            .filter((value) => value > 0);
+        if (!matches.length) return 0;
+        return matches.reduce((sum, value) => sum + value, 0) / matches.length;
+    }
+
+    function renderQuoteComparison(product) {
+        if (!dom.quoteCompareCard || !dom.quoteAuto || !dom.quoteSimilar || !dom.quoteManual || !dom.quoteNote || !dom.quoteCompareStatus) return;
+        const pricing = calculatePricingData();
+        const hasPricing = pricing.finalTnd > 0;
+        dom.quoteCompareCard.classList.toggle("hidden", !hasPricing && !product);
+        if (!hasPricing && !product) return;
+
+        const similarAverage = getSimilarOrderAverage(product?.title || dom.calcName?.value || "");
+        const manualTarget = pricing.finalTnd > 0 ? pricing.finalTnd + (product?.manualQuoteRecommended ? Math.max(4, pricing.finalTnd * 0.04) : 0) : 0;
+        const spread = similarAverage > 0 ? Math.abs(pricing.finalTnd - similarAverage) : 0;
+
+        dom.quoteAuto.textContent = formatTnd(pricing.finalTnd);
+        dom.quoteSimilar.textContent = similarAverage > 0 ? formatTnd(similarAverage) : "N/A";
+        dom.quoteManual.textContent = formatTnd(manualTarget);
+        dom.quoteCompareStatus.textContent = spread > 12 ? "REVIEW" : "MATCH";
+        dom.quoteCompareStatus.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            spread > 12 ? "bg-amber-400/10 text-amber-300" : "bg-blue-500/10 text-blue-300"
+        }`;
+        dom.quoteNote.textContent = similarAverage > 0
+            ? `Difference versus similar orders: ${formatTnd(spread)}. ${spread > 12 ? "Manual review recommended." : "Auto quote looks aligned."}`
+            : "No similar orders found yet. Manual quote target uses current auto estimate.";
+    }
+
+    function renderResellerMode() {
+        if (!dom.resellerPrice || !dom.resellerQty || !dom.profitUnit || !dom.profitTotal || !dom.profitRoi || !dom.profitBreakEven || !dom.resellerStatus) return;
+        const pricing = calculatePricingData();
+        const resale = Number(dom.resellerPrice.value || 0);
+        const qty = Math.max(1, Number(dom.resellerQty.value || 1));
+        const cost = pricing.finalTnd;
+        const profitUnit = resale - cost;
+        const totalProfit = profitUnit * qty;
+        const roi = cost > 0 ? (profitUnit / cost) * 100 : 0;
+
+        dom.profitUnit.textContent = cost > 0 ? profitUnit.toFixed(3) : "0.000";
+        dom.profitTotal.textContent = cost > 0 ? totalProfit.toFixed(3) : "0.000";
+        dom.profitRoi.textContent = `${roi.toFixed(1)}%`;
+        dom.profitBreakEven.textContent = cost.toFixed(3);
+        dom.resellerStatus.textContent = cost <= 0 ? "READY" : (profitUnit > 0 ? "PROFIT" : "LOSS");
+        dom.resellerStatus.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            cost <= 0 ? "bg-slate-500/10 text-slate-200" :
+            profitUnit > 0 ? "bg-emerald-500/10 text-emerald-300" :
+            "bg-red-500/10 text-red-300"
+        }`;
+    }
+
+    function renderBundleDeals() {
+        if (!dom.bundleCard || !dom.bundleBadge || !dom.bundleSavings || !dom.bundleTitle || !dom.bundleNote) return;
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        dom.bundleCard.classList.toggle("hidden", items.length < 2);
+        if (items.length < 2) return;
+
+        const freeShippingCount = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
+        const serviceFees = items.reduce((sum, item) => sum + Number(item.serviceFeeTnd || 0), 0);
+        const estimatedSavings = (serviceFees * 0.2) + (freeShippingCount * 1.5);
+        const names = items.slice(0, 2).map((item) => item.name).filter(Boolean);
+
+        dom.bundleSavings.textContent = formatTnd(estimatedSavings);
+        dom.bundleTitle.textContent = names.length ? `${names.join(" + ")}` : "Smart Bundle";
+        dom.bundleBadge.textContent = estimatedSavings >= 8 ? "HOT" : "COMBO";
+        dom.bundleNote.textContent = estimatedSavings >= 8
+            ? "هذا bundle باهي للبيع السريع أو الشراء الجماعي. وفّر service fees تقريبية مع شحن أفضل."
+            : "Bundle صالح للتجميع. إذا زدت منتج مكمل، الوفرة تنجم تتحسن أكثر.";
+    }
+
+    function renderVoiceNote() {
+        if (!dom.voicePlayer || !dom.voiceStatus || !dom.voiceNote) return;
+        const hasVoice = Boolean(state.voiceNote?.url);
+        dom.voicePlayer.classList.toggle("hidden", !hasVoice);
+        if (hasVoice) {
+            dom.voicePlayer.src = state.voiceNote.url;
+            dom.voiceStatus.textContent = "READY";
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black";
+            dom.voiceNote.textContent = state.voiceNote.label || "Voice note attached.";
+        } else {
+            dom.voicePlayer.removeAttribute("src");
+            dom.voiceStatus.textContent = "EMPTY";
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black";
+            dom.voiceNote.textContent = "No voice note attached yet.";
+        }
+    }
+
+    function setVoiceNoteFromBlob(blob, label) {
+        if (!blob) return;
+        if (state.voiceNote?.url && state.voiceNote.url.startsWith("blob:")) {
+            window.URL.revokeObjectURL(state.voiceNote.url);
+        }
+        state.voiceNote = {
+            url: window.URL.createObjectURL(blob),
+            label
+        };
+        renderVoiceNote();
+        pushActivityLog("voice", "Voice note attached to current order.");
+    }
+
+    function renderPriceAlerts() {
+        if (!dom.alertWatchlist || !dom.alertCount) return;
+        const alerts = Array.isArray(state.priceAlerts) ? state.priceAlerts : [];
+        dom.alertCount.textContent = `${alerts.length} ${alerts.length === 1 ? "watch" : "watches"}`;
+        if (!alerts.length) {
+            dom.alertWatchlist.innerHTML = `<div class="text-[10px] text-slate-500 italic">No alerts yet.</div>`;
+            return;
+        }
+        dom.alertWatchlist.innerHTML = alerts.map((alert) => `
+            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-black text-white">${escapeHtml(alert.title || "AliExpress Product")}</div>
+                    <div class="text-[9px] text-slate-500 font-bold">Target ${escapeHtml(formatUsd(alert.targetPriceUsd || 0))} • ship ${escapeHtml(formatUsd(alert.targetShippingUsd || 0))}</div>
+                </div>
+                <button type="button" data-remove-alert="${escapeHtml(alert.url)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-200 hover:bg-red-500/20 transition-colors">Delete</button>
+            </div>
+        `).join("");
+    }
+
+    function renderReferralCard() {
+        if (!dom.referralCode || !dom.referralCredits || !dom.referralTier || !dom.referralNote) return;
+        const referral = getReferralState();
+        dom.referralCode.textContent = referral.code;
+        dom.referralCredits.textContent = String(referral.credits || 0);
+        dom.referralTier.textContent = referral.credits >= 100 ? "Ambassador" : (referral.credits >= 40 ? "Booster" : "Starter");
+        dom.referralNote.textContent = referral.appliedCodes?.length
+            ? `Applied ${referral.appliedCodes.length} referral code(s). Credits are ready to use for future promos.`
+            : "Share your code to grow your rewards balance.";
+    }
+
+    function renderAdminAnalytics() {
+        if (!dom.adminAnalytics) return;
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
+        const analytics = state.adminAnalytics || {};
+        const totalRevenue = analytics.totalRevenue != null ? analytics.totalRevenue : orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+        const topProducts = Array.isArray(analytics.topProducts) ? analytics.topProducts : [];
+        const topPromos = Array.isArray(analytics.topPromos) ? analytics.topPromos : [];
+        const repeatCustomers = Array.isArray(analytics.repeatCustomers) ? analytics.repeatCustomers : [];
+
+        dom.adminAnalytics.innerHTML = `
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
+                    <div class="text-lg font-black text-white">${orders.length}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders</div>
+                </div>
+                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
+                    <div class="text-lg font-black text-amber-300" dir="ltr">${formatTnd(totalRevenue)}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Revenue</div>
+                </div>
+            </div>
+            <div class="text-[10px] font-black text-white">Top Products</div>
+            <div class="space-y-2">
+                ${(topProducts.length ? topProducts : [{ name: "No product data yet", count: 0 }]).map((item) => `
+                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.name || item.id || "Unknown")}</span>
+                        <span class="text-[9px] text-amber-300 font-black">${escapeHtml(item.count || item.ordersCount || 0)}</span>
+                    </div>
+                `).join("")}
+            </div>
+            <div class="text-[10px] font-black text-white">Promo / Repeat Clients</div>
+            <div class="space-y-2">
+                ${[...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].length ? [...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].map((item) => `
+                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.code || item.id || "Client")}</span>
+                        <span class="text-[9px] text-blue-300 font-black">${escapeHtml(item.used || item.ordersCount || 0)}</span>
+                    </div>
+                `).join("") : `<div class="text-[10px] text-slate-500 italic">No analytics yet.</div>`}
+            </div>
+        `;
+    }
+
+    function getOrderTimelineSteps(order) {
+        const status = String(order?.status || "pending");
+        const steps = [
+            { key: "pending", label: "Review" },
+            { key: "processing", label: "Purchase" },
+            { key: "shipped", label: "Transit" },
+            { key: "delivered", label: "Delivered" }
+        ];
+        const currentIndex = steps.findIndex((step) => step.key === status);
+        return steps.map((step, index) => ({
+            ...step,
+            active: currentIndex >= index,
+            current: currentIndex === index
+        }));
+    }
+
+    function renderTrackingTimeline(order) {
+        if (!dom.trackTimeline) return;
+        if (!order) {
+            dom.trackTimeline.innerHTML = "";
+            return;
+        }
+        dom.trackTimeline.innerHTML = getOrderTimelineSteps(order).map((step) => `
+            <div class="rounded-2xl border p-3 text-center ${step.active ? "bg-amber-400/10 border-amber-400/20 text-amber-300" : "bg-white/5 border-white/5 text-slate-500"}">
+                <div class="text-[9px] font-black uppercase">${escapeHtml(step.label)}</div>
+                <div class="text-[8px] font-bold mt-1">${step.current ? "Current" : (step.active ? "Done" : "Next")}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderRepeatOrders() {
+        if (!dom.repeatOrders || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        const orders = orderHistory.slice(0, 3).filter((order) => Array.isArray(order.items) && order.items.length);
+        dom.repeatOrders.classList.toggle("hidden", orders.length === 0);
+        if (!orders.length) return;
+        dom.repeatOrders.innerHTML = `
+            <div class="text-[10px] font-black text-white">Repeat-Order Assistant</div>
+            ${orders.map((order) => `
+                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
+                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml((order.items || []).map((item) => item.name).slice(0, 2).join(" + "))}</div>
+                    </div>
+                    <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
+                </div>
+            `).join("")}
+        `;
+    }
+
+    function createPriceAlertFromCurrentProduct() {
+        const product = state.currentProduct;
+        if (!product?.url) {
+            toast("Fetch a product first.");
+            return;
+        }
+        const alerts = getPriceAlerts().filter((entry) => entry.url !== product.url);
+        alerts.unshift({
+            url: product.url,
+            title: product.title || dom.calcName?.value.trim() || "AliExpress Product",
+            targetPriceUsd: Number(product.price || dom.usdPrice?.value || 0),
+            targetShippingUsd: Number(product.shipping || dom.usdShip?.value || 0),
+            createdAt: new Date().toISOString()
+        });
+        savePriceAlerts(alerts);
+        pushActivityLog("alert", `Created price alert for ${product.title || "product"}.`);
+        toast("Price-drop alert saved.");
+    }
+
+    function removePriceAlert(url) {
+        savePriceAlerts(getPriceAlerts().filter((entry) => entry.url !== url));
+        toast("Alert removed.");
+    }
+
+    function checkPriceAlerts(product) {
+        const alerts = getPriceAlerts();
+        const watch = alerts.find((entry) => entry.url === product?.url);
+        if (!watch) return;
+        const currentPrice = Number(product.price || 0);
+        const currentShipping = Number(product.shipping || 0);
+        if ((currentPrice > 0 && currentPrice < Number(watch.targetPriceUsd || 0)) || currentShipping < Number(watch.targetShippingUsd || 0)) {
+            toast(`Price drop detected for ${product.title || "saved alert"}!`);
+            pushActivityLog("alert", `Price drop detected for ${product.title || "saved alert"}.`);
+        }
+    }
+
+    function copyReferral(shareMode = false) {
+        const referral = getReferralState();
+        const text = shareMode
+            ? `Use my Alexpress referral code: ${referral.code}`
+            : referral.code;
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => toast("Referral copied."));
+            return;
+        }
+        toast("Clipboard unavailable.");
+    }
+
+    function applyReferralCode() {
+        const referral = getReferralState();
+        const code = String(dom.referralInput?.value || "").trim().toUpperCase();
+        if (!code || code === referral.code) {
+            toast("Enter a valid referral code.");
+            return;
+        }
+        if (referral.appliedCodes.includes(code)) {
+            toast("This referral code is already used.");
+            return;
+        }
+        referral.appliedCodes.push(code);
+        referral.credits = Number(referral.credits || 0) + 20;
+        saveReferralState(referral);
+        if (dom.referralInput) dom.referralInput.value = "";
+        pushActivityLog("referral", `Applied referral code ${code}.`);
+        toast("Referral bonus added.");
+    }
+
+    function applyVariantSelection(group, value) {
+        const current = String(dom.calcNote?.value || "").trim();
+        const cleanedParts = current.split("|").map((part) => part.trim()).filter(Boolean).filter((part) => !part.toLowerCase().startsWith(String(group || "").toLowerCase()));
+        cleanedParts.push(`${group}: ${value}`);
+        if (dom.calcNote) dom.calcNote.value = cleanedParts.join(" | ");
+        toast(`${group} set to ${value}`);
+    }
+
+    function loadOrderIntoCart(orderRef) {
+        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || typeof cart === "undefined" || !Array.isArray(cart)) return;
+        const order = orderHistory.find((entry) => String(entry.orderRef || entry.id || "") === String(orderRef || ""));
+        if (!order || !Array.isArray(order.items)) return;
+        cart = cloneData(order.items);
+        if (typeof updateBadges === "function") updateBadges();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof saveData === "function") saveData();
+        if (typeof window.switchTab === "function") window.switchTab("cart");
+        pushActivityLog("repeat", `Loaded repeat order ${orderRef}.`);
+        toast("Order loaded back into cart.");
+    }
+
+    async function startVoiceRecording() {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+            toast("Voice recording is not supported on this device.");
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            state.audioChunks = [];
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size) state.audioChunks.push(event.data);
+            };
+            recorder.onstop = () => {
+                const blob = new Blob(state.audioChunks, { type: recorder.mimeType || "audio/webm" });
+                setVoiceNoteFromBlob(blob, `Recorded voice note (${Math.max(1, Math.round(blob.size / 1024))} KB)`);
+                stream.getTracks().forEach((track) => track.stop());
+            };
+            recorder.start();
+            state.mediaRecorder = recorder;
+            dom.voiceStatus.textContent = "REC";
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-[10px] font-black";
+            dom.voiceNote.textContent = "Recording in progress...";
+        } catch {
+            toast("Microphone access was blocked.");
+        }
+    }
+
+    function stopVoiceRecording() {
+        if (state.mediaRecorder && state.mediaRecorder.state !== "inactive") {
+            state.mediaRecorder.stop();
+            state.mediaRecorder = null;
+        }
+    }
+
     function renderAlerts(product) {
         if (!dom.insightsCard || !dom.alerts || !dom.deliveryEstimate || !dom.riskBadge) return;
 
@@ -384,6 +1842,9 @@
         }
 
         renderBreakdown(pricing);
+        renderBudgetPlanner(pricing);
+        renderQuoteComparison(state.currentProduct);
+        renderResellerMode();
         return pricing;
     }
 
@@ -420,6 +1881,11 @@
 
         renderAlerts(product);
         renderRestrictionBanner(product);
+        renderSellerTrust(product);
+        renderVariants(product);
+        renderCustomsAdvisor(product);
+        renderQuoteComparison(product);
+        checkPriceAlerts(product);
     }
 
     function setError(message = "") {
@@ -451,6 +1917,7 @@
             state.liveRate = FX_FALLBACK_RATE;
         }
         renderPricing();
+        renderAccountStats();
     }
 
     async function scrapeProduct() {
@@ -481,6 +1948,7 @@
             renderPreview(data);
             renderPricing();
             saveRecentLink(data);
+            pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
             if (data.priceUnavailable) {
                 setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
                 toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
@@ -538,6 +2006,7 @@
         }
         incrementStat("manualQuotes");
         saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || "AliExpress product" });
+        pushActivityLog("quote", "Prepared a manual quote request.");
         openWhatsAppMessage([buildManualQuoteMessage()].concat(buildCustomerSummaryLines()).join("\n"));
     }
 
@@ -567,7 +2036,224 @@
         ].join("\n");
 
         saveRecentLink(state.currentProduct || { url: link, title });
+        pushActivityLog("quick-order", `Prepared quick order for ${title}.`);
         openWhatsAppMessage([message].concat(buildCustomerSummaryLines()).join("\n"));
+    }
+
+    function renderSavedPacks() {
+        if (!dom.savedPacks || !dom.packCount || !dom.savePackBtn) return;
+        const packs = Array.isArray(state.savedPacks) ? state.savedPacks : [];
+        dom.packCount.textContent = `${packs.length} ${packs.length === 1 ? "pack" : "packs"}`;
+
+        const cartItems = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        dom.savePackBtn.disabled = cartItems.length === 0;
+        dom.savePackBtn.classList.toggle("opacity-60", cartItems.length === 0);
+        dom.savePackBtn.classList.toggle("cursor-not-allowed", cartItems.length === 0);
+
+        if (!packs.length) {
+            dom.savedPacks.innerHTML = `<div class="text-[10px] text-slate-500 italic">No saved packs yet.</div>`;
+            return;
+        }
+
+        dom.savedPacks.innerHTML = packs.map((pack) => `
+            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-black text-white">${escapeHtml(pack.name || "Saved Pack")}</div>
+                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml(pack.itemCount || 0)} items • ${escapeHtml(formatTnd(pack.total || 0))} • ${escapeHtml(formatDateLabel(pack.createdAt))}</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" data-pack-load="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[9px] font-black hover:bg-emerald-400 transition-colors">Load</button>
+                        <button type="button" data-pack-delete="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[9px] font-black hover:bg-red-500/20 transition-colors">Delete</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    ${(Array.isArray(pack.items) ? pack.items.slice(0, 3) : []).map((item) => `
+                        <span class="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                            ${escapeHtml(item.name || "Item")}
+                        </span>
+                    `).join("")}
+                    ${(Array.isArray(pack.items) && pack.items.length > 3) ? `<span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-slate-400">+${pack.items.length - 3} more</span>` : ""}
+                </div>
+            </div>
+        `).join("");
+    }
+
+    function saveCurrentPack() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        if (!items.length) {
+            toast("السلة فارغة، ما نجمناش نحفظو pack.");
+            return;
+        }
+
+        const packName = (dom.packName?.value || "").trim() || `Pack ${formatDateLabel(new Date())}`;
+        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
+        const packs = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((pack) => pack.name !== packName);
+        packs.unshift({
+            id: `${Date.now()}`,
+            name: packName,
+            createdAt: new Date().toISOString(),
+            itemCount: items.reduce((sum, item) => sum + Number(item.qty || 1), 0),
+            total,
+            items: cloneData(items)
+        });
+        saveSavedPacks(packs);
+        if (dom.packName) dom.packName.value = "";
+        pushActivityLog("pack", `Saved pack ${packName}.`);
+        toast("تم حفظ الـ pack بنجاح.");
+    }
+
+    function loadSavedPack(id) {
+        const pack = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
+        if (!pack || typeof cart === "undefined" || !Array.isArray(cart)) return;
+        cart = cloneData(pack.items || []);
+        if (typeof updateBadges === "function") updateBadges();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof saveData === "function") saveData();
+        if (typeof window.switchTab === "function") window.switchTab("cart");
+        pushActivityLog("pack", `Loaded pack ${pack.name}.`);
+        toast("تم تحميل الـ pack إلى السلة.");
+    }
+
+    function deleteSavedPack(id) {
+        const deleted = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
+        const next = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((item) => String(item.id) !== String(id));
+        saveSavedPacks(next);
+        if (deleted) {
+            pushActivityLog("pack", `Deleted pack ${deleted.name}.`);
+        }
+        toast("تم حذف الـ pack.");
+    }
+
+    function downloadBlob(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.URL.revokeObjectURL(url);
+    }
+
+    function downloadQuoteDocument() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        if (!items.length) {
+            toast("السلة فارغة، ما فماش quote باش نخرجوها.");
+            return;
+        }
+
+        const paymentSelect = document.getElementById("payment-method");
+        const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || "Not selected";
+        const quoteRef = `QT-${Date.now().toString().slice(-8)}`;
+        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
+        const customerLines = buildCustomerSummaryLines();
+        const rows = items.map((item, index) => `
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${index + 1}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name || "Item")}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.note || "-")}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${Number(item.qty || 1)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1)))}</td>
+            </tr>
+        `).join("");
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Alexpress Quote ${quoteRef}</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+.hero { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.badge { display:inline-block; background:#fef3c7; color:#92400e; padding:6px 12px; border-radius:999px; font-weight:700; font-size:12px; }
+.card { border:1px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:20px; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+.muted { color:#64748b; font-size:12px; }
+</style>
+</head>
+<body>
+    <div class="hero">
+        <div>
+            <div class="badge">Alexpress Tunisie Quote</div>
+            <h1 style="margin:14px 0 8px;">Quote ${quoteRef}</h1>
+            <div class="muted">Generated ${escapeHtml(new Date().toLocaleString("en-GB"))}</div>
+        </div>
+        <div style="text-align:right;">
+            <div><strong>Total:</strong> ${escapeHtml(formatTnd(total))}</div>
+            <div><strong>Payment:</strong> ${escapeHtml(paymentLabel)}</div>
+            <div><strong>Items:</strong> ${items.length}</div>
+        </div>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;">Customer Summary</h3>
+        <div class="muted">${customerLines.length ? customerLines.map((line) => escapeHtml(line)).join("<br>") : "No customer info saved yet."}</div>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;">Order Lines</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product</th>
+                    <th>Notes</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>
+</body>
+</html>`;
+
+        const quoteWindow = window.open("", "_blank", "noopener,noreferrer");
+        if (!quoteWindow) {
+            downloadBlob(`alexpress-quote-${quoteRef}.html`, html, "text/html;charset=utf-8");
+            toast("فتح الطباعة ما نجحش، هبطنا quote HTML بدلها.");
+            return;
+        }
+        quoteWindow.document.open();
+        quoteWindow.document.write(html);
+        quoteWindow.document.close();
+        quoteWindow.focus();
+        window.setTimeout(() => quoteWindow.print(), 300);
+    }
+
+    function exportOrdersCsv() {
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
+        if (!orders.length) {
+            toast("ما فماش طلبات باش نصدرهم.");
+            return;
+        }
+
+        const rows = [
+            ["orderRef", "date", "status", "paymentMethod", "totalTnd", "itemsCount", "promoCode", "tracking", "items"]
+        ];
+
+        orders.forEach((order) => {
+            rows.push([
+                order.orderRef || order.id || "",
+                order.date || "",
+                order.status || "pending",
+                order.paymentMethod || "",
+                Number(order.total || 0).toFixed(3),
+                Number(order.itemsCount || (Array.isArray(order.items) ? order.items.length : 0)),
+                order.promoCode || "",
+                order.adminTracking || order.trackingHint || "",
+                Array.isArray(order.items) ? order.items.map((item) => item.name).join(" | ") : ""
+            ]);
+        });
+
+        const csv = rows.map((row) => row.map((cell) => {
+            const value = String(cell ?? "");
+            return `"${value.replace(/"/g, '""')}"`;
+        }).join(",")).join("\n");
+
+        downloadBlob(`alexpress-orders-${formatDateLabel(new Date()).replace(/\//g, "-")}.csv`, csv, "text/csv;charset=utf-8");
+        toast("تم تصدير orders CSV.");
     }
 
     function getCurrentProductMeta() {
@@ -582,6 +2268,9 @@
             deliveryEstimate: state.currentProduct?.deliveryEstimate || "",
             alerts: state.currentProduct?.alerts || [],
             restrictions: state.currentProduct?.restrictions || null,
+            trustScore: state.currentProduct?.trustScore || null,
+            reviewCount: Number(state.currentProduct?.reviewCount || 0),
+            soldCount: Number(state.currentProduct?.soldCount || 0),
             source: state.currentProduct?.source || "manual"
         };
     }
@@ -603,6 +2292,9 @@
             item.deliveryEstimate = meta.deliveryEstimate;
             item.alerts = meta.alerts;
             item.restrictions = meta.restrictions;
+            item.trustScore = meta.trustScore;
+            item.reviewCount = meta.reviewCount;
+            item.soldCount = meta.soldCount;
             item.source = meta.source;
 
             return item;
@@ -658,6 +2350,20 @@
         if (typeof saveData === "function") saveData();
     }
 
+    function patchRenderCart() {
+        if (typeof window.renderCart !== "function" || window.renderCart.__runtimeWrapped) return;
+        const originalRenderCart = window.renderCart;
+        const wrapped = function patchedRenderCart(...args) {
+            const result = originalRenderCart.apply(this, args);
+            renderCartInsights();
+            renderBundleDeals();
+            renderSavedPacks();
+            return result;
+        };
+        wrapped.__runtimeWrapped = true;
+        window.renderCart = wrapped;
+    }
+
     function patchSendOrder() {
         if (typeof window.sendOrder !== "function") return;
 
@@ -687,8 +2393,10 @@
 
             const message = [buildOrderMessage(cart, paymentLabel, finalTotal, orderRef)]
                 .concat(buildCustomerSummaryLines())
+                .concat(state.voiceNote?.label ? [`🎤 Voice note: ${state.voiceNote.label}`] : [])
                 .join("\n");
-            pushOrderHistory({
+            const referral = getReferralState();
+            const orderEntry = {
                 id: Date.now(),
                 orderRef,
                 date: new Date().toLocaleString("ar-TN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
@@ -697,11 +2405,26 @@
                 items: JSON.parse(JSON.stringify(cart)),
                 status: "pending",
                 paymentMethod: paymentLabel,
-                trackingHint: "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب."
-            });
+                trackingHint: "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.",
+                adminTracking: "",
+                promoCode: state.activePromoCode || "",
+                customer: getAccountPrefs(),
+                voiceNote: state.voiceNote ? { label: state.voiceNote.label } : null,
+                referralCode: referral.code,
+                loyaltyCredit: Math.max(0, Math.round(finalTotal * 0.03))
+            };
+            pushOrderHistory(orderEntry);
+            persistOrderToBackend(orderEntry);
+            pushActivityLog("order", `Placed new order ${orderRef}.`);
+            referral.credits = Number(referral.credits || 0) + Number(orderEntry.loyaltyCredit || 0);
+            saveReferralState(referral);
 
             if (typeof saveData === "function") saveData();
             if (typeof window.renderHistory === "function") window.renderHistory();
+            if (state.activePromoCode) {
+                markPromoUsed(state.activePromoCode);
+                state.activePromoCode = "";
+            }
 
             const encoded = encodeURIComponent(message);
             const urls = {
@@ -712,8 +2435,14 @@
             window.open(urls[channel] || urls.whatsapp, "_blank", "noopener,noreferrer");
 
             clearCartState();
+            state.voiceNote = null;
+            renderVoiceNote();
             toast("تم تجهيز الطلب وإرساله!");
         };
+    }
+
+    function patchPromoLogic() {
+        window.applyPromo = applyPromoCode;
     }
 
     function renderHistoryCard(order) {
@@ -724,8 +2453,10 @@
             shipped: { label: "تم الشحن", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
             delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
         };
-        const statusUi = statusMap[status] || statusMap.pending;
+        const statusUi = getStatusUi(status);
         const items = Array.isArray(order.items) ? order.items : [];
+        const trackingText = order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.";
+        const steps = ["pending", "processing", "shipped", "delivered"];
 
         const itemsHtml = items.map((item) => `
             <div class="rounded-2xl border border-white/5 bg-black/20 p-3 space-y-1">
@@ -753,7 +2484,13 @@
                             <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
                         </div>
                         <div class="text-[10px] text-slate-400">${escapeHtml(order.date || "")}</div>
-                        <div class="text-[10px] text-blue-300 font-bold">${escapeHtml(order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.")}</div>
+                        <div class="text-[10px] text-blue-300 font-bold">${escapeHtml(trackingText)}</div>
+                        <div class="flex flex-wrap gap-2 pt-2">
+                            ${steps.map((step, index) => {
+                                const active = steps.indexOf(status) >= index;
+                                return `<span class="text-[8px] px-2 py-1 rounded-full border ${active ? "bg-amber-400/10 text-amber-300 border-amber-400/20" : "bg-white/5 text-slate-500 border-white/5"}">${escapeHtml(getStatusUi(step).label)}</span>`;
+                            }).join("")}
+                        </div>
                     </div>
                     <div class="text-left rtl:text-left ltr:text-right shrink-0">
                         <div class="text-sm font-black text-blue-400" dir="ltr">${formatTnd(order.total || 0)}</div>
@@ -768,6 +2505,8 @@
                     <div class="p-3 pt-0 space-y-2 pb-4">
                         ${itemsHtml || `<div class="text-[10px] text-slate-500">لا توجد تفاصيل عناصر.</div>`}
                         ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> الدفع: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
+                        ${order.voiceNote?.label ? `<div class="text-[9px] text-purple-300 font-bold"><i class="fas fa-microphone mr-1"></i> ${escapeHtml(order.voiceNote.label)}</div>` : ""}
+                        <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
                     </div>
                 </details>
             </div>
@@ -786,6 +2525,8 @@
             dom.historyList.innerHTML = orderHistory.map(renderHistoryCard).join("");
             renderTrackingHint();
             renderAccountStats();
+            renderAdminOrders();
+            renderRepeatOrders();
         };
     }
 
@@ -795,7 +2536,7 @@
         const hintHtml = latest.map((order) => `
             <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-3">
                 <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
-                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.")}</div>
+                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.")}</div>
             </div>
         `).join("");
 
@@ -813,13 +2554,52 @@
             </div>`;
     }
 
+    function patchHistoryFilters() {
+        if (typeof window.renderHistory !== "function" || window.renderHistory.__historyFilterWrapped) return;
+        const originalRenderHistory = window.renderHistory;
+        const wrapped = function patchedHistoryWithFilters() {
+            originalRenderHistory();
+            if (!dom.historyList || typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
+                renderNotifications();
+                return;
+            }
+
+            const search = String(dom.historySearch?.value || "").trim().toLowerCase();
+            const status = String(dom.historyStatus?.value || "all").trim().toLowerCase();
+            if (!search && status === "all") {
+                renderNotifications();
+                return;
+            }
+
+            const filtered = orderHistory.filter((order) => {
+                const haystack = [
+                    order.orderRef,
+                    order.status,
+                    order.paymentMethod,
+                    ...(Array.isArray(order.items) ? order.items.map((item) => item.name) : [])
+                ].join(" ").toLowerCase();
+                const statusOk = status === "all" || String(order.status || "pending").toLowerCase() === status;
+                const searchOk = !search || haystack.includes(search);
+                return statusOk && searchOk;
+            });
+
+            dom.historyList.innerHTML = filtered.length
+                ? filtered.map(renderHistoryCard).join("")
+                : `<div class="text-center py-12 text-slate-600 text-xs italic">No matching orders found.</div>`;
+            renderNotifications();
+        };
+        wrapped.__historyFilterWrapped = true;
+        window.renderHistory = wrapped;
+    }
+
     function patchCollectionActions() {
         const wrappers = [
             "addItemToCart",
             "addItemToWishlist",
-            "removeFromCart",
-            "removeFromWish",
-            "moveWishToCart"
+            "removeItem",
+            "removeWishlist",
+            "moveToCartFromWishlist",
+            "changeQty"
         ];
 
         wrappers.forEach((name) => {
@@ -827,7 +2607,12 @@
             const originalFn = window[name];
             const wrapped = function patchedCollectionAction(...args) {
                 const result = originalFn.apply(this, args);
-                window.setTimeout(renderAccountStats, 0);
+                window.setTimeout(() => {
+                    renderAccountStats();
+                    renderCartInsights();
+                    renderBundleDeals();
+                    renderSavedPacks();
+                }, 0);
                 return result;
             };
             wrapped.__runtimeWrapped = true;
@@ -837,11 +2622,37 @@
 
     function bindEvents() {
         dom.scrapeBtn?.addEventListener("click", scrapeProduct);
+        dom.createAlertBtn?.addEventListener("click", createPriceAlertFromCurrentProduct);
+        dom.shareReferralBtn?.addEventListener("click", () => copyReferral(true));
         dom.manualQuoteBtn?.addEventListener("click", sendManualQuote);
         dom.quickOrderBtn?.addEventListener("click", quickOrderFromForm);
         dom.clearLinksBtn?.addEventListener("click", clearRecentLinks);
         dom.imageClearBtn?.addEventListener("click", clearImagePreview);
         dom.accountSavePrefs?.addEventListener("click", saveAccountPrefs);
+        dom.referralApply?.addEventListener("click", applyReferralCode);
+        dom.referralCopy?.addEventListener("click", () => copyReferral(false));
+        dom.downloadQuoteBtn?.addEventListener("click", downloadQuoteDocument);
+        dom.exportCsvBtn?.addEventListener("click", exportOrdersCsv);
+        dom.savePackBtn?.addEventListener("click", saveCurrentPack);
+        dom.voiceRecordBtn?.addEventListener("click", startVoiceRecording);
+        dom.voiceStopBtn?.addEventListener("click", stopVoiceRecording);
+        dom.trackSearchBtn?.addEventListener("click", searchTrackedOrderRemote);
+        dom.trackRef?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                searchTrackedOrderRemote();
+            }
+        });
+        dom.historySearch?.addEventListener("input", () => {
+            if (typeof window.renderHistory === "function") window.renderHistory();
+        });
+        dom.historyStatus?.addEventListener("change", () => {
+            if (typeof window.renderHistory === "function") window.renderHistory();
+        });
+        dom.adminUnlockBtn?.addEventListener("click", unlockAdminRemote);
+        dom.adminLockBtn?.addEventListener("click", lockAdminRemote);
+        dom.adminPromoSave?.addEventListener("click", saveAdminPromoRemote);
+        dom.adminOrderUpdate?.addEventListener("click", updateAdminOrderRemote);
         dom.calcLink?.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -858,13 +2669,75 @@
             reader.onload = () => renderImagePreview(String(reader.result || ""));
             reader.readAsDataURL(file);
         });
+        dom.voiceUpload?.addEventListener("change", (event) => {
+            const file = event.target?.files?.[0];
+            if (!file) return;
+            setVoiceNoteFromBlob(file, `Uploaded voice note: ${file.name}`);
+        });
         dom.recentLinks?.addEventListener("click", (event) => {
             const trigger = event.target.closest("[data-recent-index]");
             if (!trigger) return;
             useRecentLink(Number(trigger.getAttribute("data-recent-index")));
         });
+        dom.variantGroups?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-variant-group][data-variant-value]");
+            if (!trigger) return;
+            applyVariantSelection(trigger.getAttribute("data-variant-group"), trigger.getAttribute("data-variant-value"));
+        });
+        dom.budgetInput?.addEventListener("input", () => {
+            saveBudgetPrefs({
+                budget: dom.budgetInput?.value || "",
+                buffer: dom.budgetBuffer?.value || "10"
+            });
+            renderPricing();
+        });
+        dom.budgetBuffer?.addEventListener("change", () => {
+            saveBudgetPrefs({
+                budget: dom.budgetInput?.value || "",
+                buffer: dom.budgetBuffer?.value || "10"
+            });
+            renderPricing();
+        });
+        dom.savedPacks?.addEventListener("click", (event) => {
+            const loadTrigger = event.target.closest("[data-pack-load]");
+            if (loadTrigger) {
+                loadSavedPack(loadTrigger.getAttribute("data-pack-load"));
+                return;
+            }
+            const deleteTrigger = event.target.closest("[data-pack-delete]");
+            if (deleteTrigger) {
+                deleteSavedPack(deleteTrigger.getAttribute("data-pack-delete"));
+            }
+        });
+        dom.alertWatchlist?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-remove-alert]");
+            if (!trigger) return;
+            removePriceAlert(trigger.getAttribute("data-remove-alert"));
+        });
+        dom.repeatOrders?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-repeat-order]");
+            if (!trigger) return;
+            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
+        });
+        dom.historyList?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-repeat-order]");
+            if (!trigger) return;
+            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
+        });
+        dom.adminPromos?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-remove-promo]");
+            if (!trigger) return;
+            removeAdminPromoRemote(Number(trigger.getAttribute("data-remove-promo")));
+        });
+        dom.adminOrders?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-fill-order]");
+            if (!trigger) return;
+            fillAdminOrder(trigger.getAttribute("data-fill-order"));
+        });
         dom.usdPrice?.addEventListener("input", renderPricing);
         dom.usdShip?.addEventListener("input", renderPricing);
+        dom.resellerPrice?.addEventListener("input", renderResellerMode);
+        dom.resellerQty?.addEventListener("input", renderResellerMode);
         dom.calcName?.addEventListener("input", () => {
             if (state.currentProduct && dom.previewTitle && dom.calcName.value.trim()) {
                 dom.previewTitle.textContent = dom.calcName.value.trim();
@@ -875,8 +2748,11 @@
     function patchGlobals() {
         window.calculateTND = renderPricing;
         window.autoScrapeProduct = scrapeProduct;
+        patchPromoLogic();
         patchGetFormData();
+        patchRenderCart();
         patchRenderHistory();
+        patchHistoryFilters();
         patchSendOrder();
     }
 
@@ -888,17 +2764,53 @@
             address: "",
             contactMethod: "whatsapp"
         });
+        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
+            budget: "",
+            buffer: "10"
+        });
+        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
+        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
+        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
+            code: buildReferralCode(),
+            credits: 0,
+            appliedCodes: [],
+            usedOwnCode: false
+        });
+        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
+        state.adminToken = getStoredAdminToken();
+        state.adminUnlocked = Boolean(state.adminToken);
+        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
         state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
         patchGlobals();
         patchCollectionActions();
         bindEvents();
         renderRecentLinks();
         loadAccountPrefsIntoForm();
+        renderSavedPacks();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderVoiceNote();
         renderAccountStats();
+        renderAdminPromos();
+        renderAdminOrders();
+        renderActivityLog();
+        renderNotifications();
         loadLiveRate();
         renderPricing();
+        renderResellerMode();
+        renderCartInsights();
+        renderBundleDeals();
         if (typeof window.renderHistory === "function") window.renderHistory();
         renderTrackingHint();
+        refreshPublicPromos();
+        if (state.adminToken) {
+            refreshAdminState().catch(() => {
+                state.adminUnlocked = false;
+                state.adminToken = "";
+                setStoredAdminToken("");
+                lockAdminRemote();
+            });
+        }
         window.setInterval(loadLiveRate, RATE_REFRESH_MS);
     }
 
