@@ -97,6 +97,13 @@ function pickLowestPositive(values = []) {
   return valid.length ? Math.min(...valid) : 0;
 }
 
+function pickFirstPositive(values = []) {
+  for (const value of values) {
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -702,7 +709,16 @@ function extractVariantGroupsFromHtml($) {
   ];
 
   const texts = candidateSelectors.flatMap((selector) =>
-    $(selector).map((_, element) => sanitizeText($(element).text())).get()
+    $(selector).map((_, element) => {
+      const $element = $(element);
+      return [
+        sanitizeText($element.text()),
+        sanitizeText($element.attr("title")),
+        sanitizeText($element.attr("aria-label")),
+        sanitizeText($element.attr("data-title")),
+        sanitizeText($element.attr("alt"))
+      ];
+    }).get().flat()
   );
 
   const values = uniqueShortText(texts).filter((value) => !/^select|choose/i.test(value));
@@ -996,20 +1012,23 @@ function extractHtmlProduct(html, url, source) {
     normalizeUrl($("meta[property='og:image']").attr("content")) ||
     normalizeUrl($("meta[name='twitter:image']").attr("content")) ||
     normalizeUrl($("img").first().attr("src"));
-  const price =
-    embedded.price ||
-    pickLowestPositive([
-      parseMoney($("meta[property='product:price:amount']").attr("content")),
-      parseMoney($("meta[name='twitter:data1']").attr("content")),
-      parseMoney($("meta[itemprop='price']").attr("content")),
-      extractPriceFromTextList([
-        $("meta[property='og:description']").attr("content"),
-        $("[class*='price']").first().text(),
-        $("[class*='Price']").first().text(),
-        $("[data-testid*='price']").first().text(),
-        $("body").text().slice(0, 4000)
-      ])
-    ]);
+  const selectorPrice = extractPriceFromTextList([
+    $("[class*='price']").first().text(),
+    $("[class*='Price']").first().text(),
+    $("[data-testid*='price']").first().text()
+  ]);
+  const bodyPrice = extractPriceFromTextList([
+    $("meta[property='og:description']").attr("content"),
+    $("body").text().slice(0, 4000)
+  ]);
+  const price = pickFirstPositive([
+    parseMoney($("meta[property='product:price:amount']").attr("content")),
+    parseMoney($("meta[name='twitter:data1']").attr("content")),
+    parseMoney($("meta[itemprop='price']").attr("content")),
+    selectorPrice,
+    embedded.price,
+    bodyPrice
+  ]);
   const rating = embedded.rating || extractRatingFromTextList([$("body").text()]);
   const reviewCount = embedded.reviewCount || extractCountFromTextList([
     $("body").text(),
@@ -1254,7 +1273,12 @@ async function scrapeWithPlaywright(url) {
       title: sanitizeText(runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
       description: cleanupProductDescription(runtime.description || fromGlobals.description || parsed.description || runtime.bodyText, runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
       image: normalizeUrl(runtime.image || fromGlobals.image || parsed.image),
-      price: extractPriceFromTextList([...runtime.priceTexts, runtime.bodyText]) || fromGlobals.price || parsed.price,
+      price: pickFirstPositive([
+        extractPriceFromTextList(runtime.priceTexts),
+        fromGlobals.price,
+        parsed.price,
+        extractPriceFromTextList([runtime.bodyText])
+      ]),
       rating: extractRatingFromTextList(runtime.ratingTexts) || parsed.rating,
       shipping: parseShippingTexts(runtime.shippingTexts) ?? parsed.shipping
     };
