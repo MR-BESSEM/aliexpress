@@ -531,6 +531,17 @@
             .filter(Boolean);
     }
 
+    function hasVariantSensitivePricing(product = state.currentProduct, selection = state.selectedVariants) {
+        const hasGroups = Array.isArray(product?.variants) && product.variants.length > 0;
+        const hasSelection = Object.values(selection || {}).some((value) => String(value || "").trim());
+        return hasGroups || hasSelection;
+    }
+
+    function buildVariantPriceNotice(product = state.currentProduct, selection = state.selectedVariants) {
+        if (!hasVariantSensitivePricing(product, selection)) return "";
+        return "ملاحظة: السعر ينجم يتبدل حسب الخيار المختار (لون / مقاس / نسخة) ونأكدوه قبل الطلب.";
+    }
+
     function syncProductInputs(product) {
         if (!product) return;
         if (dom.calcName) dom.calcName.value = product.title || "";
@@ -2498,13 +2509,9 @@
                 button.classList.toggle("is-active", isMatch);
             });
         }
-        const resolved = resolveSelectedVariantOffer(getBaseProduct(), state.selectedVariants);
-        state.activeVariantOffer = resolved.offer ? cloneData(resolved.offer) : null;
-        state.currentProduct = resolved.product ? cloneData(resolved.product) : cloneData(getBaseProduct());
-        syncProductInputs(state.currentProduct);
-        renderPreview(state.currentProduct, { resetSelection: false });
-        renderPricing();
-        toast(resolved.matched ? `${group} set to ${value}` : (resolved.pending ? "Choose the remaining option to update the live price." : `${group} set to ${value}`));
+        state.activeVariantOffer = null;
+        renderVariantSummary();
+        toast(`${group} set to ${value}`);
     }
 
     function renderVariantSummary() {
@@ -2850,6 +2857,7 @@
         const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
         const note = dom.calcNote?.value.trim() || "بدون ملاحظات";
         const restrictions = getRestrictionSummary(state.currentProduct);
+        const variantPriceNotice = buildVariantPriceNotice();
 
         return [
             "سلام، نحب تسعيرة يدوية للمنتج هذا:",
@@ -2860,6 +2868,7 @@
             `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `المواصفات: ${note}`,
+            variantPriceNotice,
             restrictions ? `ملاحظة: ${restrictions}` : ""
         ].filter(Boolean).join("\n");
     }
@@ -2892,6 +2901,7 @@
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
         const delivery = state.currentProduct?.deliveryEstimate || "غير متوفر";
         const shippingText = pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd);
+        const variantPriceNotice = buildVariantPriceNotice();
 
         const message = [
             "سلام، نحب نطلب المنتج هذا:",
@@ -2902,7 +2912,8 @@
             `عمولة الخدمة: ${formatTnd(pricing.serviceFee)}`,
             `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
             `التوصيل المتوقع: ${delivery}`,
-            `المواصفات: ${note}`
+            `المواصفات: ${note}`,
+            variantPriceNotice
         ].join("\n");
 
         saveRecentLink(state.currentProduct || { url: link, title });
@@ -3177,6 +3188,9 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         const lines = [`🚀 *طلب جديد Alexpress Tunisie*`, ``, `🧾 *المرجع:* ${orderRef}`, `💳 *الدفع:* ${paymentLabel}`, ``];
 
         items.forEach((item, index) => {
+            const itemVariantPriceNotice = (item?.variantSelection && Object.keys(item.variantSelection).length)
+                ? "⚠️ السعر ينجم يتبدل حسب الخيار المختار، والتأكيد النهائي يكون بعد مراجعة النسخة المطلوبة."
+                : "";
             lines.push(`📦 *منتج ${index + 1}:* ${item.name}`);
             lines.push(`🔗 الرابط: ${item.link || "غير متوفر"}`);
             lines.push(`🔢 الكمية: ${item.qty || 1}`);
@@ -3186,6 +3200,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             lines.push(`🧰 عمولة الخدمة: ${formatTnd(item.serviceFeeTnd || 0)}`);
             lines.push(`💰 الإجمالي: ${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}`);
             if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
+            if (itemVariantPriceNotice) lines.push(itemVariantPriceNotice);
             if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: خطر ديوانة مرتفع`);
             else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: يلزم تثبت قبل الطلب`);
             lines.push(`────────────`);
