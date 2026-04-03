@@ -1869,26 +1869,8 @@
     }
 
     function renderQuoteComparison(product) {
-        if (!dom.quoteCompareCard || !dom.quoteAuto || !dom.quoteSimilar || !dom.quoteManual || !dom.quoteNote || !dom.quoteCompareStatus) return;
-        const pricing = calculatePricingData();
-        const hasPricing = pricing.finalTnd > 0;
-        dom.quoteCompareCard.classList.toggle("hidden", !hasPricing && !product);
-        if (!hasPricing && !product) return;
-
-        const similarAverage = getSimilarOrderAverage(product?.title || dom.calcName?.value || "");
-        const manualTarget = pricing.finalTnd > 0 ? pricing.finalTnd + (product?.manualQuoteRecommended ? Math.max(4, pricing.finalTnd * 0.04) : 0) : 0;
-        const spread = similarAverage > 0 ? Math.abs(pricing.finalTnd - similarAverage) : 0;
-
-        dom.quoteAuto.textContent = formatTnd(pricing.finalTnd);
-        dom.quoteSimilar.textContent = similarAverage > 0 ? formatTnd(similarAverage) : "N/A";
-        dom.quoteManual.textContent = formatTnd(manualTarget);
-        dom.quoteCompareStatus.textContent = spread > 12 ? "REVIEW" : "MATCH";
-        dom.quoteCompareStatus.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            spread > 12 ? "bg-amber-400/10 text-amber-300" : "bg-blue-500/10 text-blue-300"
-        }`;
-        dom.quoteNote.textContent = similarAverage > 0
-            ? `Difference versus similar orders: ${formatTnd(spread)}. ${spread > 12 ? "Manual review recommended." : "Auto quote looks aligned."}`
-            : "No similar orders found yet. Manual quote target uses current auto estimate.";
+        if (dom.quoteCompareCard) dom.quoteCompareCard.classList.add("hidden");
+        return;
     }
 
     function renderResellerMode() {
