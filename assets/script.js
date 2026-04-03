@@ -1358,6 +1358,7 @@
 
         const trust = product.trustScore || { score: 60, label: "Good" };
         dom.trustCard.classList.remove("hidden");
+        dom.trustBadge.dir = "ltr";
         dom.trustBadge.textContent = `${trust.score} / 100`;
         dom.trustBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
             trust.score >= 80 ? "bg-emerald-500/10 text-emerald-300" :
