@@ -105,6 +105,15 @@ function hasUsableImage(value) {
   return Boolean(normalizeUrl(value));
 }
 
+function hasUsefulPartialProductData(partial = {}) {
+  return Boolean(
+    hasUsableImage(partial.image) ||
+    sanitizeText(partial.title) ||
+    Number(partial.price || 0) > 0 ||
+    Number(partial.rating || 0) > 0
+  );
+}
+
 function getCache(map, key) {
   const hit = map.get(key);
   if (!hit || hit.expiresAt < Date.now()) {
@@ -993,7 +1002,7 @@ async function withRetries(label, task) {
     } catch (error) {
       lastError = error;
       log("warn", `${label} failed`, { attempt: attempt + 1, error: error.message });
-      if (error?.nonRetryable) break;
+      if (error?.nonRetryable || hasUsefulPartialProductData(error?.partialData)) break;
       if (attempt < SCRAPE_RETRIES) await sleep(700 * (attempt + 1));
     }
   }
