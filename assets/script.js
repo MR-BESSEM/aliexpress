@@ -39,6 +39,11 @@
         previewPrice: document.getElementById("runtime-preview-price"),
         previewLink: document.getElementById("runtime-preview-link"),
         previewSource: document.getElementById("runtime-preview-source"),
+        previewShipping: document.getElementById("runtime-preview-shipping"),
+        previewDelivery: document.getElementById("runtime-preview-delivery"),
+        previewRating: document.getElementById("runtime-preview-rating"),
+        previewReviews: document.getElementById("runtime-preview-reviews"),
+        previewVariantSummary: document.getElementById("runtime-preview-variant-summary"),
         createAlertBtn: document.getElementById("runtime-create-alert"),
         shareReferralBtn: document.getElementById("runtime-copy-referral-share"),
         trustCard: document.getElementById("runtime-trust-card"),
@@ -201,6 +206,7 @@
         adminPromos: [],
         activePromoCode: "",
         activityLog: [],
+        selectedVariants: {},
         stats: {
             fetches: 0,
             manualQuotes: 0
@@ -1806,7 +1812,11 @@
         if (!dom.variantsCard || !dom.variantGroups) return;
         const groups = Array.isArray(product?.variants) ? product.variants.filter((group) => Array.isArray(group.values) && group.values.length) : [];
         dom.variantsCard.classList.toggle("hidden", groups.length === 0);
-        if (!groups.length) return;
+        if (!groups.length) {
+            state.selectedVariants = {};
+            renderVariantSummary();
+            return;
+        }
 
         dom.variantGroups.innerHTML = groups.map((group, index) => `
             <div class="space-y-2">
@@ -1820,6 +1830,7 @@
                 </div>
             </div>
         `).join("");
+        renderVariantSummary();
     }
 
     function renderCustomsAdvisor(product) {
@@ -2145,7 +2156,27 @@
         const cleanedParts = current.split("|").map((part) => part.trim()).filter(Boolean).filter((part) => !part.toLowerCase().startsWith(String(group || "").toLowerCase()));
         cleanedParts.push(`${group}: ${value}`);
         if (dom.calcNote) dom.calcNote.value = cleanedParts.join(" | ");
+        state.selectedVariants = {
+            ...(state.selectedVariants || {}),
+            [group]: value
+        };
+        if (dom.variantGroups) {
+            dom.variantGroups.querySelectorAll("[data-variant-group][data-variant-value]").forEach((button) => {
+                const isMatch = button.getAttribute("data-variant-group") === String(group || "") && button.getAttribute("data-variant-value") === String(value || "");
+                button.classList.toggle("is-active", isMatch);
+            });
+        }
+        renderVariantSummary();
         toast(`${group} set to ${value}`);
+    }
+
+    function renderVariantSummary() {
+        if (!dom.previewVariantSummary) return;
+        const selectedEntries = Object.entries(state.selectedVariants || {}).filter(([, value]) => String(value || "").trim());
+        const hasSelection = selectedEntries.length > 0;
+        dom.previewVariantSummary.classList.toggle("hidden", !hasSelection);
+        if (!hasSelection) return;
+        dom.previewVariantSummary.textContent = selectedEntries.map(([group, value]) => `${group}: ${value}`).join(" • ");
     }
 
     function loadOrderIntoCart(orderRef) {
@@ -2288,6 +2319,7 @@
         state.currentProduct = product;
         if (!dom.previewCard) return;
         const previewDescriptionNode = ensurePreviewDescriptionNode();
+        state.selectedVariants = {};
 
         dom.previewCard.classList.remove("hidden");
         if (dom.previewImage) {
@@ -2315,11 +2347,26 @@
         if (dom.previewSource) {
             dom.previewSource.textContent = String(product.source || "scrape").toUpperCase();
         }
+        if (dom.previewShipping) {
+            dom.previewShipping.textContent = product.shipping === 0 ? "Free" : getShippingLabel(product.shipping);
+        }
+        if (dom.previewDelivery) {
+            dom.previewDelivery.textContent = product.deliveryEstimate || "Not available";
+        }
+        if (dom.previewRating) {
+            dom.previewRating.textContent = Number(product.rating || 0) > 0 ? Number(product.rating || 0).toFixed(1) : "N/A";
+        }
+        if (dom.previewReviews) {
+            dom.previewReviews.textContent = formatCompactCount(product.reviewCount || 0);
+        }
         if (dom.previewMeta) {
             const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
             dom.previewMeta.textContent = product.description
                 ? (currentLang === "ar" ? "الوصف متوفر" : currentLang === "fr" ? "Description prete" : "Description Ready")
                 : (currentLang === "ar" ? "الاسم والصورة متوفرين" : currentLang === "fr" ? "Nom + image prets" : "Image + Name Ready");
+        }
+        if (dom.previewMeta) {
+            dom.previewMeta.textContent = product?.manualQuoteRecommended ? "Review Before Checkout" : "Tunisia Ready";
         }
         if (previewDescriptionNode) {
             const currentLang = window.localStorage.getItem("alexpress_lang") || "ar";
@@ -2334,10 +2381,11 @@
         if (dom.previewPrice) {
             dom.previewPrice.classList.add("hidden");
         }
+        renderVariantSummary();
 
         renderAlerts(product);
         renderRestrictionBanner(product);
-        renderSellerTrust(null);
+        renderSellerTrust(product);
         renderVariants(product);
         renderCustomsAdvisor(product);
         renderQuoteComparison(product);
