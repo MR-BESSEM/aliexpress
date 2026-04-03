@@ -80,6 +80,7 @@
         quoteSimilar: document.getElementById("runtime-quote-similar"),
         quoteManual: document.getElementById("runtime-quote-manual"),
         quoteNote: document.getElementById("runtime-quote-note"),
+        resellerCard: document.getElementById("runtime-reseller-card"),
         resellerStatus: document.getElementById("runtime-reseller-status"),
         resellerPrice: document.getElementById("runtime-reseller-price"),
         resellerQty: document.getElementById("runtime-reseller-qty"),
@@ -627,7 +628,7 @@
         const pendingCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory)
             ? orderHistory.filter((order) => ["pending", "processing", "shipped"].includes(String(order.status || "pending"))).length
             : 0;
-        const notificationsCount = Math.min(9, getActivityLog().length);
+        const accountBadgeCount = Math.min(9, ordersCount || 0);
 
         const historyBadge = ensureNavBadge("tab-history", "runtime-history-badge", "absolute -top-1 -left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
         const accountBadge = ensureNavBadge("tab-account", "runtime-account-badge", "absolute -top-1 -left-1 bg-amber-400 text-black text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
@@ -637,8 +638,8 @@
             historyBadge.classList.toggle("hidden", pendingCount === 0);
         }
         if (accountBadge) {
-            accountBadge.textContent = notificationsCount || ordersCount;
-            accountBadge.classList.toggle("hidden", (notificationsCount || ordersCount) === 0);
+            accountBadge.textContent = accountBadgeCount;
+            accountBadge.classList.toggle("hidden", accountBadgeCount === 0);
         }
     }
 
@@ -1181,10 +1182,94 @@
         if (dom.imagePreviewCard) dom.imagePreviewCard.classList.add("hidden");
         if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
         if (dom.customsCard) dom.customsCard.classList.add("hidden");
+        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
+    }
+
+    function applyAccountUiCleanup() {
+        const toolsPanel = document.querySelector('#section-account details[data-account-panel="tools"]');
+        const notificationsPanel = document.querySelector('#section-account details[data-account-panel="notifications"]');
+        const legacyAccount = document.getElementById("section-account-legacy");
+        if (toolsPanel) {
+            toolsPanel.open = false;
+            toolsPanel.classList.add("hidden");
+        }
+        if (notificationsPanel) {
+            notificationsPanel.open = false;
+            notificationsPanel.classList.add("hidden");
+        }
+        if (legacyAccount) {
+            legacyAccount.remove();
+        }
+    }
+
+    function repairTabLayout() {
+        const main = document.querySelector("main");
+        if (!main) return;
+
+        const orderedSectionIds = [
+            "section-guide",
+            "section-calc",
+            "section-wishlist",
+            "section-history",
+            "section-track",
+            "section-cart",
+            "section-check",
+            "section-account"
+        ];
+
+        let anchor = null;
+        orderedSectionIds.forEach((sectionId) => {
+            const section = document.getElementById(sectionId);
+            if (!section) return;
+            if (!anchor) {
+                if (section.parentElement !== main) {
+                    main.prepend(section);
+                }
+                anchor = section;
+                return;
+            }
+            if (section.parentElement !== main || section.previousElementSibling !== anchor) {
+                anchor.insertAdjacentElement("afterend", section);
+            }
+            anchor = section;
+        });
+
+        const legacyAccount = document.getElementById("section-account-legacy");
+        if (legacyAccount) legacyAccount.remove();
+    }
+
+    function patchTabSwitching() {
+        const sectionIds = ["guide", "calc", "wishlist", "history", "track", "cart", "check", "account"];
+
+        function applyTabState(tabId) {
+            const safeTabId = sectionIds.includes(tabId) ? tabId : "guide";
+            sectionIds.forEach((id) => {
+                const section = document.getElementById(`section-${id}`);
+                const button = document.getElementById(`tab-${id}`);
+                const isActive = id === safeTabId;
+                if (section) {
+                    section.classList.toggle("active", isActive);
+                    section.style.display = isActive ? "block" : "none";
+                }
+                if (button) {
+                    button.classList.toggle("active-tab", isActive);
+                }
+            });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            if (safeTabId === "guide" && typeof window.initCharts === "function") {
+                window.initCharts();
+            }
+        }
+
+        window.switchTab = applyTabState;
+
+        const activeButton = document.querySelector(".nav-btn.active-tab");
+        const currentTab = activeButton?.id?.replace(/^tab-/, "") || "guide";
+        applyTabState(currentTab);
     }
 
     function getAccountPanels() {
-        return Array.from(document.querySelectorAll('#section-account details.account-panel'));
+        return Array.from(document.querySelectorAll('#section-account details.account-panel:not(.hidden)'));
     }
 
     function openAccountPanel(panelName) {
@@ -1796,6 +1881,8 @@
     }
 
     function renderResellerMode() {
+        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
+        return;
         if (!dom.resellerPrice || !dom.resellerQty || !dom.profitUnit || !dom.profitTotal || !dom.profitRoi || !dom.profitBreakEven || !dom.resellerStatus) return;
         const pricing = calculatePricingData();
         const resale = Number(dom.resellerPrice.value || 0);
@@ -3150,10 +3237,13 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         state.adminUnlocked = Boolean(state.adminToken);
         state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
         state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
+        repairTabLayout();
         patchGlobals();
         patchCollectionActions();
+        patchTabSwitching();
         bindEvents();
         applyCalculatorUiCleanup();
+        applyAccountUiCleanup();
         initAccountPanels();
         applyLanguage(window.localStorage.getItem("alexpress_lang") || "ar");
         renderRecentLinks();
