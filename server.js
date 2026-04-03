@@ -124,6 +124,69 @@ function mergeVariantGroups(current = [], incoming = []) {
     .filter((group) => group.values.length >= 2);
 }
 
+function isVariantLikeKey(key = "") {
+  return /variant|sku|prop|property|option|attribute|color|colour|size|bundle|storage|capacity|style|material|model/.test(String(key || "").toLowerCase());
+}
+
+function normalizeVariantValue(value = "") {
+  return sanitizeText(value)
+    .replace(/^[|:;,\-]+|[|:;,\-]+$/g, "")
+    .trim();
+}
+
+function buildVariantOfferKey(attributes = {}) {
+  return Object.entries(attributes || {})
+    .map(([name, value]) => [sanitizeText(name).toLowerCase(), normalizeVariantValue(value).toLowerCase()])
+    .filter(([, value]) => value)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}`)
+    .join("|");
+}
+
+function mergeVariantOffers(current = [], incoming = []) {
+  const offers = new Map();
+  [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])].forEach((offer) => {
+    if (!offer || typeof offer !== "object" || !offer.attributes || typeof offer.attributes !== "object") return;
+    const key = offer.key || buildVariantOfferKey(offer.attributes);
+    if (!key) return;
+
+    const previous = offers.get(key) || { attributes: {} };
+    offers.set(key, {
+      key,
+      attributes: { ...previous.attributes, ...offer.attributes },
+      price: pickLowestPositive([Number(offer.price || 0), Number(previous.price || 0)]),
+      shipping: offer.shipping != null ? Number(offer.shipping) : (previous.shipping != null ? Number(previous.shipping) : null),
+      image: normalizeUrl(offer.image || previous.image || ""),
+      deliveryEstimate: sanitizeText(offer.deliveryEstimate || previous.deliveryEstimate || ""),
+      source: sanitizeText(offer.source || previous.source || "")
+    });
+  });
+
+  return Array.from(offers.values())
+    .map((offer) => ({
+      ...offer,
+      key: offer.key || buildVariantOfferKey(offer.attributes)
+    }))
+    .filter((offer) => offer.key && Object.keys(offer.attributes || {}).length);
+}
+
+function extractVariantGroupsFromOffers(offers = []) {
+  const groups = new Map();
+  (Array.isArray(offers) ? offers : []).forEach((offer) => {
+    Object.entries(offer?.attributes || {}).forEach(([name, value]) => {
+      const label = sanitizeText(name || "Option");
+      const normalizedValue = normalizeVariantValue(value);
+      if (!label || !normalizedValue) return;
+      const existing = groups.get(label) || [];
+      groups.set(label, uniqueShortText(existing.concat(normalizedValue)));
+    });
+  });
+
+  return Array.from(groups.entries())
+    .map(([name, values]) => ({ name, values: values.slice(0, 12) }))
+    .filter((group) => group.values.length >= 2);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -143,7 +206,8 @@ function hasUsefulPartialProductData(partial = {}) {
     Number(partial.reviewCount || 0) > 0 ||
     Number(partial.soldCount || 0) > 0 ||
     sanitizeText(partial.deliveryEstimate) ||
-    (Array.isArray(partial.variants) && partial.variants.length > 0)
+    (Array.isArray(partial.variants) && partial.variants.length > 0) ||
+    (Array.isArray(partial.variantOffers) && partial.variantOffers.length > 0)
   );
 }
 
@@ -161,6 +225,7 @@ function mergePartialProductData(current = null, incoming = null, fallbackUrl = 
     soldCount: Math.max(0, Number(next.soldCount || 0), Number(base.soldCount || 0)),
     deliveryEstimate: sanitizeText(next.deliveryEstimate || base.deliveryEstimate || ""),
     variants: mergeVariantGroups(base.variants, next.variants),
+    variantOffers: mergeVariantOffers(base.variantOffers, next.variantOffers),
     url: next.url || base.url || fallbackUrl
   };
 }
@@ -731,6 +796,267 @@ function uniqueShortText(values = []) {
   ));
 }
 
+function getVariantObjectValue(source, keys = []) {
+  if (!source || typeof source !== "object") return "";
+  for (const key of keys) {
+    if (source[key] == null) continue;
+    const raw = source[key];
+    const value = typeof raw === "string" || typeof raw === "number"
+      ? sanitizeText(raw)
+      : sanitizeText(readScalar(raw));
+    if (value) return value;
+  }
+  return "";
+}
+
+function collectVariantIdCandidates(value) {
+  const ids = new Set();
+  const visit = (entry, depth = 0) => {
+    if (depth > 2 || entry == null) return;
+    if (typeof entry === "string" || typeof entry === "number") {
+      const text = sanitizeText(entry);
+      if (!text) return;
+      for (const match of text.matchAll(/\b(\d{2,})\s*:\s*(\d{2,})\b/g)) {
+        ids.add(`${match[1]}:${match[2]}`);
+        ids.add(match[2]);
+      }
+      if (/^\d{2,}$/.test(text)) ids.add(text);
+      return;
+    }
+    if (Array.isArray(entry)) {
+      entry.forEach((item) => visit(item, depth + 1));
+      return;
+    }
+    if (typeof entry === "object") {
+      Object.entries(entry).forEach(([key, nested]) => {
+        if (/id|attr|prop|sku/i.test(key)) visit(nested, depth + 1);
+      });
+    }
+  };
+  visit(value);
+  return Array.from(ids);
+}
+
+function buildVariantPropertyLookup(source) {
+  const groups = new Map();
+  const valuesById = new Map();
+
+  const addGroupValue = (groupName, valueName, image = "", ids = []) => {
+    const label = sanitizeText(groupName || "Option");
+    const normalizedValue = normalizeVariantValue(valueName);
+    if (!label || !normalizedValue) return;
+
+    const existing = groups.get(label) || [];
+    groups.set(label, uniqueShortText(existing.concat(normalizedValue)));
+
+    const record = { group: label, value: normalizedValue, image: normalizeUrl(image) };
+    ids.map((id) => sanitizeText(id)).filter(Boolean).forEach((id) => valuesById.set(id, record));
+  };
+
+  walkObject(source, (node) => {
+    if (!node || typeof node !== "object" || Array.isArray(node)) return;
+
+    const groupName = getVariantObjectValue(node, [
+      "skuPropertyName",
+      "propertyName",
+      "salePropName",
+      "attributeName",
+      "specName",
+      "name"
+    ]);
+    const propertyId = getVariantObjectValue(node, ["skuPropertyId", "propertyId", "salePropId", "attrId", "propId", "id"]);
+    const valueLists = [
+      node.skuPropertyValues,
+      node.propertyValues,
+      node.salePropValues,
+      node.values,
+      node.options,
+      node.variantValues
+    ].filter((value) => Array.isArray(value));
+
+    if (!groupName || !valueLists.length) return;
+
+    valueLists.flat().forEach((item) => {
+      if (typeof item === "string" || typeof item === "number") {
+        addGroupValue(groupName, String(item), "", propertyId ? [propertyId] : []);
+        return;
+      }
+      if (!item || typeof item !== "object") return;
+
+      const valueName = getVariantObjectValue(item, [
+        "propertyValueDisplayName",
+        "propertyValueDefinitionName",
+        "propertyValueName",
+        "skuPropertyTips",
+        "skuPropertyValue",
+        "valueName",
+        "displayName",
+        "name",
+        "title",
+        "value"
+      ]);
+      const image = getVariantObjectValue(item, [
+        "skuPropertyImagePath",
+        "image",
+        "imageUrl",
+        "imagePath",
+        "iconUrl"
+      ]);
+      const valueId = getVariantObjectValue(item, [
+        "propertyValueIdLong",
+        "propertyValueId",
+        "skuPropertyValueId",
+        "valueId",
+        "id"
+      ]);
+
+      const ids = [];
+      if (valueId) ids.push(valueId);
+      if (propertyId && valueId) ids.push(`${propertyId}:${valueId}`);
+      addGroupValue(groupName, valueName, image, ids);
+    });
+  });
+
+  return {
+    groups: Array.from(groups.entries())
+      .map(([name, values]) => ({ name, values: values.slice(0, 12) }))
+      .filter((group) => group.values.length >= 2),
+    valuesById
+  };
+}
+
+function extractVariantPairsFromValue(value, fallbackKey = "", lookup = null, depth = 0) {
+  if (depth > 2 || value == null) return [];
+
+  if (typeof value === "string" || typeof value === "number") {
+    const text = sanitizeText(value);
+    if (!text || text.length > 120 || /^https?:\/\//i.test(text)) return [];
+
+    const resolvedByIds = [];
+    collectVariantIdCandidates(text).forEach((id) => {
+      const match = lookup?.valuesById?.get(id);
+      if (match) resolvedByIds.push({ name: match.group, value: match.value, image: match.image || "" });
+    });
+    if (resolvedByIds.length) return resolvedByIds;
+
+    const pairMatches = text.split(/[|;]+/).map((entry) => sanitizeText(entry)).filter(Boolean).flatMap((entry) => {
+      const match = entry.match(/^([^:=]{2,30})\s*[:=]\s*(.{1,60})$/);
+      if (!match) return [];
+      return [{ name: guessVariantLabel(match[1], [match[2]]), value: match[2] }];
+    });
+    if (pairMatches.length) return pairMatches;
+
+    if (isVariantLikeKey(fallbackKey)) {
+      const normalizedValue = normalizeVariantValue(text);
+      if (!normalizedValue || /price|shipping|delivery|review|rating/i.test(normalizedValue)) return [];
+      return [{ name: guessVariantLabel(fallbackKey, [normalizedValue]), value: normalizedValue }];
+    }
+
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => extractVariantPairsFromValue(entry, fallbackKey, lookup, depth + 1));
+  }
+
+  if (typeof value !== "object") return [];
+
+  const directGroupName = getVariantObjectValue(value, [
+    "skuPropertyName",
+    "propertyName",
+    "salePropName",
+    "attributeName",
+    "specName",
+    "groupName"
+  ]);
+  const directValue = getVariantObjectValue(value, [
+    "propertyValueDisplayName",
+    "propertyValueDefinitionName",
+    "propertyValueName",
+    "skuPropertyTips",
+    "skuPropertyValue",
+    "valueName",
+    "displayName",
+    "name",
+    "title",
+    "value"
+  ]);
+
+  if (directGroupName && directValue) {
+    return [{ name: guessVariantLabel(directGroupName, [directValue]), value: directValue }];
+  }
+
+  return Object.entries(value).flatMap(([key, nested]) => extractVariantPairsFromValue(nested, key, lookup, depth + 1));
+}
+
+function normalizeVariantAttributes(pairs = []) {
+  const attributes = {};
+  const images = [];
+
+  (Array.isArray(pairs) ? pairs : []).forEach((pair) => {
+    const name = sanitizeText(pair?.name || "");
+    const value = normalizeVariantValue(pair?.value || "");
+    if (!name || !value || value.length > 60) return;
+    if (!attributes[name]) attributes[name] = value;
+    if (pair?.image) images.push(normalizeUrl(pair.image));
+  });
+
+  return { attributes, images: images.filter(Boolean) };
+}
+
+function extractVariantOffersFromObjectTree(source) {
+  const lookup = buildVariantPropertyLookup(source);
+  const offers = [];
+
+  walkObject(source, (node) => {
+    if (!node || typeof node !== "object" || Array.isArray(node)) return;
+
+    let price = 0;
+    let shipping = null;
+    let image = "";
+    let deliveryEstimate = "";
+
+    for (const [key, value] of Object.entries(node)) {
+      const lowerKey = key.toLowerCase();
+      if (!price && /price|amount|saleprice|offerprice|activityprice|currentprice|displayprice/.test(lowerKey)) {
+        const scalar = readScalar(value);
+        price = pickFirstPositive([parseMoney(scalar), ...extractUsdValuesFromText(String(scalar || ""))]);
+      }
+      if (shipping == null && /shipping|freight|delivery|logistics|postage/.test(lowerKey)) {
+        shipping = parseShippingTexts([String(readScalar(value) || "")]);
+      }
+      if (!image && /image|img|pic|thumb/.test(lowerKey)) {
+        image = readImage(value);
+      }
+      if (!deliveryEstimate && /delivery|ship|eta|arrival|transit/.test(lowerKey)) {
+        deliveryEstimate = extractDeliveryEstimateFromTexts([String(readScalar(value) || "")]);
+      }
+    }
+
+    if (price <= 0 && shipping == null && !image) return;
+
+    const { attributes, images } = normalizeVariantAttributes(
+      Object.entries(node).flatMap(([key, value]) => extractVariantPairsFromValue(value, key, lookup))
+    );
+    if (!Object.keys(attributes).length) return;
+
+    offers.push({
+      key: buildVariantOfferKey(attributes),
+      attributes,
+      price,
+      shipping,
+      image: normalizeUrl(image || images[0] || ""),
+      deliveryEstimate,
+      source: "object-tree"
+    });
+  });
+
+  return {
+    groups: mergeVariantGroups(lookup.groups, extractVariantGroupsFromOffers(offers)),
+    offers: mergeVariantOffers([], offers)
+  };
+}
+
 function extractVariantGroupsFromObjectTree(source) {
   const groups = new Map();
 
@@ -875,6 +1201,65 @@ function buildEstimatedTimeline(product) {
   ];
 }
 
+function buildVariantOfferProduct(baseProduct, offer) {
+  const price = Number(offer?.price || 0) > 0 ? Number(offer.price) : Number(baseProduct?.price || 0);
+  const shipping = offer?.shipping != null
+    ? Number(offer.shipping)
+    : (baseProduct?.shipping != null ? Number(baseProduct.shipping) : null);
+  const image = normalizeUrl(offer?.image || baseProduct?.image || "");
+  const deliveryEstimate = sanitizeText(offer?.deliveryEstimate || baseProduct?.deliveryEstimate || inferDeliveryEstimate(shipping));
+  const attributes = { ...(offer?.attributes || {}) };
+  const selectionLabel = Object.values(attributes).filter(Boolean).join(" / ");
+
+  const variantProduct = {
+    title: baseProduct?.title || "AliExpress Product",
+    description: baseProduct?.description || "",
+    price,
+    shipping,
+    image,
+    rating: Number(baseProduct?.rating || 0),
+    reviewCount: Number(baseProduct?.reviewCount || 0),
+    soldCount: Number(baseProduct?.soldCount || 0),
+    url: baseProduct?.url || "",
+    source: baseProduct?.source || "scrape",
+    deliveryEstimate,
+    priceUnavailable: price <= 0 && Boolean(baseProduct?.priceUnavailable),
+    variantSelectionLabel: selectionLabel
+  };
+
+  variantProduct.shippingLabel = variantProduct.shipping == null
+    ? "غير متوفر"
+    : (variantProduct.shipping === 0 ? "شحن مجاني" : `${variantProduct.shipping.toFixed(2)} USD`);
+  variantProduct.restrictions = classifyProductRestrictions(variantProduct);
+  variantProduct.alerts = buildProductAlerts(variantProduct);
+  variantProduct.trustScore = buildSellerTrustScore(variantProduct);
+  variantProduct.customsAdvisor = buildCustomsAdvisor(variantProduct);
+  variantProduct.deliveryTimeline = buildEstimatedTimeline(variantProduct);
+  variantProduct.manualQuoteRecommended = Boolean(
+    variantProduct.restrictions?.banned ||
+    variantProduct.restrictions?.restricted ||
+    (Number.isFinite(Number(variantProduct.shipping)) && Number(variantProduct.shipping) >= 8)
+  );
+
+  return {
+    key: offer?.key || buildVariantOfferKey(attributes),
+    attributes,
+    price: variantProduct.price,
+    shipping: variantProduct.shipping,
+    image: variantProduct.image,
+    deliveryEstimate: variantProduct.deliveryEstimate,
+    shippingLabel: variantProduct.shippingLabel,
+    priceUnavailable: variantProduct.priceUnavailable,
+    alerts: variantProduct.alerts,
+    restrictions: variantProduct.restrictions,
+    trustScore: variantProduct.trustScore,
+    customsAdvisor: variantProduct.customsAdvisor,
+    deliveryTimeline: variantProduct.deliveryTimeline,
+    manualQuoteRecommended: variantProduct.manualQuoteRecommended,
+    variantSelectionLabel: selectionLabel
+  };
+}
+
 function cleanupProductTitle(title) {
   return sanitizeText(title)
     .replace(/\s{2,}/g, " ")
@@ -1004,7 +1389,7 @@ function extractJsonObjectsFromHtml(html, $) {
 }
 
 function extractProductFieldsFromObjectTree(source) {
-  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
+  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [], variantOffers: [] };
 
   walkObject(source, (node) => {
     if (Array.isArray(node)) return;
@@ -1059,7 +1444,9 @@ function extractProductFieldsFromObjectTree(source) {
     }
   });
 
-  result.variants = extractVariantGroupsFromObjectTree(source);
+  const variantData = extractVariantOffersFromObjectTree(source);
+  result.variants = mergeVariantGroups(variantData.groups, extractVariantGroupsFromObjectTree(source));
+  result.variantOffers = variantData.offers;
 
   return result;
 }
@@ -1140,6 +1527,7 @@ function extractHtmlProduct(html, url, source) {
     reviewCount,
     soldCount,
     variants,
+    variantOffers: embedded.variantOffers || [],
     url,
     source
   };
@@ -1201,6 +1589,7 @@ async function fetchAliExpressApiProduct(productId) {
     reviewCount: extracted.reviewCount || 0,
     soldCount: extracted.soldCount || 0,
     variants: extracted.variants || [],
+    variantOffers: extracted.variantOffers || [],
     source: "aliexpress-api"
   };
 }
@@ -1392,7 +1781,8 @@ async function scrapeWithPlaywright(url) {
       variants: mergeVariantGroups(
         mergeVariantGroups(fromGlobals.variants, parsed.variants),
         extractVariantGroupsFromTextList(runtime.variantTexts)
-      )
+      ),
+      variantOffers: mergeVariantOffers(fromGlobals.variantOffers, parsed.variantOffers)
     };
 
     if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
@@ -1407,7 +1797,8 @@ async function scrapeWithPlaywright(url) {
         rating: merged.rating,
         reviewCount: merged.reviewCount,
         soldCount: merged.soldCount,
-        variants: merged.variants
+        variants: merged.variants,
+        variantOffers: merged.variantOffers
       };
       error.nonRetryable = true;
       throw error;
@@ -1434,7 +1825,8 @@ async function scrapeWithPlaywright(url) {
         rating: merged.rating,
         reviewCount: merged.reviewCount,
         soldCount: merged.soldCount,
-        variants: merged.variants
+        variants: merged.variants,
+        variantOffers: merged.variantOffers
       };
       if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
         error.nonRetryable = true;
@@ -1470,7 +1862,8 @@ async function scrapeWithHttp(url) {
       rating: parsed.rating,
       reviewCount: parsed.reviewCount,
       soldCount: parsed.soldCount,
-      variants: parsed.variants
+      variants: parsed.variants,
+      variantOffers: parsed.variantOffers
     };
     if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
       error.nonRetryable = true;
@@ -1549,6 +1942,7 @@ async function fetchProduct(url) {
       reviewCount: Number(partialPageData?.reviewCount || 0),
       soldCount: Number(partialPageData?.soldCount || 0),
       variants: Array.isArray(partialPageData?.variants) ? partialPageData.variants : [],
+      variantOffers: Array.isArray(partialPageData?.variantOffers) ? partialPageData.variantOffers : [],
       url: partialPageData?.url || canonicalUrl,
       source: partialPageData ? "partial-fallback" : "api-fallback",
       shipping: partialPageData?.shipping != null ? Number(partialPageData.shipping) : null,
@@ -1556,6 +1950,8 @@ async function fetchProduct(url) {
       priceUnavailable: true
     };
   }
+
+  const rawVariantOffers = mergeVariantOffers(pageData?.variantOffers, apiData?.variantOffers);
 
   const product = {
     success: true,
@@ -1569,7 +1965,10 @@ async function fetchProduct(url) {
     rating: normalizeRating(apiData?.rating) || normalizeRating(pageData?.rating),
     reviewCount: Number(apiData?.reviewCount || pageData?.reviewCount || 0),
     soldCount: Number(apiData?.soldCount || pageData?.soldCount || 0),
-    variants: mergeVariantGroups(pageData?.variants, apiData?.variants),
+    variants: mergeVariantGroups(
+      mergeVariantGroups(pageData?.variants, apiData?.variants),
+      extractVariantGroupsFromOffers(rawVariantOffers)
+    ),
     url: canonicalUrl,
     source: apiData ? "api+scrape" : (pageData?.source || "scrape"),
     cached: false,
@@ -1605,6 +2004,11 @@ async function fetchProduct(url) {
     });
     product.manualQuoteRecommended = true;
   }
+
+  product.variantOffers = mergeVariantOffers([], rawVariantOffers)
+    .map((offer) => buildVariantOfferProduct(product, offer))
+    .filter((offer) => offer.key && Object.keys(offer.attributes || {}).length)
+    .slice(0, 48);
 
   if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
     const error = new Error("Unable to fetch product details from AliExpress right now");
