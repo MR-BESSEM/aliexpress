@@ -123,6 +123,7 @@
         bundleSavings: document.getElementById("runtime-bundle-savings"),
         bundleTitle: document.getElementById("runtime-bundle-title"),
         bundleNote: document.getElementById("runtime-bundle-note"),
+        voiceCard: document.getElementById("runtime-voice-card"),
         voiceRecordBtn: document.getElementById("runtime-voice-record"),
         voiceStopBtn: document.getElementById("runtime-voice-stop"),
         voiceUpload: document.getElementById("runtime-voice-upload"),
@@ -1917,6 +1918,10 @@
     }
 
     function renderVoiceNote() {
+        if (dom.voiceCard) {
+            dom.voiceCard.classList.add("hidden");
+            dom.voiceCard.style.display = "none";
+        }
         if (!dom.voicePlayer || !dom.voiceStatus || !dom.voiceNote) return;
         const hasVoice = Boolean(state.voiceNote?.url);
         dom.voicePlayer.classList.toggle("hidden", !hasVoice);
@@ -2841,13 +2846,100 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
     function patchRenderCart() {
         if (typeof window.renderCart !== "function" || window.renderCart.__runtimeWrapped) return;
-        const originalRenderCart = window.renderCart;
-        const wrapped = function patchedRenderCart(...args) {
-            const result = originalRenderCart.apply(this, args);
+        const wrapped = function patchedRenderCart() {
+            const list = document.getElementById("cart-items-list");
+            const footer = document.getElementById("cart-footer");
+            const totalDisplay = document.getElementById("cart-total-display");
+            const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+
+            if (!list || !footer || !totalDisplay) {
+                renderCartInsights();
+                renderBundleDeals();
+                renderSavedPacks();
+                return;
+            }
+
+            if (!items.length) {
+                list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${typeof t === "function" ? t("cart_empty") : "The cart is empty."}</div>`;
+                totalDisplay.textContent = "TND 0.000";
+                footer.classList.add("hidden");
+                renderCartInsights();
+                renderBundleDeals();
+                renderSavedPacks();
+                return;
+            }
+
+            footer.classList.remove("hidden");
+
+            let subtotal = 0;
+            list.innerHTML = items.map((item) => {
+                const qty = Math.max(1, Number(item.qty || 1));
+                const lineTotal = Number(item.totalWithFee || item.tnd || 0) * qty;
+                subtotal += lineTotal;
+                const shippingText = Number(item.shippingUsd || 0) === 0 ? "Free" : formatUsd(item.shippingUsd || 0);
+                const ratingText = Number(item.rating || 0) > 0 ? Number(item.rating || 0).toFixed(1) : "N/A";
+                const reviewText = Number(item.reviewCount || 0) > 0 ? formatCompactCount(item.reviewCount || 0) : "N/A";
+                const imgHtml = item.image
+                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
+                    : `<div class="w-20 h-20 rounded-2xl border border-white/10 bg-black/20 flex items-center justify-center text-slate-500 shrink-0"><i class="fas fa-box text-xl"></i></div>`;
+
+                return `
+                    <div class="bg-slate-900/55 p-4 md:p-5 rounded-3xl border border-white/5 space-y-4 auto-align shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+                        <div class="flex flex-col md:flex-row gap-4 md:items-start">
+                            ${imgHtml}
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div class="text-sm md:text-base font-black text-white leading-relaxed break-words">${escapeHtml(item.name || "Product")}</div>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black">
+                                    ${item.note ? `<span class="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300">${escapeHtml(item.note)}</span>` : ""}
+                                    ${item.deliveryEstimate ? `<span class="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">${escapeHtml(item.deliveryEstimate)}</span>` : ""}
+                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">${escapeHtml(shippingText)}</span>
+                                </div>
+                                ${item.link && item.link !== "https://" ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-blue-300 hover:text-white transition-colors break-all"><i class="fas fa-up-right-from-square"></i><span>${typeof t === "function" ? t("prod_link") : "Product Link"}</span></a>` : ""}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">USD</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(item.productUsd || item.usd || 0)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">Rating</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(ratingText)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">Reviews</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(reviewText)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">Total</div>
+                                <div class="text-sm font-black text-amber-300 mt-1" dir="ltr">${formatTnd(lineTotal)}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 border-t border-white/5 pt-4">
+                            <div class="flex items-center bg-black/40 rounded-2xl px-3 py-2 gap-4 border border-white/5" dir="ltr">
+                                <button onclick="changeQty(${item.id}, -1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">-</button>
+                                <span class="text-xs font-black text-white min-w-[18px] text-center">${qty}</span>
+                                <button onclick="changeQty(${item.id}, 1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">+</button>
+                            </div>
+                            <button onclick="removeItem(${item.id})" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[10px] font-black hover:bg-red-500/20 transition-colors">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            let finalTotal = subtotal;
+            if (typeof currentDiscount !== "undefined" && Number(currentDiscount || 0) > 0) {
+                if (typeof discountType !== "undefined" && discountType === "percent") {
+                    finalTotal = subtotal - (subtotal * (Number(currentDiscount || 0) / 100));
+                } else {
+                    finalTotal = Math.max(0, subtotal - Number(currentDiscount || 0));
+                }
+            }
+
+            totalDisplay.textContent = `TND ${Number(finalTotal || 0).toFixed(3)}`;
             renderCartInsights();
             renderBundleDeals();
             renderSavedPacks();
-            return result;
         };
         wrapped.__runtimeWrapped = true;
         window.renderCart = wrapped;
@@ -2882,7 +2974,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
             const message = [buildOrderMessage(cart, paymentLabel, finalTotal, orderRef)]
                 .concat(buildCustomerSummaryLines())
-                .concat(state.voiceNote?.label ? [`🎤 Voice note: ${state.voiceNote.label}`] : [])
                 .join("\n");
             const referral = getReferralState();
             const orderEntry = {
@@ -2898,7 +2989,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                 adminTracking: "",
                 promoCode: state.activePromoCode || "",
                 customer: getAccountPrefs(),
-                voiceNote: state.voiceNote ? { label: state.voiceNote.label } : null,
                 referralCode: referral.code,
                 loyaltyCredit: Math.max(0, Math.round(finalTotal * 0.03))
             };
@@ -2924,7 +3014,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             window.open(urls[channel] || urls.whatsapp, "_blank", "noopener,noreferrer");
 
             clearCartState();
-            state.voiceNote = null;
             renderVoiceNote();
             toast("تم تجهيز الطلب وإرساله!");
         };
@@ -2994,7 +3083,6 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                     <div class="p-3 pt-0 space-y-2 pb-4">
                         ${itemsHtml || `<div class="text-[10px] text-slate-500">لا توجد تفاصيل عناصر.</div>`}
                         ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> الدفع: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
-                        ${order.voiceNote?.label ? `<div class="text-[9px] text-purple-300 font-bold"><i class="fas fa-microphone mr-1"></i> ${escapeHtml(order.voiceNote.label)}</div>` : ""}
                         <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
                     </div>
                 </details>
