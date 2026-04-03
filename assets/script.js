@@ -1161,7 +1161,7 @@
         if (!dom.previewTitle || !dom.previewTitle.parentElement) return null;
         const node = document.createElement("p");
         node.id = "runtime-preview-description";
-        node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed";
+        node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed max-w-4xl";
         node.textContent = "وصف المنتج باش يظهر هنا كي يتجلب المنتج.";
         dom.previewTitle.insertAdjacentElement("afterend", node);
         dom.previewDescription = node;
@@ -1996,7 +1996,7 @@
         const raw = String(title || "").replace(/\s+/g, " ").trim();
         if (!raw) return "AliExpress Product";
         const words = raw.split(" ");
-        if (raw.length <= 78 && words.length <= 11) return raw;
+        if (raw.length <= 58 && words.length <= 8) return raw;
 
         const stopWords = new Set(["for", "with", "and", "the", "a", "an", "of", "to", "in", "on", "wholesale"]);
         const picked = [];
@@ -2006,13 +2006,13 @@
             const clean = word.replace(/[^\w-]/g, "");
             const key = clean.toLowerCase();
             if (!clean) continue;
-            if (picked.length >= 10) break;
+            if (picked.length >= 7) break;
             if (seen.has(key) && !stopWords.has(key)) continue;
             picked.push(word);
             seen.add(key);
         }
 
-        const compact = picked.join(" ").trim();
+        const compact = picked.join(" ").trim().slice(0, 54).trim();
         return compact.length && compact.length < raw.length ? `${compact}...` : raw;
     }
 
@@ -2536,12 +2536,17 @@
         return pricing;
     }
 
-    function renderPreview(product) {
+    function renderPreview(product, options = {}) {
+        const resetSelection = Boolean(options.resetSelection);
+        if (resetSelection) {
+            state.baseProduct = cloneData(product);
+            state.selectedVariants = {};
+            state.activeVariantOffer = null;
+        }
         state.currentProduct = product;
         if (!dom.previewCard) return;
         const previewDescriptionNode = ensurePreviewDescriptionNode();
         const currentLang = currentUiLanguage();
-        state.selectedVariants = {};
 
         const pricing = calculatePricingData();
         const sourceKey = String(product?.source || "scrape").toLowerCase();
@@ -2634,7 +2639,7 @@
         renderAlerts(product);
         renderRestrictionBanner(product);
         renderSellerTrust(product);
-        renderVariants(product);
+        renderVariants(getBaseProduct() || product);
         renderCustomsAdvisor(product);
         renderQuoteComparison(product);
         checkPriceAlerts(product);
@@ -2688,16 +2693,12 @@
                 throw new Error(data.error || "فشل الجلب التلقائي، حاول مرة أخرى");
             }
 
-            state.currentProduct = data;
+            state.baseProduct = cloneData(data);
+            state.currentProduct = cloneData(data);
+            state.activeVariantOffer = null;
             incrementStat("fetches");
-            if (dom.calcName) dom.calcName.value = data.title || "";
-            if (dom.usdPrice) dom.usdPrice.value = Number(data.price || 0) > 0 && !data.priceUnavailable ? Number(data.price || 0).toFixed(2) : "";
-            if (dom.usdShip) {
-                const shippingValue = Number(data.shipping);
-                dom.usdShip.value = Number.isFinite(shippingValue) && shippingValue >= 0 ? shippingValue.toFixed(2) : "";
-            }
-
-            renderPreview(data);
+            syncProductInputs(state.currentProduct);
+            renderPreview(state.currentProduct, { resetSelection: true });
             renderPricing();
             saveRecentLink(data);
             pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
