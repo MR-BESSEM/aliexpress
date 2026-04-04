@@ -605,6 +605,12 @@ function isLowValueProductDescription(text) {
     isAliExpressBlockedTitle(cleaned) ||
     isAliExpressPlaceholderText(cleaned) ||
     /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
+    /window\._config_/i.test(cleaned) ||
+    /captcharecaptcha/i.test(cleaned) ||
+    /recaptcha/i.test(cleaned) ||
+    /nctokenstr/i.test(cleaned) ||
+    /secdata/i.test(cleaned) ||
+    /slidetoget/i.test(cleaned) ||
     /^with\s*\(document\)\s*with\s*\(body\)/i.test(cleaned) ||
     /createelement\(["']script["']\)/i.test(cleaned) ||
     /aplus_v2\.js/i.test(cleaned) ||
