@@ -75,6 +75,18 @@ function log(level, message, meta = {}) {
   console[level](`[${new Date().toISOString()}] ${message}${payload}`);
 }
 
+function clearBrowserReference(reason, meta = {}) {
+  if (browserPromise) {
+    log("warn", "Clearing Playwright browser reference", { reason, ...meta });
+  }
+  browserPromise = null;
+}
+
+function isRecoverablePlaywrightError(error) {
+  const message = String(error?.message || error || "");
+  return /Target page, context or browser has been closed|Target closed|Browser has been closed|Connection closed|browser has disconnected|Execution context was destroyed|net::ERR_|browserType\.launch/i.test(message);
+}
+
 function sanitizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
 }
@@ -1771,6 +1783,18 @@ async function fetchAliExpressApiProduct(productId) {
 
 async function getBrowser() {
   if (!playwright?.chromium) throw new Error("Playwright is not installed");
+  if (browserPromise) {
+    try {
+      const existingBrowser = await browserPromise;
+      if (typeof existingBrowser?.isConnected !== "function" || existingBrowser.isConnected()) {
+        return existingBrowser;
+      }
+      clearBrowserReference("browser-disconnected-before-reuse");
+    } catch (error) {
+      clearBrowserReference("browser-promise-rejected", { error: error.message });
+    }
+  }
+
   if (!browserPromise) {
     resolvedBrowserExecutable = resolvedBrowserExecutable || detectPlaywrightExecutable();
     const launchOptions = {
@@ -1793,13 +1817,16 @@ async function getBrowser() {
     browserPromise = playwright.chromium
       .launch(launchOptions)
       .then((browser) => {
+        browser.on("disconnected", () => {
+          clearBrowserReference("browser-disconnected-event");
+        });
         if (resolvedBrowserExecutable) {
           log("log", "Playwright browser ready", { executablePath: resolvedBrowserExecutable });
         }
         return browser;
       })
       .catch((error) => {
-        browserPromise = null;
+        clearBrowserReference("browser-launch-failed", { error: error.message });
         throw error;
       });
   }
@@ -2061,6 +2088,11 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
     return merged;
+  } catch (error) {
+    if (isRecoverablePlaywrightError(error)) {
+      clearBrowserReference("recoverable-playwright-error", { error: error.message, url });
+    }
+    throw error;
   } finally {
     await page.close().catch(() => {});
     await context.close().catch(() => {});
@@ -2379,6 +2411,9 @@ app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
     if (!req.query.url) {
       return res.status(400).json({ success: false, error: "لازم تبعث رابط المنتج" });
     }
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const product = await fetchProduct(req.query.url);
     res.json(product);
   } catch (error) {
