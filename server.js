@@ -49,6 +49,9 @@ const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
 const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
 const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
 const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
+const ALIEXPRESS_AFFILIATE_API_BASE_URL = process.env.ALIEXPRESS_AFFILIATE_API_BASE_URL || "https://eco.taobao.com/router/rest";
+const ALIEXPRESS_AFFILIATE_PRODUCT_METHOD = process.env.ALIEXPRESS_AFFILIATE_PRODUCT_METHOD || "aliexpress.affiliate.productdetail.get";
+const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").trim();
 const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
 const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
 const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
@@ -756,7 +759,9 @@ function getClientIp(req) {
 
 function formatTopTimestamp(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const utcMs = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
+  const gmt8 = new Date(utcMs + (8 * 60 * 60 * 1000));
+  return `${gmt8.getUTCFullYear()}-${pad(gmt8.getUTCMonth() + 1)}-${pad(gmt8.getUTCDate())} ${pad(gmt8.getUTCHours())}:${pad(gmt8.getUTCMinutes())}:${pad(gmt8.getUTCSeconds())}`;
 }
 
 function signTopRequest(params, secret) {
@@ -1779,6 +1784,11 @@ async function withRetries(label, task) {
 }
 
 async function fetchAliExpressApiProduct(productId) {
+  const shouldUseAffiliateApi = /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN;
+  if (shouldUseAffiliateApi) {
+    return fetchAliExpressAffiliateProduct(productId);
+  }
+
   if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !process.env.ALIEXPRESS_ACCESS_TOKEN) {
     return null;
   }
@@ -1822,6 +1832,88 @@ async function fetchAliExpressApiProduct(productId) {
     soldCount: extracted.soldCount || 0,
     variants: extracted.variants || [],
     source: "aliexpress-api"
+  };
+}
+
+async function fetchAliExpressAffiliateProduct(productId) {
+  if (!ALIEXPRESS_AFFILIATE_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId) {
+    return null;
+  }
+
+  const params = {
+    app_key: ALIEXPRESS_APP_KEY,
+    method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
+    format: "json",
+    sign_method: "md5",
+    timestamp: formatTopTimestamp(),
+    v: "2.0",
+    fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
+    product_ids: String(productId),
+    target_currency: "USD",
+    target_language: "EN",
+    country: "TN"
+  };
+
+  if (ALIEXPRESS_TRACKING_ID) {
+    params.tracking_id = ALIEXPRESS_TRACKING_ID;
+  }
+
+  params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET);
+
+  const body = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      body.append(key, String(value));
+    }
+  });
+
+  const response = await axios.post(ALIEXPRESS_AFFILIATE_API_BASE_URL, body.toString(), {
+    timeout: 20_000,
+    headers: {
+      "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+    },
+    ...getAxiosProxyOptions()
+  });
+
+  const rawProducts = response.data?.aliexpress_affiliate_productdetail_get_response?.resp_result?.result?.products?.product;
+  const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
+  const extracted = extractProductFieldsFromObjectTree(response.data);
+  const title = pickBestProductTitle(
+    firstProduct?.product_title,
+    extracted.title
+  );
+  const image = normalizeUrl(
+    firstProduct?.product_main_image_url ||
+    firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
+    extracted.image
+  );
+  const price = pickFirstPositive([
+    parseMoney(firstProduct?.target_sale_price),
+    parseMoney(firstProduct?.app_sale_price),
+    parseMoney(firstProduct?.sale_price),
+    extracted.price
+  ]);
+  const soldCount = Math.max(
+    parseCompactCount(firstProduct?.lastest_volume),
+    Number(extracted.soldCount || 0)
+  );
+
+  if (!title && !image && !price) {
+    throw new Error("AliExpress Affiliate API returned no usable product fields");
+  }
+
+  return {
+    title,
+    description: "",
+    image,
+    price,
+    shipping: null,
+    deliveryEstimate: "",
+    rating: normalizeRating(extracted.rating) || 0,
+    reviewCount: Number(extracted.reviewCount || 0),
+    soldCount,
+    variants: [],
+    source: "aliexpress-affiliate-api"
   };
 }
 
@@ -2287,16 +2379,18 @@ async function fetchProduct(url) {
   product.shippingLabel = product.shipping == null
     ? "غير متوفر"
     : (product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`);
-  if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title)) {
-    product.title = product.description
+  if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title) || isAliExpressPlaceholderLike(product.title)) {
+    product.title = product.description && !isAliExpressPlaceholderLike(product.description)
       ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "منتج AliExpress"
       : "منتج AliExpress";
   }
 
-  if (isLowValueProductTitle(product.title)) {
+  if (isLowValueProductTitle(product.title) || isAliExpressPlaceholderLike(product.title)) {
     product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "منتج AliExpress";
   }
 
+  product.title = pickBestProductTitle(product.title, pageData?.title, apiData?.title, partialPageData?.title) || "Ù…Ù†ØªØ¬ AliExpress";
+  product.description = pickBestProductDescription([product.description, pageData?.description, apiData?.description, partialPageData?.description], product.title);
   product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
@@ -2440,6 +2534,8 @@ app.get("/api/health", (req, res) => {
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    aliexpressApiTokenConfigured: Boolean(process.env.ALIEXPRESS_ACCESS_TOKEN),
+    aliexpressApiMode: /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN ? "affiliate" : "ds",
     scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
   });
 });
