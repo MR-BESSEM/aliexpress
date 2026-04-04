@@ -1536,6 +1536,73 @@ function safeJsonParse(raw) {
   }
 }
 
+function parseMaybeJson(value, maxDepth = 3) {
+  let current = value;
+  let depth = 0;
+
+  while (typeof current === "string" && depth < maxDepth) {
+    const trimmed = current.trim();
+    if (!trimmed || !/^[\[{]/.test(trimmed)) break;
+    const parsed = safeJsonParse(trimmed);
+    if (!parsed) break;
+    current = parsed;
+    depth += 1;
+  }
+
+  return current;
+}
+
+function summarizeValueKeys(value, limit = 12) {
+  if (!value || typeof value !== "object") return [];
+  return Object.keys(value).slice(0, limit);
+}
+
+function previewValue(value, limit = 280) {
+  const text = sanitizeText(
+    typeof value === "string"
+      ? value
+      : JSON.stringify(value)
+  );
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
+function buildAffiliateResponseDebugSummary(responseData) {
+  const methodResponse =
+    responseData?.aliexpress_affiliate_productdetail_get_response ||
+    responseData?.aliexpress_affiliate_product_detail_get_response ||
+    responseData?.aliexpress_affiliate_productdetails_get_response ||
+    responseData;
+  const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
+  const payload = parseMaybeJson(rawRespResult);
+  const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
+  const productsNode = parseMaybeJson(
+    resultNode?.products ??
+    payload?.products ??
+    resultNode?.result ??
+    null
+  );
+  const productNode = parseMaybeJson(
+    productsNode?.product ??
+    resultNode?.product ??
+    payload?.product ??
+    null
+  );
+  const firstProduct = Array.isArray(productNode) ? productNode[0] : productNode;
+
+  return {
+    dataType: Array.isArray(responseData) ? "array" : typeof responseData,
+    topKeys: summarizeValueKeys(responseData),
+    methodResponseKeys: summarizeValueKeys(methodResponse),
+    respResultType: Array.isArray(rawRespResult) ? "array" : typeof rawRespResult,
+    respResultPreview: rawRespResult == null ? "" : previewValue(rawRespResult),
+    payloadKeys: summarizeValueKeys(payload),
+    resultKeys: summarizeValueKeys(resultNode),
+    productsKeys: summarizeValueKeys(productsNode),
+    firstProductKeys: summarizeValueKeys(firstProduct),
+    firstProductPreview: firstProduct == null ? "" : previewValue(firstProduct)
+  };
+}
+
 function extractBalancedJson(source, startIndex) {
   const opening = source[startIndex];
   const closing = opening === "{" ? "}" : "]";
@@ -1882,16 +1949,46 @@ async function fetchAliExpressAffiliateProduct(productId) {
         proxy: false
       });
 
-      const payload = response.data?.aliexpress_affiliate_productdetail_get_response?.resp_result;
-      const rawProducts = payload?.result?.products?.product;
+      const methodResponse =
+        response.data?.aliexpress_affiliate_productdetail_get_response ||
+        response.data?.aliexpress_affiliate_product_detail_get_response ||
+        response.data?.aliexpress_affiliate_productdetails_get_response ||
+        response.data;
+      const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
+      const payload = parseMaybeJson(rawRespResult);
+      const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
+      const productsNode = parseMaybeJson(
+        resultNode?.products ??
+        payload?.products ??
+        resultNode?.result ??
+        null
+      );
+      const rawProducts = parseMaybeJson(
+        productsNode?.product ??
+        resultNode?.product ??
+        payload?.product ??
+        null
+      );
       const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
-      const extracted = extractProductFieldsFromObjectTree(response.data);
+      const extracted = extractProductFieldsFromObjectTree([
+        response.data,
+        methodResponse,
+        payload,
+        resultNode,
+        productsNode,
+        firstProduct
+      ]);
       const title = pickBestProductTitle(
         firstProduct?.product_title,
+        firstProduct?.title,
+        firstProduct?.productName,
+        firstProduct?.item_title,
         extracted.title
       );
       const image = normalizeUrl(
         firstProduct?.product_main_image_url ||
+        firstProduct?.image_url ||
+        firstProduct?.main_image ||
         firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
         extracted.image
       );
@@ -1900,10 +1997,14 @@ async function fetchAliExpressAffiliateProduct(productId) {
         parseMoney(firstProduct?.target_app_sale_price),
         parseMoney(firstProduct?.app_sale_price),
         parseMoney(firstProduct?.sale_price),
+        parseMoney(firstProduct?.targetOriginalPrice),
+        parseMoney(firstProduct?.targetSalePrice),
+        parseMoney(firstProduct?.promotion_price),
         extracted.price
       ]);
       const soldCount = Math.max(
         parseCompactCount(firstProduct?.lastest_volume),
+        parseCompactCount(firstProduct?.orders),
         Number(extracted.soldCount || 0)
       );
 
@@ -1923,19 +2024,23 @@ async function fetchAliExpressAffiliateProduct(productId) {
         };
       }
 
-      lastError = new Error(`AliExpress Affiliate API returned no usable product fields (country=${country || "none"}, resp_code=${payload?.resp_code || "unknown"})`);
+      const debugSummary = buildAffiliateResponseDebugSummary(response.data);
+      lastError = new Error(`AliExpress Affiliate API returned no usable product fields (country=${country || "none"}, resp_code=${payload?.resp_code || methodResponse?.resp_code || "unknown"})`);
       log("warn", "AliExpress Affiliate API returned empty product", {
         productId,
         country: country || "none",
-        respCode: payload?.resp_code || null,
-        respMsg: payload?.resp_msg || null
+        respCode: payload?.resp_code || methodResponse?.resp_code || null,
+        respMsg: payload?.resp_msg || methodResponse?.resp_msg || null,
+        debug: debugSummary
       });
     } catch (error) {
       lastError = error;
       log("warn", "AliExpress Affiliate API request failed", {
         productId,
         country: country || "none",
-        error: error.message
+        error: error.message,
+        responseStatus: error?.response?.status || null,
+        responseDataPreview: error?.response?.data ? previewValue(error.response.data) : ""
       });
     }
   }
