@@ -2153,6 +2153,28 @@
         }
 
         dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
+                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
+                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
+        dom.variantGroups.innerHTML = `
             <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
                 <div class="text-[10px] text-amber-100 font-black leading-relaxed">
                     السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
