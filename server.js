@@ -273,11 +273,11 @@ function hasUsefulPartialProductData(partial = {}) {
   const description = sanitizeText(partial.description);
   const shipping = partial.shipping != null ? Number(partial.shipping) : null;
   const hasMeaningfulText =
-    (title && !isLowValueProductTitle(title)) ||
-    (description && !isLowValueProductDescription(description));
+    (title && !isLowValueProductTitle(title) && !isAliExpressPlaceholderLike(title)) ||
+    (description && !isLowValueProductDescription(description) && !isAliExpressPlaceholderLike(description));
   const hasMeaningfulCommerceData =
     Number(partial.price || 0) > 0 ||
-    (shipping != null && Number.isFinite(shipping) && shipping >= 0);
+    (shipping != null && Number.isFinite(shipping) && shipping > 0);
 
   return Boolean(
     hasMeaningfulText ||
@@ -679,6 +679,26 @@ function isAliExpressNavigationJunk(value) {
   return keywordMatches >= 2;
 }
 
+function isAliExpressPlaceholderLike(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  return Boolean(
+    isAliExpressBlockedTitle(cleaned) ||
+    isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
+    /download the aliexpress app/i.test(cleaned) ||
+    /\bdownload the app\b/i.test(cleaned) ||
+    /\bwelcome\b/i.test(cleaned) ||
+    /help center/i.test(cleaned) ||
+    /return(?:&| and )refund policy/i.test(cleaned) ||
+    /report ipr infringement/i.test(cleaned) ||
+    /search by image/i.test(cleaned) ||
+    /all categories/i.test(cleaned) ||
+    /\b0\s+cart\b/i.test(cleaned) ||
+    /\ben[^\p{L}\p{N}]{0,8}usd\b/iu.test(cleaned)
+  );
+}
+
 function isLowValueProductTitle(title) {
   const cleaned = sanitizeText(title || "");
   if (!cleaned) return true;
@@ -690,7 +710,8 @@ function isLowValueProductTitle(title) {
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
     /^smarter shopping, better living!?$/i.test(cleaned) ||
     isAliExpressNavigationJunk(cleaned) ||
-    isAliExpressPlaceholderText(cleaned)
+    isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressPlaceholderLike(cleaned)
   );
 }
 
@@ -701,6 +722,7 @@ function isLowValueProductDescription(text) {
     isAliExpressBlockedTitle(cleaned) ||
     isAliExpressPlaceholderText(cleaned) ||
     isAliExpressNavigationJunk(cleaned) ||
+    isAliExpressPlaceholderLike(cleaned) ||
     /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
     /window\._config_/i.test(cleaned) ||
     /captcharecaptcha/i.test(cleaned) ||
@@ -1465,6 +1487,28 @@ function cleanupProductDescription(text, fallbackTitle = "") {
   return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
 }
 
+function pickBestProductTitle(...candidates) {
+  for (const candidate of candidates) {
+    const cleaned = cleanupProductTitle(candidate || "");
+    if (!cleaned) continue;
+    if (isLowValueProductTitle(cleaned)) continue;
+    if (isAliExpressPlaceholderLike(cleaned)) continue;
+    return cleaned;
+  }
+  return "";
+}
+
+function pickBestProductDescription(candidates = [], fallbackTitle = "") {
+  for (const candidate of candidates) {
+    const cleaned = cleanupProductDescription(candidate || "", fallbackTitle);
+    if (!cleaned) continue;
+    if (isLowValueProductDescription(cleaned)) continue;
+    if (isAliExpressPlaceholderLike(cleaned)) continue;
+    return cleaned;
+  }
+  return "";
+}
+
 function extractPriceFromTextList(texts = []) {
   return pickLowestPositive(texts.flatMap((text) => extractUsdValuesFromText(text)));
 }
@@ -2211,10 +2255,20 @@ async function fetchProduct(url) {
     };
   }
 
+  const resolvedTitle = pickBestProductTitle(
+    apiData?.title,
+    pageData?.title,
+    partialPageData?.title
+  ) || "منتج AliExpress";
+  const resolvedDescription = pickBestProductDescription(
+    [apiData?.description, pageData?.description, partialPageData?.description],
+    resolvedTitle
+  );
+
   const product = {
     success: true,
-    title: cleanupProductTitle(apiData?.title || pageData?.title || "منتج AliExpress"),
-    description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "منتج AliExpress"),
+    title: resolvedTitle,
+    description: resolvedDescription,
     price: Number(apiData?.price || pageData?.price || 0),
     shipping: pageData?.shipping != null
       ? Number(pageData.shipping)
