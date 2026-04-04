@@ -589,6 +589,8 @@ function isLowValueProductTitle(title) {
   if (!cleaned) return true;
   return Boolean(
     isGenericAliExpressTitle(cleaned) ||
+    /^منتج\s+aliexpress\s*#\d+$/i.test(cleaned) ||
+    /^aliexpress\s+product\s*#\d+$/i.test(cleaned) ||
     /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
     /^smarter shopping, better living!?$/i.test(cleaned) ||
@@ -602,6 +604,7 @@ function isLowValueProductDescription(text) {
   return Boolean(
     isAliExpressBlockedTitle(cleaned) ||
     isAliExpressPlaceholderText(cleaned) ||
+    /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
     /^with\s*\(document\)\s*with\s*\(body\)/i.test(cleaned) ||
     /createelement\(["']script["']\)/i.test(cleaned) ||
     /aplus_v2\.js/i.test(cleaned) ||
