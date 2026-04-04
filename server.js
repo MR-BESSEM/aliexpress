@@ -783,7 +783,7 @@ function extractCountFromTextList(texts = [], keywordPattern) {
   let best = 0;
   for (const raw of texts) {
     const text = sanitizeText(raw);
-    if (!text || !keywordPattern.test(text)) continue;
+    if (!text || !keywordPattern.test(text) || isLowValueProductDescription(text)) continue;
     for (const pattern of nearKeywordPatterns) {
       const match = text.match(pattern);
       const count = parseCompactCount(match?.[1] || "");
@@ -2126,6 +2126,18 @@ async function fetchProduct(url) {
   );
 
   if (product.priceUnavailable) {
+    if (isLowValueProductTitle(product.title)) {
+      product.title = "منتج AliExpress";
+    }
+    if (isLowValueProductDescription(product.description)) {
+      product.description = "";
+    }
+    if (product.reviewCount > 50000 && (!product.description || isLowValueProductTitle(product.title))) {
+      product.reviewCount = 0;
+    }
+    if (product.soldCount > 50000 && (!product.description || isLowValueProductTitle(product.title))) {
+      product.soldCount = 0;
+    }
     product.alerts.unshift({
       level: "warning",
       text: "ما قدرناش نجيبولك السعر exact توّا بسبب حماية AliExpress. استعمل التسعيرة اليدوية أو ابعثنا الرابط على واتساب."
