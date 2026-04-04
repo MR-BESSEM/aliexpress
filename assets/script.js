@@ -509,10 +509,37 @@
         }
     }
 
+    function isMeaningfulOptionValue(value = "") {
+        const text = String(value || "").trim();
+        if (!text || text.length > 40) return false;
+        if (/^https?:\/\//i.test(text)) return false;
+        if (/^[0-9\s.,/+%-]+$/.test(text)) return false;
+        if (/all categories|search|download|welcome|sign in|register|click to|feedback|aliexpress|store|shipping|review|rating|buyer protection/i.test(text)) return false;
+        return true;
+    }
+
+    function isMeaningfulOptionGroup(group = {}) {
+        const name = String(group?.name || "").trim();
+        const values = Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : [];
+        if (values.length < 2 || values.length > 12) return false;
+        if (/all categories|download|feedback|search|review/i.test(name)) return false;
+        return true;
+    }
+
     function getProductOptionGroups(product = state.currentProduct) {
-        return Array.isArray(product?.variants)
-            ? product.variants.filter((group) => Array.isArray(group?.values) && group.values.length)
-            : [];
+        const rawGroups = Array.isArray(product?.variants) ? product.variants : [];
+        const groups = rawGroups
+            .map((group) => ({
+                name: String(group?.name || "").trim() || "الخيار",
+                values: Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : []
+            }))
+            .filter(isMeaningfulOptionGroup);
+
+        if (product?.priceUnavailable && product?.source === "partial-fallback") {
+            return groups.filter((group) => /color|colour|size|bundle|storage|material|style|version|option|لون|مقاس|طول|نسخة/i.test(group.name));
+        }
+
+        return groups;
     }
 
     function productHasOptions(product = state.currentProduct) {
@@ -1611,7 +1638,7 @@
             trust_desc: "تقييم سريع حسب التقييم والمراجعات والشحن والمخاطر",
             variant_title: "ملاحظة على الخيارات",
             variant_desc: "إذا المنتج فيه لون أو مقاس أو طول، اكتب الخيار المطلوب في المواصفات لأن السعر ينجم يتبدل",
-            variant_auto: "SPEC",
+            variant_auto: "خيارات",
             quote_pdf: "PDF / عرض سعر",
             export_csv: "تصدير CSV",
             account_overview: "نظرة عامة",
@@ -1663,7 +1690,7 @@
             trust_desc: "Resume rapide selon note, avis, livraison et risque douane",
             variant_title: "Note options",
             variant_desc: "Si le produit a couleur, taille ou longueur, ecrivez l'option dans les specifications car le prix peut changer",
-            variant_auto: "SPEC",
+            variant_auto: "Options",
             quote_pdf: "PDF / Devis",
             export_csv: "Exporter CSV",
             account_overview: "Vue d'ensemble",
@@ -1715,7 +1742,7 @@
             trust_desc: "Quick view based on rating, reviews, shipping, and customs risk",
             variant_title: "Options Note",
             variant_desc: "If the product has color, size, or length choices, write the option in specs because the price may change",
-            variant_auto: "SPEC",
+            variant_auto: "Options",
             quote_pdf: "PDF / Quote",
             export_csv: "Export CSV",
             account_overview: "Overview",
@@ -2107,7 +2134,7 @@
 
     function renderVariants(product) {
         if (!dom.variantsCard || !dom.variantGroups) return;
-        const groups = Array.isArray(product?.variants) ? product.variants.filter((group) => Array.isArray(group.values) && group.values.length) : [];
+        const groups = getProductOptionGroups(product);
         dom.variantsCard.classList.toggle("hidden", groups.length === 0);
         if (!groups.length) {
             state.selectedVariants = {};
@@ -2117,7 +2144,7 @@
         }
 
         dom.variantGroups.innerHTML = `
-            <div class="rounded-2xl border border-fuchsia-400/15 bg-black/20 p-4 space-y-3">
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
                 <div class="text-[10px] text-fuchsia-100 font-black leading-relaxed">
                     السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
                 </div>
