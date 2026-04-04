@@ -2867,7 +2867,12 @@
         setLoading(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/product?url=${encodeURIComponent(url)}`);
+            const response = await fetch(`${API_BASE_URL}/api/product?url=${encodeURIComponent(url)}`, {
+                cache: "no-store",
+                headers: {
+                    "cache-control": "no-cache"
+                }
+            });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data.success) {
                 throw new Error(data.error || "فشل الجلب التلقائي، حاول مرة أخرى");
