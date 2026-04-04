@@ -362,6 +362,27 @@
                 radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.08), transparent 24%);
             pointer-events: none;
         }
+        @keyframes footerGlowFloat {
+            0%, 100% {
+                transform: translateY(0);
+                text-shadow: 0 0 0 rgba(251, 191, 36, 0);
+            }
+            50% {
+                transform: translateY(-2px);
+                text-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+            }
+        }
+        .footer-love {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: #fbbf24;
+            animation: footerGlowFloat 2.8s ease-in-out infinite;
+        }
+        .footer-love-heart {
+            display: inline-block;
+            animation: footerGlowFloat 1.8s ease-in-out infinite;
+        }
         #runtime-preview-image {
             width: 96px !important;
             height: 96px !important;
@@ -1058,7 +1079,7 @@
                                     <h3 id="runtime-preview-title" class="text-lg md:text-[1.35rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
                                     <p id="runtime-preview-description" class="text-xs text-slate-300 leading-6 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
                                     <div class="runtime-preview-summary">
-                                        <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.000 TND</div>
+                                        <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.00 USD</div>
                                     </div>
                                     <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
                                         <div class="runtime-preview-stat">
@@ -1070,11 +1091,11 @@
                                             <div id="runtime-preview-delivery" class="runtime-preview-stat-value">12-25 days</div>
                                         </div>
                                         <div class="runtime-preview-stat">
-                                            <div class="runtime-preview-stat-label">Rating</div>
+                                            <div class="runtime-preview-stat-label">التقييم</div>
                                             <div id="runtime-preview-rating" class="runtime-preview-stat-value">0.0</div>
                                         </div>
                                         <div class="runtime-preview-stat">
-                                            <div class="runtime-preview-stat-label">Reviews</div>
+                                            <div class="runtime-preview-stat-label">المراجعات</div>
                                             <div id="runtime-preview-reviews" class="runtime-preview-stat-value">0</div>
                                         </div>
                                     </div>
@@ -1093,26 +1114,26 @@
                     <div id="runtime-trust-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Seller Trust Score</div>
-                                <div class="text-[9px] text-slate-500 font-bold">تقييم سريع حسب rating والـ reviews والشحن والـ customs risk</div>
+                                <div class="text-[10px] font-black text-white">ثقة البائع</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تقييم سريع حسب التقييم والمراجعات والشحن ومخاطر الديوانة</div>
                             </div>
                             <span id="runtime-trust-badge" dir="ltr" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">0 / 100</span>
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-rating" class="text-lg font-black text-white">0.0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Rating</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">التقييم</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-reviews" class="text-lg font-black text-blue-300">0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Reviews</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المراجعات</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-sold" class="text-lg font-black text-amber-300">0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Sold</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المبيعات</div>
                             </div>
                         </div>
-                        <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Fetch a product to see the trust summary.</div>
+                        <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">إجلب منتج باش يبان تقييم الثقة متاعو.</div>
                     </div>
                     <div id="runtime-variants-card" class="hidden bg-fuchsia-500/5 p-4 rounded-2xl border border-fuchsia-500/20 space-y-4">
                         <div class="flex items-center justify-between gap-3">
@@ -1235,7 +1256,7 @@
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-max-usd" class="text-lg font-black text-amber-300" dir="ltr">0.00 USD</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Max Product USD</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">أقصى سعر بالدولار</div>
                             </div>
                         </div>
                         <div id="runtime-budget-note" class="text-[10px] font-bold text-slate-300 leading-relaxed">أدخل budget باش تشوف التوصية الذكية.</div>
@@ -1580,9 +1601,9 @@
                     <div class="bg-slate-900/70 border border-emerald-500/20 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-emerald-300 uppercase tracking-[0.25em] mb-3">قبل ما تطلب</div>
                         <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
-                            <div>اختار title واضح و product specs واضحة</div>
-                            <div>تجنب listings الغامضة أو فيها hidden keywords</div>
-                            <div>خلي invoice والسعر ظاهرين</div>
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة أو اللي فيها كلمات مخفية</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
                             <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
                         </div>
                     </div>
@@ -1592,10 +1613,10 @@
                     <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">وثائق تنجم تنفع</div>
                         <div class="flex flex-wrap gap-2">
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Seller Invoice</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Order Screenshot</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Product Specs</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Tracking Proof</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">فاتورة البائع</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">صورة الطلب</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">مواصفات المنتج</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">إثبات التتبع</span>
                         </div>
                     </div>
                     <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
@@ -2192,9 +2213,12 @@
             </div>
 
             <div class="text-center md:text-left rtl:text-left ltr:text-right">
-                <p class="text-[8px] text-slate-600 font-black uppercase tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. All Rights Reserved.</p>
-                <div class="text-[10px] font-bold">
-                    <span class="text-slate-500">Designed by </span>
+                <p class="text-[8px] text-slate-600 font-black tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. جميع الحقوق محفوظة.</p>
+                <div class="text-[10px] font-bold flex items-center justify-center md:justify-start gap-2 flex-wrap">
+                    <span class="footer-love">
+                        معمول بحب
+                        <span class="footer-love-heart">❤</span>
+                    </span>
                     <a href="https://www.facebook.com/MR.Besssem" target="_blank" class="text-amber-400 hover:text-white transition-colors">BESSEM BAATOUR</a>
                 </div>
             </div>
@@ -3090,6 +3114,6 @@
         setInterval(triggerSocialProof, 25000); 
     };
 </script>
-<script src="assets/script.js?v=20260404-4"></script>
+<script src="assets/script.js?v=20260404-5"></script>
 </body>
 </html>
