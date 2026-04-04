@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
+const { URL } = require("url");
 const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -49,6 +50,8 @@ const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
 const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
 const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
 const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
+const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
+const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
 const ADMIN_PIN = String(process.env.ADMIN_PIN || "2749").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
 const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
@@ -74,6 +77,49 @@ function log(level, message, meta = {}) {
 
 function sanitizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
+}
+
+function parseProxyUrl(rawValue = "") {
+  const input = String(rawValue || "").trim();
+  if (!input) return null;
+  try {
+    const parsed = new URL(input);
+    if (!/^https?:$/i.test(parsed.protocol) && !/^socks5?:$/i.test(parsed.protocol)) return null;
+    const server = `${parsed.protocol}//${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`;
+    return {
+      server,
+      username: parsed.username ? decodeURIComponent(parsed.username) : "",
+      password: parsed.password ? decodeURIComponent(parsed.password) : "",
+      protocol: parsed.protocol.replace(":", "").toLowerCase()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getScrapeProxyConfig() {
+  return parseProxyUrl(SCRAPE_PROXY_URL);
+}
+
+function getAxiosProxyOptions() {
+  const proxy = getScrapeProxyConfig();
+  if (!proxy || !/^https?$/i.test(proxy.protocol)) {
+    return { proxy: false };
+  }
+
+  return {
+    proxy: {
+      protocol: proxy.protocol,
+      host: new URL(proxy.server).hostname,
+      port: Number(new URL(proxy.server).port || (proxy.protocol === "https" ? 443 : 80)),
+      auth: proxy.username
+        ? {
+            username: proxy.username,
+            password: proxy.password || ""
+          }
+        : undefined
+    }
+  };
 }
 
 function normalizeUrl(value = "") {
@@ -197,21 +243,38 @@ function hasUsableImage(value) {
   return Boolean(normalizeUrl(value));
 }
 
+function hasMeaningfulVariantGroups(groups = []) {
+  return (Array.isArray(groups) ? groups : []).some((group) => {
+    const name = sanitizeText(group?.name || "");
+    const values = Array.isArray(group?.values) ? group.values.map((value) => sanitizeText(value || "")) : [];
+    return (
+      name &&
+      !isLowValueProductTitle(name) &&
+      !isAliExpressNavigationJunk(name) &&
+      values.filter((value) => value && !isLowValueProductDescription(value) && !isAliExpressNavigationJunk(value)).length >= 2
+    );
+  });
+}
+
 function hasUsefulPartialProductData(partial = {}) {
   const title = sanitizeText(partial.title);
   const description = sanitizeText(partial.description);
   const shipping = partial.shipping != null ? Number(partial.shipping) : null;
-  return Boolean(
-    hasUsableImage(partial.image) ||
+  const hasMeaningfulText =
     (title && !isLowValueProductTitle(title)) ||
-    (description && !isLowValueProductDescription(description)) ||
+    (description && !isLowValueProductDescription(description));
+  const hasMeaningfulCommerceData =
     Number(partial.price || 0) > 0 ||
-    Number(partial.rating || 0) > 0 ||
-    (shipping != null && Number.isFinite(shipping) && shipping >= 0) ||
+    (shipping != null && Number.isFinite(shipping) && shipping >= 0);
+
+  return Boolean(
+    hasMeaningfulText ||
+    hasMeaningfulCommerceData ||
+    (hasUsableImage(partial.image) && (hasMeaningfulText || hasMeaningfulCommerceData)) ||
     Number(partial.reviewCount || 0) > 0 ||
     Number(partial.soldCount || 0) > 0 ||
     sanitizeText(partial.deliveryEstimate) ||
-    (Array.isArray(partial.variants) && partial.variants.length > 0)
+    hasMeaningfulVariantGroups(partial.variants)
   );
 }
 
@@ -584,6 +647,26 @@ function isAliExpressPlaceholderText(value) {
   return /smarter shopping,\s*better living(?:!|\.)?(?:\s*aliexpress\.com)?/i.test(sanitizeText(value || ""));
 }
 
+function isAliExpressNavigationJunk(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  const keywordMatches = [
+    /download the aliexpress app/i,
+    /help center/i,
+    /return(?:&| and )refund policy/i,
+    /report ipr infringement/i,
+    /transparency center/i,
+    /submit report/i,
+    /welcome\s*sign in/i,
+    /search by image/i,
+    /all categories/i,
+    /\b0\s+cart\b/i,
+    /\ben\s*\/\s*usd\b/i
+  ].filter((pattern) => pattern.test(cleaned)).length;
+
+  return keywordMatches >= 2;
+}
+
 function isLowValueProductTitle(title) {
   const cleaned = sanitizeText(title || "");
   if (!cleaned) return true;
@@ -594,6 +677,7 @@ function isLowValueProductTitle(title) {
     /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
     /^smarter shopping, better living!?$/i.test(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
     isAliExpressPlaceholderText(cleaned)
   );
 }
@@ -604,6 +688,7 @@ function isLowValueProductDescription(text) {
   return Boolean(
     isAliExpressBlockedTitle(cleaned) ||
     isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
     /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
     /window\._config_/i.test(cleaned) ||
     /captcharecaptcha/i.test(cleaned) ||
@@ -1661,7 +1746,7 @@ async function fetchAliExpressApiProduct(productId) {
   const response = await axios.get(ALIEXPRESS_API_BASE_URL, {
     params,
     timeout: 20_000,
-    proxy: false
+    ...getAxiosProxyOptions()
   });
 
   const extracted = extractProductFieldsFromObjectTree(response.data);
@@ -1692,6 +1777,15 @@ async function getBrowser() {
       headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     };
+    const proxy = getScrapeProxyConfig();
+    if (proxy) {
+      launchOptions.proxy = {
+        server: proxy.server,
+        username: proxy.username || undefined,
+        password: proxy.password || undefined,
+        bypass: SCRAPE_PROXY_BYPASS || undefined
+      };
+    }
     if (resolvedBrowserExecutable) {
       launchOptions.executablePath = resolvedBrowserExecutable;
     }
@@ -1976,7 +2070,7 @@ async function scrapeWithPlaywright(url) {
 async function scrapeWithHttp(url) {
   const response = await axios.get(url, {
     timeout: Math.min(SCRAPE_TIMEOUT_MS, 20_000),
-    proxy: false,
+    ...getAxiosProxyOptions(),
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
       "accept-language": "en-US,en;q=0.9"
@@ -2067,19 +2161,20 @@ async function fetchProduct(url) {
   }
 
   if (!pageData) {
+    const safePartialData = canUsePartialData() ? partialPageData : null;
     pageData = {
       title: partialPageData?.title || `منتج AliExpress #${productId}`,
-      description: partialPageData?.description || "",
-      price: Number(partialPageData?.price || 0),
-      image: normalizeUrl(partialPageData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
-      rating: normalizeRating(partialPageData?.rating),
-      reviewCount: Number(partialPageData?.reviewCount || 0),
-      soldCount: Number(partialPageData?.soldCount || 0),
-      variants: Array.isArray(partialPageData?.variants) ? partialPageData.variants : [],
-      url: partialPageData?.url || canonicalUrl,
-      source: partialPageData ? "partial-fallback" : "api-fallback",
-      shipping: partialPageData?.shipping != null ? Number(partialPageData.shipping) : null,
-      deliveryEstimate: partialPageData?.deliveryEstimate || "",
+      description: safePartialData?.description || "",
+      price: Number(safePartialData?.price || 0),
+      image: normalizeUrl(safePartialData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+      rating: normalizeRating(safePartialData?.rating),
+      reviewCount: Number(safePartialData?.reviewCount || 0),
+      soldCount: Number(safePartialData?.soldCount || 0),
+      variants: Array.isArray(safePartialData?.variants) ? safePartialData.variants : [],
+      url: safePartialData?.url || canonicalUrl,
+      source: safePartialData ? "partial-fallback" : "api-fallback",
+      shipping: safePartialData?.shipping != null ? Number(safePartialData.shipping) : null,
+      deliveryEstimate: safePartialData?.deliveryEstimate || "",
       priceUnavailable: true
     };
   }
@@ -2258,7 +2353,8 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
-    aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET)
+    aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
   });
 });
 
@@ -2431,7 +2527,9 @@ setInterval(() => {
 }, 60_000).unref();
 
 const server = app.listen(PORT, () => {
-  log("log", `AliExpress Tunisia server listening on port ${PORT}`);
+  log("log", `AliExpress Tunisia server listening on port ${PORT}`, {
+    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
+  });
 });
 
 async function closeServer() {
