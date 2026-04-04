@@ -192,7 +192,9 @@
 
     const state = {
         liveRate: FX_FALLBACK_RATE,
+        baseProduct: null,
         currentProduct: null,
+        activeVariantOffer: null,
         recentLinks: [],
         accountPrefs: null,
         budgetPrefs: null,
@@ -540,7 +542,7 @@
     }
 
     function getBaseProduct() {
-        return state.baseProduct || state.currentProduct || null;
+        return (state && (state.baseProduct || state.currentProduct)) || null;
     }
 
     function syncProductInputs(product = state.currentProduct) {
