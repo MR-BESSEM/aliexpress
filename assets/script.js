@@ -539,6 +539,10 @@
         dom.calcNote.placeholder = getSpecsPlaceholder(product);
     }
 
+    function getBaseProduct() {
+        return state.baseProduct || state.currentProduct || null;
+    }
+
     function syncProductInputs(product = state.currentProduct) {
         if (!product) return;
 
