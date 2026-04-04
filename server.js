@@ -1840,81 +1840,107 @@ async function fetchAliExpressAffiliateProduct(productId) {
     return null;
   }
 
-  const params = {
-    app_key: ALIEXPRESS_APP_KEY,
-    method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
-    format: "json",
-    sign_method: "md5",
-    timestamp: formatTopTimestamp(),
-    v: "2.0",
-    fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
-    product_ids: String(productId),
-    target_currency: "USD",
-    target_language: "EN",
-    country: "TN"
-  };
+  const attemptCountries = ["TN", "", "US"];
+  let lastError = null;
 
-  if (ALIEXPRESS_TRACKING_ID) {
-    params.tracking_id = ALIEXPRESS_TRACKING_ID;
-  }
+  for (const country of attemptCountries) {
+    try {
+      const params = {
+        app_key: ALIEXPRESS_APP_KEY,
+        method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
+        format: "json",
+        sign_method: "md5",
+        timestamp: formatTopTimestamp(),
+        v: "2.0",
+        fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,target_app_sale_price,target_app_sale_price_currency,app_sale_price,app_sale_price_currency,sale_price,sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
+        product_ids: String(productId),
+        target_currency: "USD",
+        target_language: "EN"
+      };
 
-  params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET);
+      if (country) {
+        params.country = country;
+      }
+      if (ALIEXPRESS_TRACKING_ID) {
+        params.tracking_id = ALIEXPRESS_TRACKING_ID;
+      }
 
-  const body = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      body.append(key, String(value));
+      params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET);
+
+      const body = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          body.append(key, String(value));
+        }
+      });
+
+      const response = await axios.post(ALIEXPRESS_AFFILIATE_API_BASE_URL, body.toString(), {
+        timeout: 20_000,
+        headers: {
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        proxy: false
+      });
+
+      const payload = response.data?.aliexpress_affiliate_productdetail_get_response?.resp_result;
+      const rawProducts = payload?.result?.products?.product;
+      const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
+      const extracted = extractProductFieldsFromObjectTree(response.data);
+      const title = pickBestProductTitle(
+        firstProduct?.product_title,
+        extracted.title
+      );
+      const image = normalizeUrl(
+        firstProduct?.product_main_image_url ||
+        firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
+        extracted.image
+      );
+      const price = pickFirstPositive([
+        parseMoney(firstProduct?.target_sale_price),
+        parseMoney(firstProduct?.target_app_sale_price),
+        parseMoney(firstProduct?.app_sale_price),
+        parseMoney(firstProduct?.sale_price),
+        extracted.price
+      ]);
+      const soldCount = Math.max(
+        parseCompactCount(firstProduct?.lastest_volume),
+        Number(extracted.soldCount || 0)
+      );
+
+      if (title || image || price) {
+        return {
+          title,
+          description: "",
+          image,
+          price,
+          shipping: null,
+          deliveryEstimate: "",
+          rating: normalizeRating(extracted.rating) || 0,
+          reviewCount: Number(extracted.reviewCount || 0),
+          soldCount,
+          variants: [],
+          source: "aliexpress-affiliate-api"
+        };
+      }
+
+      lastError = new Error(`AliExpress Affiliate API returned no usable product fields (country=${country || "none"}, resp_code=${payload?.resp_code || "unknown"})`);
+      log("warn", "AliExpress Affiliate API returned empty product", {
+        productId,
+        country: country || "none",
+        respCode: payload?.resp_code || null,
+        respMsg: payload?.resp_msg || null
+      });
+    } catch (error) {
+      lastError = error;
+      log("warn", "AliExpress Affiliate API request failed", {
+        productId,
+        country: country || "none",
+        error: error.message
+      });
     }
-  });
-
-  const response = await axios.post(ALIEXPRESS_AFFILIATE_API_BASE_URL, body.toString(), {
-    timeout: 20_000,
-    headers: {
-      "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
-    },
-    ...getAxiosProxyOptions()
-  });
-
-  const rawProducts = response.data?.aliexpress_affiliate_productdetail_get_response?.resp_result?.result?.products?.product;
-  const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
-  const extracted = extractProductFieldsFromObjectTree(response.data);
-  const title = pickBestProductTitle(
-    firstProduct?.product_title,
-    extracted.title
-  );
-  const image = normalizeUrl(
-    firstProduct?.product_main_image_url ||
-    firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
-    extracted.image
-  );
-  const price = pickFirstPositive([
-    parseMoney(firstProduct?.target_sale_price),
-    parseMoney(firstProduct?.app_sale_price),
-    parseMoney(firstProduct?.sale_price),
-    extracted.price
-  ]);
-  const soldCount = Math.max(
-    parseCompactCount(firstProduct?.lastest_volume),
-    Number(extracted.soldCount || 0)
-  );
-
-  if (!title && !image && !price) {
-    throw new Error("AliExpress Affiliate API returned no usable product fields");
   }
 
-  return {
-    title,
-    description: "",
-    image,
-    price,
-    shipping: null,
-    deliveryEstimate: "",
-    rating: normalizeRating(extracted.rating) || 0,
-    reviewCount: Number(extracted.reviewCount || 0),
-    soldCount,
-    variants: [],
-    source: "aliexpress-affiliate-api"
-  };
+  throw lastError || new Error("AliExpress Affiliate API returned no usable product fields");
 }
 
 async function getBrowser() {
