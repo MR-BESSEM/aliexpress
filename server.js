@@ -79,6 +79,7 @@ function sanitizeText(value = "") {
 function normalizeUrl(value = "") {
   const cleaned = sanitizeText(value);
   if (!cleaned) return "";
+  if (isAliExpressPlaceholderText(cleaned)) return "";
   if (cleaned.startsWith("//")) return `https:${cleaned}`;
   return cleaned;
 }
@@ -575,6 +576,10 @@ function isGenericAliExpressTitle(title) {
   return /^(aliexpress|ali express|aliexpress\.com)$/i.test(sanitizeText(title || ""));
 }
 
+function isAliExpressPlaceholderText(value) {
+  return /smarter shopping,\s*better living(?:!|\.)?(?:\s*aliexpress\.com)?/i.test(sanitizeText(value || ""));
+}
+
 function isLowValueProductTitle(title) {
   const cleaned = sanitizeText(title || "");
   if (!cleaned) return true;
@@ -582,7 +587,8 @@ function isLowValueProductTitle(title) {
     isGenericAliExpressTitle(cleaned) ||
     /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
-    /^smarter shopping, better living!?$/i.test(cleaned)
+    /^smarter shopping, better living!?$/i.test(cleaned) ||
+    isAliExpressPlaceholderText(cleaned)
   );
 }
 
@@ -591,6 +597,8 @@ function isBadCachedProduct(product = {}) {
     product?.source === "partial-fallback" ||
     product?.priceUnavailable ||
     isLowValueProductTitle(product?.title) ||
+    isAliExpressPlaceholderText(product?.title) ||
+    isAliExpressPlaceholderText(product?.description) ||
     isAliExpressBlockedTitle(product?.title) ||
     isAliExpressBlockedTitle(product?.description)
   );
@@ -1570,7 +1578,7 @@ function extractHtmlProduct(html, url, source) {
 
     return {
       success: true,
-      title: isAliExpressBlockedTitle(title) ? "" : title,
+      title: isAliExpressBlockedTitle(title) || isAliExpressPlaceholderText(title) ? "" : title,
       description,
       price,
       shipping,
@@ -1680,8 +1688,55 @@ async function buildPlaywrightContext(browser) {
     locale: "en-US",
     timezoneId: "Africa/Tunis",
     viewport: { width: 1366, height: 900 },
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    colorScheme: "light"
   });
+
+  await context.setExtraHTTPHeaders({
+    "accept-language": "en-US,en;q=0.9",
+    "upgrade-insecure-requests": "1",
+    "sec-ch-ua": "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\""
+  }).catch(() => {});
+
+  await context.addInitScript(() => {
+    const override = (target, key, value) => {
+      try {
+        Object.defineProperty(target, key, {
+          get: () => value,
+          configurable: true
+        });
+      } catch {}
+    };
+
+    override(Navigator.prototype, "webdriver", false);
+    override(Navigator.prototype, "platform", "Win32");
+    override(Navigator.prototype, "language", "en-US");
+    override(Navigator.prototype, "languages", ["en-US", "en"]);
+    override(Navigator.prototype, "hardwareConcurrency", 8);
+    override(Navigator.prototype, "maxTouchPoints", 0);
+    override(Navigator.prototype, "plugins", [1, 2, 3, 4, 5]);
+
+    if (!window.chrome) {
+      Object.defineProperty(window, "chrome", {
+        value: { runtime: {}, app: {} },
+        configurable: true
+      });
+    }
+
+    const originalQuery = window.navigator.permissions?.query;
+    if (originalQuery) {
+      window.navigator.permissions.query = (parameters) => (
+        parameters?.name === "notifications"
+          ? Promise.resolve({ state: Notification.permission })
+          : originalQuery(parameters)
+      );
+    }
+  }).catch(() => {});
 
   await context.route("**/*", async (route) => {
     const type = route.request().resourceType();
@@ -1720,7 +1775,7 @@ async function scrapeWithPlaywright(url) {
         { timeout: 8_000 }
       ).catch(() => {})
     ]);
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(1500);
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -1836,7 +1891,7 @@ async function scrapeWithPlaywright(url) {
       )
     };
 
-    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
+    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle) || isAliExpressPlaceholderText(merged.title || runtime.pageTitle)) {
       const error = new Error("AliExpress blocked this host for the current URL");
       error.partialData = {
         title: "",
@@ -1854,7 +1909,7 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
 
-    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title) || isAliExpressBlockedTitle(merged.title) || isAliExpressBlockedTitle(merged.description)) || !merged.image) {
+    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title) || isAliExpressBlockedTitle(merged.title) || isAliExpressBlockedTitle(merged.description) || isAliExpressPlaceholderText(merged.title) || isAliExpressPlaceholderText(merged.description)) || !merged.image) {
       log("warn", "Playwright extracted partial product data", {
         url,
         title: merged.title || null,
@@ -1900,7 +1955,7 @@ async function scrapeWithHttp(url) {
   });
 
   const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title) || isAliExpressBlockedTitle(parsed.title) || isAliExpressBlockedTitle(parsed.description)) || !parsed.image) {
+  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title) || isAliExpressBlockedTitle(parsed.title) || isAliExpressBlockedTitle(parsed.description) || isAliExpressPlaceholderText(parsed.title) || isAliExpressPlaceholderText(parsed.description)) || !parsed.image) {
     const error = new Error("HTTP fallback returned incomplete product data");
     error.partialData = {
       title: parsed.title,
