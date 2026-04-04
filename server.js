@@ -80,6 +80,7 @@ function normalizeUrl(value = "") {
   const cleaned = sanitizeText(value);
   if (!cleaned) return "";
   if (isAliExpressPlaceholderText(cleaned)) return "";
+  if (/^data:image\//i.test(cleaned)) return "";
   if (cleaned.startsWith("//")) return `https:${cleaned}`;
   return cleaned;
 }
@@ -197,13 +198,16 @@ function hasUsableImage(value) {
 }
 
 function hasUsefulPartialProductData(partial = {}) {
+  const title = sanitizeText(partial.title);
+  const description = sanitizeText(partial.description);
+  const shipping = partial.shipping != null ? Number(partial.shipping) : null;
   return Boolean(
     hasUsableImage(partial.image) ||
-    sanitizeText(partial.title) ||
-    sanitizeText(partial.description) ||
+    (title && !isLowValueProductTitle(title)) ||
+    (description && !isLowValueProductDescription(description)) ||
     Number(partial.price || 0) > 0 ||
     Number(partial.rating || 0) > 0 ||
-    Number(partial.shipping || 0) >= 0 ||
+    (shipping != null && Number.isFinite(shipping) && shipping >= 0) ||
     Number(partial.reviewCount || 0) > 0 ||
     Number(partial.soldCount || 0) > 0 ||
     sanitizeText(partial.deliveryEstimate) ||
@@ -592,11 +596,25 @@ function isLowValueProductTitle(title) {
   );
 }
 
+function isLowValueProductDescription(text) {
+  const cleaned = sanitizeText(text || "");
+  if (!cleaned) return true;
+  return Boolean(
+    isAliExpressBlockedTitle(cleaned) ||
+    isAliExpressPlaceholderText(cleaned) ||
+    /^with\s*\(document\)\s*with\s*\(body\)/i.test(cleaned) ||
+    /createelement\(["']script["']\)/i.test(cleaned) ||
+    /aplus_v2\.js/i.test(cleaned) ||
+    /tb-beacon-aplus/i.test(cleaned)
+  );
+}
+
 function isBadCachedProduct(product = {}) {
   return Boolean(
     product?.source === "partial-fallback" ||
     product?.priceUnavailable ||
     isLowValueProductTitle(product?.title) ||
+    isLowValueProductDescription(product?.description) ||
     isAliExpressPlaceholderText(product?.title) ||
     isAliExpressPlaceholderText(product?.description) ||
     isAliExpressBlockedTitle(product?.title) ||
@@ -798,9 +816,9 @@ function buildProductAlerts(product) {
     alerts.push({ level: "warning", text: "المنتج هذا ينجم يحتاج تثبت أو تصريح قبل الطلب." });
   }
 
-  if (Number(product.shipping) === 0) {
+  if (product.shipping != null && Number(product.shipping) === 0) {
     alerts.push({ level: "info", text: "الشحن مجاني في العرض الحالي." });
-  } else if (Number(product.shipping) >= 8) {
+  } else if (product.shipping != null && Number(product.shipping) >= 8) {
     alerts.push({ level: "info", text: "الشحن مرتفع شوية، إذا تحب نعملولك تسعيرة يدوية أفضل." });
   }
 
@@ -1205,8 +1223,8 @@ function buildSellerTrustScore(product) {
   if (soldCount >= 1000) score += 8;
   else if (soldCount >= 100) score += 4;
 
-  if (Number(product.shipping) === 0) score += 4;
-  else if (Number(product.shipping) >= 10) score -= 4;
+  if (product.shipping != null && Number(product.shipping) === 0) score += 4;
+  else if (product.shipping != null && Number(product.shipping) >= 10) score -= 4;
 
   if (product.restrictions?.restricted) score -= 10;
   if (product.restrictions?.banned) score -= 25;
@@ -1334,7 +1352,9 @@ function cleanupProductDescription(text, fallbackTitle = "") {
     .trim();
 
   if (!cleaned) return "";
+  if (isLowValueProductDescription(cleaned)) return "";
   if (/^ae.+ip.+模板/i.test(cleaned)) return "";
+  if (isAliExpressPlaceholderText(cleaned)) return "";
   if (fallbackTitle && cleaned.toLowerCase() === String(fallbackTitle).trim().toLowerCase()) return "";
   return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
 }
@@ -2098,7 +2118,12 @@ async function fetchProduct(url) {
     product.restrictions?.restricted ||
     (Number.isFinite(Number(product.shipping)) && Number(product.shipping) >= 8)
   );
-  product.priceUnavailable = Boolean(pageData?.priceUnavailable && !apiData?.price && product.price <= 0);
+  product.priceUnavailable = Boolean(
+    Number(product.price || 0) <= 0 ||
+    pageData?.priceUnavailable ||
+    isLowValueProductTitle(product.title) ||
+    isLowValueProductDescription(product.description)
+  );
 
   if (product.priceUnavailable) {
     product.alerts.unshift({
