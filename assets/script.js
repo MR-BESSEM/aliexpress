@@ -618,6 +618,12 @@
         return `${formatUsd(value)} شحن`;
     }
 
+    function getPreviewPriceText(product = state.currentProduct) {
+        if (product?.priceUnavailable) return "تسعيرة يدوية";
+        const usdPrice = Number(product?.price || dom.usdPrice?.value || 0);
+        return Number.isFinite(usdPrice) && usdPrice > 0 ? formatUsd(usdPrice) : "";
+    }
+
     function parseLocaleNumber(value) {
         const normalized = String(value ?? "")
             .trim()
@@ -1437,12 +1443,12 @@
             btn_format: "ترتيب الاسم",
             lbl_spec: "المواصفات (لون، مقاس...)",
             plc_link: "https://aliexpress.com/item/...",
-            plc_name: "مثال: Cable USB Type C",
-            plc_spec: "مثال: Bleu 1.5m",
+            plc_name: "مثال: كابل USB Type-C",
+            plc_spec: "مثال: أسود 1.5م",
             cart_total_lbl: "المبلغ الجملي:",
             lbl_pay_method: "اختر وسيلة الدفع",
             pay_d17: "تطبيق D17",
-            pay_flouci: "App Flouci",
+            pay_flouci: "تطبيق Flouci",
             pay_poste: "حوالة بريدية",
             pay_vir: "تحويل بنكي",
             btn_send: "إرسال",
@@ -1843,6 +1849,9 @@
         setText("#runtime-copy-referral-share", rt("action_share", lang));
         setText("#runtime-trust-card .text-[10px].font-black.text-white", rt("trust_title", lang));
         setText("#runtime-trust-card .text-[9px].text-slate-500.font-bold", rt("trust_desc", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 0, rt("stat_rating", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 1, rt("stat_reviews", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 2, lang === "ar" ? "المبيعات" : (lang === "fr" ? "Ventes" : "Sold"));
         setText("#runtime-variants-card .text-[10px].font-black.text-white", rt("variant_title", lang));
         setText("#runtime-variants-card .text-[9px].text-slate-500.font-bold", rt("variant_desc", lang));
         setText("#runtime-variants-card span.px-3.py-1.rounded-full", rt("variant_auto", lang));
@@ -2084,7 +2093,7 @@
 
     function buildDisplayProductTitle(title) {
         const raw = String(title || "").replace(/\s+/g, " ").trim();
-        if (!raw) return "AliExpress Product";
+        if (!raw) return "منتج AliExpress";
         const words = raw.split(" ");
         if (raw.length <= 58 && words.length <= 8) return raw;
 
@@ -2145,7 +2154,7 @@
 
         dom.variantGroups.innerHTML = `
             <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
-                <div class="text-[10px] text-fuchsia-100 font-black leading-relaxed">
+                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
                     السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
                 </div>
                 <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
@@ -2155,6 +2164,45 @@
                     ${groups.map((group, index) => `
                         <div class="space-y-2">
                             <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                            <div class="flex flex-wrap gap-2">
+                                ${group.values.map((value) => `
+                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                        ${escapeHtml(value)}
+                                    </span>
+                                `).join("")}
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+    }
+
+    function renderVariants(product) {
+        if (!dom.variantsCard || !dom.variantGroups) return;
+        const groups = getProductOptionGroups(product);
+        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
+        if (!groups.length) {
+            state.selectedVariants = {};
+            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+            renderVariantSummary();
+            return;
+        }
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
+                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
+                    المواصفات: لون، مقاس، طول، نسخة، باك...
+                </div>
+                <div class="space-y-2">
+                    ${groups.map((group, index) => `
+                        <div class="space-y-2">
+                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `الخيار ${index + 1}`)}</div>
                             <div class="flex flex-wrap gap-2">
                                 ${group.values.map((value) => `
                                     <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
@@ -2417,7 +2465,7 @@
         const alerts = getPriceAlerts().filter((entry) => entry.url !== product.url);
         alerts.unshift({
             url: product.url,
-            title: product.title || dom.calcName?.value.trim() || "AliExpress Product",
+            title: product.title || dom.calcName?.value.trim() || "منتج AliExpress",
             targetPriceUsd: Number(product.price || dom.usdPrice?.value || 0),
             targetShippingUsd: Number(product.shipping || dom.usdShip?.value || 0),
             createdAt: new Date().toISOString()
@@ -2618,14 +2666,15 @@
             dom.tndResult.innerHTML = `${pricing.finalTnd.toFixed(3)} <span class="text-base md:text-xl text-amber-400/50">TND</span>`;
         }
         if (dom.rateBadge) {
-            dom.rateBadge.textContent = pricing.subtotalUsd > 0 ? `Rate: ${pricing.rate.toFixed(3)}` : "--";
+            dom.rateBadge.textContent = pricing.subtotalUsd > 0 ? `سعر الصرف: ${pricing.rate.toFixed(3)}` : "--";
         }
         if (dom.liveRateDisplay) {
             dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
         }
         if (dom.previewPrice) {
-            dom.previewPrice.textContent = state.currentProduct?.priceUnavailable ? "Manual Quote" : formatTnd(pricing.finalTnd);
-            dom.previewPrice.classList.toggle("hidden", pricing.finalTnd <= 0 && !state.currentProduct?.priceUnavailable);
+            const previewPriceText = getPreviewPriceText(state.currentProduct) || (state.currentProduct?.priceUnavailable ? "تسعيرة يدوية" : "");
+            dom.previewPrice.textContent = previewPriceText;
+            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
         }
         if (dom.quickOrderBtn) {
             dom.quickOrderBtn.disabled = pricing.finalTnd <= 0;
@@ -2689,6 +2738,9 @@
             label: String(product?.source || "scrape").replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
             classes: "runtime-preview-chip bg-white/5 text-slate-200 border-white/10"
         };
+        const emptyDescription = currentLang === "ar"
+            ? "ما لقيناش وصف واضح للمنتج."
+            : (currentLang === "fr" ? "La description n'est pas disponible pour le moment." : "Description is not available yet.");
         const metaLabel = product?.manualQuoteRecommended
             ? rt("preview_review")
             : rt("preview_ready");
@@ -2698,7 +2750,7 @@
             dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
         }
         if (dom.previewTitle) {
-            const fullTitle = product.title || "AliExpress Product";
+            const fullTitle = product.title || "منتج AliExpress";
             dom.previewTitle.textContent = buildDisplayProductTitle(fullTitle);
             dom.previewTitle.title = fullTitle;
         }
@@ -2711,8 +2763,9 @@
             }`;
         }
         if (dom.previewPrice) {
-            dom.previewPrice.textContent = product?.priceUnavailable ? "Manual Quote" : formatTnd(pricing.finalTnd);
-            dom.previewPrice.classList.toggle("hidden", pricing.finalTnd <= 0 && !product?.priceUnavailable);
+            const previewPriceText = getPreviewPriceText(product) || (product?.priceUnavailable ? "تسعيرة يدوية" : "");
+            dom.previewPrice.textContent = previewPriceText;
+            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
         }
         if (dom.previewLink) {
             dom.previewLink.href = product.url || "#";
@@ -2736,8 +2789,8 @@
             dom.previewReviews.textContent = hasReviewValue ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
         }
         if (previewDescriptionNode) {
-            previewDescriptionNode.textContent = product.description || rt("preview_no_desc");
-            previewDescriptionNode.title = product.description || rt("preview_no_desc");
+            previewDescriptionNode.textContent = product.description || emptyDescription;
+            previewDescriptionNode.title = product.description || emptyDescription;
         }
         renderVariantSummary();
 
@@ -2773,7 +2826,7 @@
             dom.liveRateDisplay.textContent = `1 USD ≈ ${FX_FALLBACK_RATE.toFixed(3)} TND`;
         }
         if (dom.rateBadge) {
-            dom.rateBadge.textContent = `Rate: ${FX_FALLBACK_RATE.toFixed(3)}`;
+            dom.rateBadge.textContent = `سعر الصرف: ${FX_FALLBACK_RATE.toFixed(3)}`;
         }
         renderPricing();
         renderAccountStats();
