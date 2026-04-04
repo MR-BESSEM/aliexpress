@@ -539,6 +539,29 @@
         dom.calcNote.placeholder = getSpecsPlaceholder(product);
     }
 
+    function syncProductInputs(product = state.currentProduct) {
+        if (!product) return;
+
+        const safeTitle = String(product.title || "").trim();
+        if (dom.calcName) {
+            dom.calcName.value = safeTitle && !/^aliexpress$/i.test(safeTitle)
+                ? safeTitle
+                : (dom.calcName.value || "");
+        }
+
+        if (dom.usdPrice) {
+            const price = Number(product.price || 0);
+            dom.usdPrice.value = Number.isFinite(price) && price > 0 ? price.toFixed(2) : "0";
+        }
+
+        if (dom.usdShip) {
+            const shipping = product.shipping == null ? 0 : Number(product.shipping);
+            dom.usdShip.value = Number.isFinite(shipping) && shipping > 0 ? shipping.toFixed(2) : "0";
+        }
+
+        updateSpecsGuidance(product);
+    }
+
     function parseDeliveryWindow(label) {
         const values = String(label || "").match(/\d+/g);
         if (!values || !values.length) return null;
