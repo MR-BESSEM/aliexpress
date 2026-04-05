@@ -473,6 +473,138 @@
         #section-track .glass-card {
             backdrop-filter: blur(20px);
         }
+        #section-check .safety-hero {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(239, 68, 68, 0.14), transparent 30%),
+                radial-gradient(circle at top left, rgba(251, 191, 36, 0.10), transparent 26%),
+                linear-gradient(180deg, rgba(10, 16, 26, 0.94), rgba(10, 15, 24, 0.88));
+            border: 1px solid rgba(248, 113, 113, 0.14);
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.26);
+        }
+        #section-check .safety-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.03em;
+        }
+        #section-check .safety-pill strong {
+            color: #fff;
+        }
+        #section-check .safety-bucket {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.4rem;
+            padding: 1.15rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(10, 15, 23, 0.76));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+        }
+        #section-check .safety-bucket::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 40%, transparent 70%, rgba(255,255,255,0.02));
+        }
+        #section-check .safety-bucket-head {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 0.9rem;
+        }
+        #section-check .safety-bucket-icon {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #section-check .safety-bucket-title {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        #section-check .safety-bucket-copy {
+            font-size: 11px;
+            color: #cbd5e1;
+            font-weight: 700;
+            line-height: 1.7;
+        }
+        #section-check .safety-bucket-copy div {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+        }
+        #section-check .safety-bucket-copy div::before {
+            content: "•";
+            color: rgba(255,255,255,0.45);
+            margin-top: 0.05rem;
+        }
+        #section-check .safety-bucket--danger {
+            border-color: rgba(248, 113, 113, 0.18);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-icon {
+            background: rgba(239, 68, 68, 0.14);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-title {
+            color: #fca5a5;
+        }
+        #section-check .safety-bucket--warning {
+            border-color: rgba(251, 191, 36, 0.18);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-icon {
+            background: rgba(251, 191, 36, 0.14);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-title {
+            color: #fcd34d;
+        }
+        #section-check .safety-bucket--safe {
+            border-color: rgba(52, 211, 153, 0.18);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-icon {
+            background: rgba(16, 185, 129, 0.14);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-title {
+            color: #86efac;
+        }
+        #section-check .safety-doc-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 1.3rem;
+            padding: 1.15rem;
+        }
+        #section-check > .glass-card > h2[data-i18n="saf_title"],
+        #section-check > .glass-card > p[data-i18n="saf_desc1"] {
+            display: none;
+        }
+        #section-check .legacy-safety-grid {
+            display: none;
+        }
+        #section-check .safety-doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
+        }
         #runtime-preview-card {
             background:
                 linear-gradient(145deg, rgba(10, 18, 30, 0.98), rgba(16, 28, 44, 0.94)),
@@ -1673,6 +1805,18 @@
                 <h2 class="text-xl md:text-2xl font-black mb-6 text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
                 <p class="text-[10px] text-slate-400 mb-6 text-center" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصاً من الديوانة التونسية:</p>
                 
+                <div class="safety-hero rounded-[2rem] p-5 md:p-7 mb-8">
+                    <div class="relative z-10 space-y-4">
+                        <h2 class="text-xl md:text-2xl font-black text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
+                        <p class="text-[10px] text-slate-300 text-center max-w-2xl mx-auto leading-relaxed" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصًا من الديوانة التونسية.</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <span class="safety-pill">🚫 <strong>ممنوع</strong> منتجات تتحجز</span>
+                            <span class="safety-pill">📄 <strong>ترخيص</strong> بعض الفئات تحتاج مراجعة</span>
+                            <span class="safety-pill">✅ <strong>نصيحة</strong> تأكد قبل التأكيد</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="banned-list"></div>
 
                 <div class="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
@@ -1699,7 +1843,7 @@
                     <div id="customs-result" class="hidden mt-4 p-4 rounded-xl text-xs leading-relaxed bg-blue-500/10 border border-blue-500/30 text-blue-500 md:text-blue-300 relative z-10 text-center font-bold"></div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 legacy-safety-grid">
                     <div class="bg-slate-900/70 border border-red-500/20 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-red-300 uppercase tracking-[0.25em] mb-3">ممنوع 100%</div>
                         <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
@@ -1725,6 +1869,45 @@
                             <div>تجنب الإعلانات الغامضة أو اللي فيها كلمات مخفية</div>
                             <div>خلي الفاتورة والسعر ظاهرين</div>
                             <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="safety-bucket safety-bucket--danger auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">🚫</div>
+                            <div class="safety-bucket-title">ممنوع 100%</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>درون و GPS trackers</div>
+                            <div>Spy cameras و أجهزة تنصت</div>
+                            <div>Vapes و أسلحة و لوازم صيد</div>
+                            <div>TV boxes و أجهزة لاسلكية حساسة</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--warning auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">📄</div>
+                            <div class="safety-bucket-title">قد يطلب ترخيص</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>هواتف و إلكترونيات حساسة</div>
+                            <div>أجهزة إرسال / استقبال</div>
+                            <div>مكملات غذائية و مواد شبه طبية</div>
+                            <div>بطاريات كبيرة أو wireless modules</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--safe auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">✅</div>
+                            <div class="safety-bucket-title">قبل ما تطلب</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
+                            <div>إذا شكيت اطلب مراجعة يدوية</div>
                         </div>
                     </div>
                 </div>
@@ -3204,12 +3387,15 @@
         const container = document.getElementById('banned-list');
         if(!container) return;
         container.innerHTML = bannedKeywords.map(item => `
-            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between group auto-align">
-                 <div class="flex flex-col">
-                    <span class="font-bold text-[11px] text-slate-400 mb-1">${t(item.nameKey)}</span>
-                    <span class="text-[8px] font-black ${item.color} uppercase tracking-tighter">${t(item.statusKey)}</span>
+            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between gap-3 group auto-align">
+                 <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0 shadow-inner">${item.icon}</div>
+                    <div class="flex flex-col min-w-0">
+                        <span class="font-bold text-[11px] text-slate-200 mb-1 leading-snug">${t(item.nameKey)}</span>
+                        <span class="inline-flex w-max items-center gap-1 text-[8px] font-black ${item.color} uppercase tracking-tighter px-2 py-1 rounded-full bg-black/20 border border-white/5">${t(item.statusKey)}</span>
+                    </div>
                  </div>
-                 <span class="text-2xl opacity-80 group-hover:opacity-100 transition-opacity">${item.icon}</span>
+                 <span class="text-[10px] text-slate-500 font-black">⚠️</span>
             </div>
         `).join('');
     }
