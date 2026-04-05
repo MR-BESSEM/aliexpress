@@ -682,6 +682,20 @@ function isAliExpressNavigationJunk(value) {
   return keywordMatches >= 2;
 }
 
+function isAliExpressAntiBotSignal(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  return Boolean(
+    /bxpunish/i.test(cleaned) ||
+    /x5secdata/i.test(cleaned) ||
+    /secdata/i.test(cleaned) ||
+    /captcha/i.test(cleaned) ||
+    /verify (?:you'?re|you are) human/i.test(cleaned) ||
+    /æµ™å…¬ç½‘å®‰å¤‡|å¢žå€¼ç”µä¿¡ä¸šåŠ¡ç»è¥è®¸å¯è¯/i.test(cleaned) ||
+    /浙公网安备|增值电信业务经营许可证/.test(cleaned)
+  );
+}
+
 function isAliExpressPlaceholderLike(value) {
   const cleaned = sanitizeText(value || "");
   if (!cleaned) return false;
@@ -698,7 +712,8 @@ function isAliExpressPlaceholderLike(value) {
     /search by image/i.test(cleaned) ||
     /all categories/i.test(cleaned) ||
     /\b0\s+cart\b/i.test(cleaned) ||
-    /\ben[^\p{L}\p{N}]{0,8}usd\b/iu.test(cleaned)
+    /\ben[^\p{L}\p{N}]{0,8}usd\b/iu.test(cleaned) ||
+    isAliExpressAntiBotSignal(cleaned)
   );
 }
 
@@ -974,7 +989,13 @@ function guessVariantLabel(key = "", values = []) {
 function uniqueShortText(values = []) {
   return Array.from(new Set(values
     .map((value) => sanitizeText(value))
-    .filter((value) => value && value.length <= 40 && !/^[0-9.]+$/.test(value))
+    .filter((value) => (
+      value &&
+      value.length <= 40 &&
+      !/^[0-9.]+$/.test(value) &&
+      !isAliExpressPlaceholderLike(value) &&
+      !isAliExpressAntiBotSignal(value)
+    ))
   ));
 }
 
@@ -1807,6 +1828,11 @@ function extractProductFieldsFromObjectTree(source) {
 
 function extractHtmlProduct(html, url, source) {
   const $ = cheerio.load(html);
+  const antiBotPage = isAliExpressAntiBotSignal([
+    $("title").text(),
+    $("body").text().slice(0, 5000),
+    html.slice(0, 12000)
+  ].join(" "));
   const jsonLdObjects = $("script[type='application/ld+json']").map((_, element) => safeJsonParse($(element).html() || "")).get().filter(Boolean);
   const embedded = extractProductFieldsFromObjectTree([
     ...extractJsonObjectsFromHtml(html, $),
@@ -1870,19 +1896,21 @@ function extractHtmlProduct(html, url, source) {
   const deliveryEstimate = embedded.deliveryEstimate || extractDeliveryEstimateFromTexts([
     ...$("[class*='delivery'], [class*='Delivery'], [class*='arrival'], [class*='transit'], [class*='logistics']").map((_, el) => $(el).text()).get()
   ]);
-  const variants = embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($);
+  const variants = antiBotPage
+    ? []
+    : (embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($));
 
     return {
       success: true,
-      title: isAliExpressBlockedTitle(title) || isAliExpressPlaceholderText(title) ? "" : title,
-      description,
-      price,
+      title: antiBotPage || isAliExpressBlockedTitle(title) || isAliExpressPlaceholderText(title) ? "" : title,
+      description: antiBotPage ? "" : description,
+      price: antiBotPage ? 0 : price,
       shipping,
       deliveryEstimate,
-      image,
-    rating: rating || 0,
-    reviewCount,
-    soldCount,
+      image: antiBotPage ? "" : image,
+    rating: antiBotPage ? 0 : (rating || 0),
+    reviewCount: antiBotPage ? 0 : reviewCount,
+    soldCount: antiBotPage ? 0 : soldCount,
     variants,
     url,
     source
