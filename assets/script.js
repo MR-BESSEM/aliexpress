@@ -17,6 +17,11 @@
     const ADMIN_PIN_KEY = "alex_admin_pin_v1";
     const ADMIN_TOKEN_KEY = "alex_admin_token_v1";
     const ACTIVITY_LOG_KEY = "alex_activity_log_v1";
+    const DEFAULT_PUBLIC_CALCULATOR_SETTINGS = {
+        thresholds: { low: 10, mid: 50, high: 150 },
+        rates: { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 },
+        serviceFeeTnd: 0
+    };
 
     const dom = {
         calcLink: document.getElementById("calc-link"),
@@ -447,6 +452,7 @@
         try {
             const data = await apiFetch("/api/promos");
             if (Array.isArray(data.promos)) {
+                window.availablePromos = data.promos.slice();
                 saveAdminPromos(data.promos);
             }
         } catch {
@@ -996,7 +1002,7 @@
         });
     }
 
-    function applyPromoCode() {
+    async function applyPromoCode() {
         const codeInput = document.getElementById("promo-code");
         const msg = document.getElementById("promo-message");
         const discountBadge = document.getElementById("discount-badge");
@@ -1005,6 +1011,8 @@
             toast("دخل promo code صحيح.");
             return;
         }
+
+        await refreshPublicPromos();
 
         const now = new Date();
         const promo = getCombinedPromos().find((item) => item.code === code);
@@ -2037,15 +2045,57 @@
         return Number(state.liveRate || FX_FALLBACK_RATE) * (1 + FX_MARKUP);
     }
 
+    function getRuntimeCalculatorSettings() {
+        const source = window.runtimeAdminSettings?.calculator || {};
+        const thresholds = source.thresholds && typeof source.thresholds === "object" ? source.thresholds : {};
+        const rates = source.rates && typeof source.rates === "object" ? source.rates : {};
+
+        const lowThreshold = Math.max(0, Number(thresholds.low ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.low));
+        const midThreshold = Math.max(lowThreshold + 1, Number(thresholds.mid ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.mid));
+        const highThreshold = Math.max(midThreshold + 1, Number(thresholds.high ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.high));
+
+        return {
+            thresholds: {
+                low: lowThreshold,
+                mid: midThreshold,
+                high: highThreshold
+            },
+            rates: {
+                low: Math.max(0.001, Number(rates.low ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.low)),
+                mid: Math.max(0.001, Number(rates.mid ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.mid)),
+                high: Math.max(0.001, Number(rates.high ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.high)),
+                base: Math.max(0.001, Number(rates.base ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.base))
+            },
+            serviceFeeTnd: Math.max(0, Number(source.serviceFeeTnd ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.serviceFeeTnd))
+        };
+    }
+
+    function resolveRuntimeRate(totalUsd) {
+        const numericTotal = Math.max(0, Number(totalUsd || 0));
+        const settings = getRuntimeCalculatorSettings();
+        let rate = Number(settings.rates.base || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.base);
+
+        if (numericTotal > 0 && numericTotal < Number(settings.thresholds.low || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.low)) {
+            rate = Number(settings.rates.low || rate);
+        } else if (numericTotal < Number(settings.thresholds.mid || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.mid)) {
+            rate = Number(settings.rates.mid || rate);
+        } else if (numericTotal < Number(settings.thresholds.high || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.high)) {
+            rate = Number(settings.rates.high || rate);
+        }
+
+        return rate;
+    }
+
     function calculatePricingData() {
         const productUsd = parseLocaleNumber(dom.usdPrice?.value || "0");
         const shippingUsd = parseLocaleNumber(dom.usdShip?.value || "0");
-        const rate = getEffectiveRate();
+        const settings = getRuntimeCalculatorSettings();
+        const subtotalUsd = productUsd + shippingUsd;
+        const rate = resolveRuntimeRate(subtotalUsd);
         const productTnd = productUsd * rate;
         const shippingTnd = shippingUsd * rate;
-        const subtotalUsd = productUsd + shippingUsd;
         const subtotalTnd = productTnd + shippingTnd;
-        const serviceFee = subtotalTnd > 0 ? Math.max(SERVICE_FEE_MIN_TND, subtotalTnd * SERVICE_FEE_PERCENT) : 0;
+        const serviceFee = subtotalTnd > 0 ? Number(settings.serviceFeeTnd || 0) : 0;
         const finalTnd = subtotalTnd + serviceFee;
 
         return {
