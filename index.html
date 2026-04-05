@@ -3565,6 +3565,27 @@
         setInterval(triggerSocialProof, 25000); 
     };
 </script>
-<script src="assets/script.js?v=20260404-6"></script>
+<script>
+(() => {
+    const applyImmediateFixes = () => {
+        const accountAdminPanel = document.querySelector('#section-account details[data-account-panel="admin"]');
+        if (accountAdminPanel) {
+            accountAdminPanel.remove();
+        }
+
+        const footerLove = document.querySelector('.footer-love');
+        if (footerLove) {
+            footerLove.innerHTML = 'Created with <span class="footer-love-heart">&#10084;</span> By';
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyImmediateFixes, { once: true });
+    } else {
+        applyImmediateFixes();
+    }
+})();
+</script>
+<script src="assets/script.js?v=20260405-1"></script>
 </body>
 </html>
