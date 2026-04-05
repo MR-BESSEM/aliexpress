@@ -3225,11 +3225,12 @@
         try {
             const primaryRaw = localStorage.getItem(primaryKey);
             const primaryData = decryptData(primaryRaw);
-            if (Array.isArray(primaryData) && primaryData.length >= 0) return primaryData;
-
             const backupRaw = localStorage.getItem(backupKey);
-            if (!backupRaw) return [];
-            const backupData = JSON.parse(backupRaw);
+            const backupData = backupRaw ? JSON.parse(backupRaw) : [];
+
+            if (Array.isArray(primaryData) && primaryData.length > 0) return primaryData;
+            if (Array.isArray(backupData) && backupData.length > 0) return backupData;
+            if (Array.isArray(primaryData)) return primaryData;
             return Array.isArray(backupData) ? backupData : [];
         } catch (e) {
             return [];
@@ -3346,12 +3347,16 @@
             orderHistory = readStorageCollection('alexpress_history', 'alexpress_history_backup');
         } catch (e) { console.error("Error loading data", e); }
 
-        if (cart.length === 0 && wishlist.length === 0 && orderHistory.length === 0) {
-            const emergencyState = readEmergencyState();
-            if (emergencyState) {
-                cart = recalculateStoredCollection(Array.isArray(emergencyState.cart) ? emergencyState.cart : []);
-                wishlist = recalculateStoredCollection(Array.isArray(emergencyState.wishlist) ? emergencyState.wishlist : []);
-                orderHistory = Array.isArray(emergencyState.history) ? emergencyState.history : [];
+        const emergencyState = readEmergencyState();
+        if (emergencyState) {
+            if (cart.length === 0 && Array.isArray(emergencyState.cart) && emergencyState.cart.length > 0) {
+                cart = recalculateStoredCollection(emergencyState.cart);
+            }
+            if (wishlist.length === 0 && Array.isArray(emergencyState.wishlist) && emergencyState.wishlist.length > 0) {
+                wishlist = recalculateStoredCollection(emergencyState.wishlist);
+            }
+            if (orderHistory.length === 0 && Array.isArray(emergencyState.history) && emergencyState.history.length > 0) {
+                orderHistory = emergencyState.history;
             }
         }
         
