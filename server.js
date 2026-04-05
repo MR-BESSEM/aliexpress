@@ -281,15 +281,16 @@ function hasUsefulPartialProductData(partial = {}) {
   const hasMeaningfulCommerceData =
     Number(partial.price || 0) > 0 ||
     (shipping != null && Number.isFinite(shipping) && shipping > 0);
+  const hasSupportingSignals =
+    Number(partial.reviewCount || 0) > 0 ||
+    Number(partial.soldCount || 0) > 0 ||
+    Boolean(sanitizeText(partial.deliveryEstimate)) ||
+    hasMeaningfulVariantGroups(partial.variants);
 
   return Boolean(
     hasMeaningfulText ||
     hasMeaningfulCommerceData ||
-    (hasUsableImage(partial.image) && (hasMeaningfulText || hasMeaningfulCommerceData)) ||
-    Number(partial.reviewCount || 0) > 0 ||
-    Number(partial.soldCount || 0) > 0 ||
-    sanitizeText(partial.deliveryEstimate) ||
-    hasMeaningfulVariantGroups(partial.variants)
+    (hasUsableImage(partial.image) && (hasMeaningfulText || hasMeaningfulCommerceData || hasSupportingSignals))
   );
 }
 
@@ -1445,6 +1446,7 @@ function isAffiliateAppKeyInvalidError(error) {
 }
 
 function buildUnavailableProductResponse({ canonicalUrl, productId, source = "manual-quote-required", alertText = "" }) {
+  const normalizedAlertText = sanitizeText(alertText);
   const product = {
     success: true,
     title: "منتج AliExpress",
@@ -1463,12 +1465,15 @@ function buildUnavailableProductResponse({ canonicalUrl, productId, source = "ma
     deliveryEstimate: "من 12 حتى 25 يوم",
     manualQuoteRecommended: true,
     priceUnavailable: true,
-    errorHint: ""
+    errorHint: normalizedAlertText
   };
 
   product.shippingLabel = "غير متوفر";
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
+  if (normalizedAlertText) {
+    product.alerts.unshift({ level: "warning", text: normalizedAlertText });
+  }
   product.trustScore = buildSellerTrustScore(product);
   product.customsAdvisor = buildCustomsAdvisor(product);
   product.deliveryTimeline = buildEstimatedTimeline(product);
@@ -2561,7 +2566,7 @@ async function fetchProduct(url) {
     }
   }
 
-  if (!pageData && !apiData && !partialPageData) {
+  if (!pageData && !apiData && !canUsePartialData()) {
     if (affiliateAuthFailed) {
       return buildUnavailableProductResponse({
         canonicalUrl,
