@@ -2653,10 +2653,7 @@
     function renderAlerts(product) {
         if (!dom.insightsCard || !dom.alerts || !dom.deliveryEstimate || !dom.riskBadge) return;
 
-        const alerts = (Array.isArray(product?.alerts) ? product.alerts : []).filter((alert) => {
-            const text = String(alert?.text || "");
-            return !/affiliate api|السعر exact|exact|manual quote|التسعيرة اليدوية/i.test(text);
-        });
+        const alerts = (Array.isArray(product?.alerts) ? product.alerts : []).filter((alert) => !/affiliate api/i.test(String(alert?.text || "")));
         const hasInsights = Boolean(product) || alerts.length > 0;
         dom.insightsCard.classList.toggle("hidden", !hasInsights);
         if (!hasInsights) return;
@@ -2844,10 +2841,8 @@
             dom.previewReviews.textContent = hasReviewValue ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
         }
         if (previewDescriptionNode) {
-            const descriptionText = String(product.description || "").trim();
-            previewDescriptionNode.textContent = descriptionText;
-            previewDescriptionNode.title = descriptionText;
-            previewDescriptionNode.classList.toggle("hidden", !descriptionText);
+            previewDescriptionNode.textContent = product.description || emptyDescription;
+            previewDescriptionNode.title = product.description || emptyDescription;
         }
         renderVariantSummary();
 
@@ -2923,7 +2918,8 @@
             saveRecentLink(data);
             pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
             if (data.priceUnavailable) {
-                setError("");
+                setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
+                toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
             } else {
                 toast(data.manualQuoteRecommended ? "تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد." : "تم جلب البيانات بنجاح!");
             }
