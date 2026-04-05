@@ -1,3884 +1,3119 @@
-(() => {
-    const API_BASE_URL = "";
-    const FX_FALLBACK_RATE = 4.5;
-    const FX_MARKUP = 0;
-    const SERVICE_FEE_PERCENT = 0.08;
-    const SERVICE_FEE_MIN_TND = 7;
-    const RATE_REFRESH_MS = 15 * 60 * 1000;
-    const WHATSAPP_NUMBER = "21627498276";
-    const RECENT_LINKS_KEY = "alex_recent_links_v1";
-    const ACCOUNT_PREFS_KEY = "alex_account_prefs_v1";
-    const LOCAL_STATS_KEY = "alex_local_stats_v1";
-    const BUDGET_PREFS_KEY = "alex_budget_prefs_v1";
-    const SAVED_PACKS_KEY = "alex_saved_packs_v1";
-    const PRICE_ALERTS_KEY = "alex_price_alerts_v1";
-    const REFERRAL_STATE_KEY = "alex_referral_state_v1";
-    const ADMIN_PROMOS_KEY = "alex_admin_promos_v1";
-    const ADMIN_PIN_KEY = "alex_admin_pin_v1";
-    const ADMIN_TOKEN_KEY = "alex_admin_token_v1";
-    const ACTIVITY_LOG_KEY = "alex_activity_log_v1";
-
-    const dom = {
-        calcLink: document.getElementById("calc-link"),
-        calcName: document.getElementById("calc-name"),
-        calcNote: document.getElementById("calc-note"),
-        calcImage: document.getElementById("calc-image"),
-        usdPrice: document.getElementById("usd-price"),
-        usdShip: document.getElementById("usd-ship"),
-        tndResult: document.getElementById("tnd-result"),
-        rateBadge: document.getElementById("rate-badge"),
-        liveRateDisplay: document.getElementById("live-rate-display"),
-        scrapeBtn: document.getElementById("runtime-scrape-btn"),
-        scrapeLoader: document.getElementById("runtime-scrape-loader"),
-        scrapeError: document.getElementById("runtime-scrape-error"),
-        previewCard: document.getElementById("runtime-preview-card"),
-        previewImage: document.getElementById("runtime-preview-image"),
-        previewTitle: document.getElementById("runtime-preview-title"),
-        previewMeta: document.getElementById("runtime-preview-meta"),
-        previewDescription: document.getElementById("runtime-preview-description"),
-        previewPrice: document.getElementById("runtime-preview-price"),
-        previewLink: document.getElementById("runtime-preview-link"),
-        previewSource: document.getElementById("runtime-preview-source"),
-        previewShipping: document.getElementById("runtime-preview-shipping"),
-        previewDelivery: document.getElementById("runtime-preview-delivery"),
-        previewRating: document.getElementById("runtime-preview-rating"),
-        previewReviews: document.getElementById("runtime-preview-reviews"),
-        previewVariantSummary: document.getElementById("runtime-preview-variant-summary"),
-        createAlertBtn: document.getElementById("runtime-create-alert"),
-        shareReferralBtn: document.getElementById("runtime-copy-referral-share"),
-        trustCard: document.getElementById("runtime-trust-card"),
-        trustBadge: document.getElementById("runtime-trust-badge"),
-        trustRating: document.getElementById("runtime-trust-rating"),
-        trustReviews: document.getElementById("runtime-trust-reviews"),
-        trustSold: document.getElementById("runtime-trust-sold"),
-        trustNote: document.getElementById("runtime-trust-note"),
-        variantsCard: document.getElementById("runtime-variants-card"),
-        variantGroups: document.getElementById("runtime-variant-groups"),
-        metricOrders: document.getElementById("runtime-metric-orders"),
-        metricPromos: document.getElementById("runtime-metric-promos"),
-        metricFetches: document.getElementById("runtime-metric-fetches"),
-        metricRate: document.getElementById("runtime-metric-rate"),
-        recentLinksCard: document.getElementById("runtime-recent-links-card"),
-        recentLinks: document.getElementById("runtime-recent-links"),
-        clearLinksBtn: document.getElementById("runtime-clear-links"),
-        breakdownCard: document.getElementById("runtime-breakdown-card"),
-        breakdownProduct: document.getElementById("runtime-breakdown-product"),
-        breakdownShipping: document.getElementById("runtime-breakdown-shipping"),
-        breakdownServiceLabel: document.getElementById("runtime-breakdown-service-label"),
-        breakdownService: document.getElementById("runtime-breakdown-service"),
-        breakdownTotal: document.getElementById("runtime-breakdown-total"),
-        budgetCard: document.getElementById("runtime-budget-card"),
-        budgetInput: document.getElementById("runtime-budget-input"),
-        budgetBuffer: document.getElementById("runtime-budget-buffer"),
-        budgetStatus: document.getElementById("runtime-budget-status"),
-        budgetRemaining: document.getElementById("runtime-budget-remaining"),
-        budgetSafeTotal: document.getElementById("runtime-budget-safe-total"),
-        budgetMaxUsd: document.getElementById("runtime-budget-max-usd"),
-        budgetNote: document.getElementById("runtime-budget-note"),
-        customsCard: document.getElementById("runtime-customs-card"),
-        customsLevel: document.getElementById("runtime-customs-level"),
-        customsNote: document.getElementById("runtime-customs-note"),
-        customsDocs: document.getElementById("runtime-customs-docs"),
-        customsAlt: document.getElementById("runtime-customs-alt"),
-        quoteCompareCard: document.getElementById("runtime-quote-compare-card"),
-        quoteCompareStatus: document.getElementById("runtime-quote-compare-status"),
-        quoteAuto: document.getElementById("runtime-quote-auto"),
-        quoteSimilar: document.getElementById("runtime-quote-similar"),
-        quoteManual: document.getElementById("runtime-quote-manual"),
-        quoteNote: document.getElementById("runtime-quote-note"),
-        resellerCard: document.getElementById("runtime-reseller-card"),
-        resellerStatus: document.getElementById("runtime-reseller-status"),
-        resellerPrice: document.getElementById("runtime-reseller-price"),
-        resellerQty: document.getElementById("runtime-reseller-qty"),
-        profitUnit: document.getElementById("runtime-profit-unit"),
-        profitTotal: document.getElementById("runtime-profit-total"),
-        profitRoi: document.getElementById("runtime-profit-roi"),
-        profitBreakEven: document.getElementById("runtime-profit-break-even"),
-        insightsCard: document.getElementById("runtime-insights-card"),
-        deliveryEstimate: document.getElementById("runtime-delivery-estimate"),
-        riskBadge: document.getElementById("runtime-risk-badge"),
-        alerts: document.getElementById("runtime-alerts"),
-        bannedError: document.getElementById("banned-error"),
-        bannedErrorText: document.querySelector("#banned-error p"),
-        manualQuoteBtn: document.getElementById("runtime-manual-quote"),
-        quickOrderBtn: document.getElementById("runtime-quick-order"),
-        imagePreviewCard: document.getElementById("runtime-image-preview-card"),
-        imagePreview: document.getElementById("runtime-image-preview"),
-        imageClearBtn: document.getElementById("runtime-image-clear"),
-        historyList: document.getElementById("history-items-list"),
-        historySearch: document.getElementById("runtime-history-search"),
-        historyStatus: document.getElementById("runtime-history-status"),
-        repeatOrders: document.getElementById("runtime-repeat-orders"),
-        trackResult: document.getElementById("search-result"),
-        notifications: document.getElementById("runtime-notifications"),
-        cartInsightsCard: document.getElementById("runtime-cart-insights-card"),
-        cartHealth: document.getElementById("runtime-cart-health"),
-        cartUnits: document.getElementById("runtime-cart-units"),
-        cartService: document.getElementById("runtime-cart-service"),
-        cartFreeShip: document.getElementById("runtime-cart-free-ship"),
-        cartRisk: document.getElementById("runtime-cart-risk"),
-        cartEta: document.getElementById("runtime-cart-eta"),
-        cartRecommendation: document.getElementById("runtime-cart-recommendation"),
-        bundleCard: document.getElementById("runtime-bundle-card"),
-        bundleBadge: document.getElementById("runtime-bundle-badge"),
-        bundleSavings: document.getElementById("runtime-bundle-savings"),
-        bundleTitle: document.getElementById("runtime-bundle-title"),
-        bundleNote: document.getElementById("runtime-bundle-note"),
-        voiceCard: document.getElementById("runtime-voice-card"),
-        voiceRecordBtn: document.getElementById("runtime-voice-record"),
-        voiceStopBtn: document.getElementById("runtime-voice-stop"),
-        voiceUpload: document.getElementById("runtime-voice-upload"),
-        voicePlayer: document.getElementById("runtime-voice-player"),
-        voiceStatus: document.getElementById("runtime-voice-status"),
-        voiceNote: document.getElementById("runtime-voice-note"),
-        downloadQuoteBtn: document.getElementById("runtime-download-quote"),
-        exportCsvBtn: document.getElementById("runtime-export-csv"),
-        accountPhone: document.getElementById("account-phone"),
-        accountCity: document.getElementById("account-city"),
-        accountAddress: document.getElementById("account-address"),
-        accountContactMethod: document.getElementById("account-contact-method"),
-        accountSavePrefs: document.getElementById("account-save-prefs"),
-        accountPrefsStatus: document.getElementById("account-prefs-status"),
-        langSwitch: document.getElementById("lang-switch"),
-        packName: document.getElementById("runtime-pack-name"),
-        savePackBtn: document.getElementById("runtime-save-pack"),
-        packCount: document.getElementById("runtime-pack-count"),
-        savedPacks: document.getElementById("runtime-saved-packs"),
-        alertCount: document.getElementById("runtime-alert-count"),
-        alertWatchlist: document.getElementById("runtime-alert-watchlist"),
-        referralTier: document.getElementById("runtime-referral-tier"),
-        referralCode: document.getElementById("runtime-referral-code"),
-        referralCredits: document.getElementById("runtime-referral-credits"),
-        referralInput: document.getElementById("runtime-referral-input"),
-        referralApply: document.getElementById("runtime-referral-apply"),
-        referralCopy: document.getElementById("runtime-referral-copy"),
-        referralNote: document.getElementById("runtime-referral-note"),
-        accountOrders: document.getElementById("acc-stat-orders"),
-        accountWish: document.getElementById("acc-stat-wish"),
-        accountFetches: document.getElementById("acc-stat-fetches"),
-        accountQuotes: document.getElementById("acc-stat-quotes"),
-        customerTier: document.getElementById("runtime-customer-tier"),
-        loyaltyPoints: document.getElementById("runtime-loyalty-points"),
-        customerTagCount: document.getElementById("runtime-customer-tag-count"),
-        customerTags: document.getElementById("runtime-customer-tags"),
-        trackRef: document.getElementById("runtime-track-ref"),
-        trackSearchBtn: document.getElementById("runtime-track-search-btn"),
-        trackStatusCard: document.getElementById("runtime-track-status-card"),
-        trackStatusRef: document.getElementById("runtime-track-status-ref"),
-        trackStatusBadge: document.getElementById("runtime-track-status-badge"),
-        trackStatusNote: document.getElementById("runtime-track-status-note"),
-        trackStatusExtra: document.getElementById("runtime-track-status-extra"),
-        trackTimeline: document.getElementById("runtime-track-timeline"),
-        adminPin: document.getElementById("admin-pin"),
-        adminUnlockBtn: document.getElementById("admin-unlock-btn"),
-        adminLockBtn: document.getElementById("admin-lock-btn"),
-        adminUnlockStatus: document.getElementById("admin-unlock-status"),
-        adminPanel: document.getElementById("runtime-admin-panel"),
-        adminPromoCode: document.getElementById("admin-promo-code"),
-        adminPromoType: document.getElementById("admin-promo-type"),
-        adminPromoValue: document.getElementById("admin-promo-value"),
-        adminPromoLimit: document.getElementById("admin-promo-limit"),
-        adminPromoExpiry: document.getElementById("admin-promo-expiry"),
-        adminPromoSave: document.getElementById("admin-promo-save"),
-        adminPromos: document.getElementById("runtime-admin-promos"),
-        adminOrderRef: document.getElementById("admin-order-ref"),
-        adminOrderStatus: document.getElementById("admin-order-status"),
-        adminOrderTracking: document.getElementById("admin-order-tracking"),
-        adminOrderUpdate: document.getElementById("admin-order-update"),
-        adminOrders: document.getElementById("runtime-admin-orders"),
-        adminActivity: document.getElementById("runtime-admin-activity"),
-        adminAnalytics: document.getElementById("runtime-admin-analytics")
-    };
-
-    const state = {
-        liveRate: FX_FALLBACK_RATE,
-        baseProduct: null,
-        currentProduct: null,
-        activeVariantOffer: null,
-        recentLinks: [],
-        accountPrefs: null,
-        budgetPrefs: null,
-        savedPacks: [],
-        priceAlerts: [],
-        referral: null,
-        voiceNote: null,
-        mediaRecorder: null,
-        audioChunks: [],
-        adminAnalytics: null,
-        adminUnlocked: false,
-        adminToken: "",
-        adminPromos: [],
-        activePromoCode: "",
-        activityLog: [],
-        selectedVariants: {},
-        stats: {
-            fetches: 0,
-            manualQuotes: 0
-        }
-    };
-
-    const original = {
-        getFormData: typeof window._getFormData === "function" ? window._getFormData : null,
-        sendOrder: typeof window.sendOrder === "function" ? window.sendOrder : null,
-        renderHistory: typeof window.renderHistory === "function" ? window.renderHistory : null
-    };
-
-    function isAliExpressUrl(value) {
-        try {
-            const parsed = new URL(String(value || "").trim());
-            return /(^|\.)aliexpress\.(com|us)$/i.test(parsed.hostname) || /(^|\.)a\.aliexpress\.com$/i.test(parsed.hostname);
-        } catch {
-            return false;
-        }
-    }
-
-    function escapeHtml(value) {
-        return String(value || "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
-    }
-
-    function readJsonStorage(key, fallback) {
-        try {
-            const raw = window.localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-        } catch {
-            return fallback;
-        }
-    }
-
-    function writeJsonStorage(key, value) {
-        try {
-            window.localStorage.setItem(key, JSON.stringify(value));
-        } catch {
-            // ignore quota/storage errors
-        }
-    }
-
-    function getStoredAdminToken() {
-        try {
-            return window.sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
-        } catch {
-            return "";
-        }
-    }
-
-    function setStoredAdminToken(token) {
-        try {
-            if (token) {
-                window.sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
-            } else {
-                window.sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-            }
-        } catch {
-            // ignore storage errors
-        }
-    }
-
-    async function apiFetch(endpoint, options = {}, requiresAuth = false) {
-        const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
-        if (requiresAuth && state.adminToken) {
-            headers.Authorization = `Bearer ${state.adminToken}`;
-        }
-
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, Object.assign({}, options, { headers }));
-        let data = {};
-        try {
-            data = await response.json();
-        } catch {
-            data = {};
-        }
-
-        if (!response.ok || data.success === false) {
-            const error = new Error(data.error || `Request failed (${response.status})`);
-            error.status = response.status;
-            throw error;
-        }
-
-        return data;
-    }
-
-    function getAccountPrefs() {
-        if (state.accountPrefs) return state.accountPrefs;
-        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
-            phone: "",
-            city: "",
-            address: "",
-            contactMethod: "whatsapp"
-        });
-        return state.accountPrefs;
-    }
-
-    function getBudgetPrefs() {
-        if (state.budgetPrefs) return state.budgetPrefs;
-        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
-            budget: "",
-            buffer: "10"
-        });
-        return state.budgetPrefs;
-    }
-
-    function saveBudgetPrefs(prefs) {
-        state.budgetPrefs = prefs;
-        writeJsonStorage(BUDGET_PREFS_KEY, prefs);
-    }
-
-    function getSavedPacks() {
-        if (Array.isArray(state.savedPacks) && state.savedPacks.length) return state.savedPacks;
-        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
-        return state.savedPacks;
-    }
-
-    function saveSavedPacks(packs) {
-        state.savedPacks = packs.slice(0, 8);
-        writeJsonStorage(SAVED_PACKS_KEY, state.savedPacks);
-        renderSavedPacks();
-    }
-
-    function getPriceAlerts() {
-        if (Array.isArray(state.priceAlerts) && state.priceAlerts.length) return state.priceAlerts;
-        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
-        return state.priceAlerts;
-    }
-
-    function savePriceAlerts(alerts) {
-        state.priceAlerts = alerts.slice(0, 20);
-        writeJsonStorage(PRICE_ALERTS_KEY, state.priceAlerts);
-        renderPriceAlerts();
-    }
-
-    function buildReferralCode() {
-        let seed = window.userId || window.localStorage.getItem("alexpress_user_id") || window.localStorage.getItem("alex_referral_seed") || "";
-        if (!seed) {
-            seed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
-            window.localStorage.setItem("alex_referral_seed", seed);
-        }
-        seed = String(seed).replace(/[^A-Z0-9]/gi, "").toUpperCase();
-        return `ALEX-${seed.slice(-6).padStart(6, "0")}`;
-    }
-
-    function getReferralState() {
-        if (state.referral) return state.referral;
-        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
-            code: buildReferralCode(),
-            credits: 0,
-            appliedCodes: [],
-            usedOwnCode: false
-        });
-        return state.referral;
-    }
-
-    function saveReferralState(referral) {
-        state.referral = referral;
-        writeJsonStorage(REFERRAL_STATE_KEY, referral);
-        renderReferralCard();
-    }
-
-    function getLocalStats() {
-        if (state.stats && typeof state.stats.fetches === "number") return state.stats;
-        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
-        return state.stats;
-    }
-
-    function getActivityLog() {
-        if (Array.isArray(state.activityLog) && state.activityLog.length) return state.activityLog;
-        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
-        return state.activityLog;
-    }
-
-    function saveActivityLog(entries) {
-        state.activityLog = entries.slice(0, 12);
-        writeJsonStorage(ACTIVITY_LOG_KEY, state.activityLog);
-    }
-
-    function pushActivityLog(type, text) {
-        const next = [{
-            id: Date.now(),
-            type,
-            text,
-            at: new Date().toLocaleString("ar-TN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
-        }].concat(getActivityLog()).slice(0, 12);
-        saveActivityLog(next);
-        renderActivityLog();
-        renderNotifications();
-    }
-
-    function getAdminPin() {
-        return window.localStorage.getItem(ADMIN_PIN_KEY) || "2749";
-    }
-
-    function getAdminPromos() {
-        if (Array.isArray(state.adminPromos) && state.adminPromos.length) return state.adminPromos;
-        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
-        return state.adminPromos;
-    }
-
-    function saveAdminPromos(promos) {
-        state.adminPromos = promos;
-        writeJsonStorage(ADMIN_PROMOS_KEY, promos);
-        openAccountPanel("admin");
-        renderAdminPromos();
-        renderAccountStats();
-        renderNotifications();
-    }
-
-    function mergeOrderIntoHistory(order) {
-        if (!order || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
-        const ref = String(order.orderRef || order.id || "");
-        const index = orderHistory.findIndex((item) => String(item.orderRef || item.id || "") === ref);
-        if (index >= 0) {
-            orderHistory[index] = Object.assign({}, orderHistory[index], order);
-        } else {
-            orderHistory.unshift(order);
-        }
-    }
-
-    function syncOrdersFromServer(orders) {
-        if (!Array.isArray(orders) || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
-        orders.forEach(mergeOrderIntoHistory);
-        if (typeof saveData === "function") saveData();
-        if (typeof window.renderHistory === "function") window.renderHistory();
-    }
-
-    async function refreshPublicPromos() {
-        try {
-            const data = await apiFetch("/api/promos");
-            if (Array.isArray(data.promos)) {
-                saveAdminPromos(data.promos);
-            }
-        } catch {
-            // keep local fallback
-        }
-    }
-
-    async function refreshAdminState() {
-        if (!state.adminToken) return false;
-        const data = await apiFetch("/api/admin/state", {}, true);
-        state.adminUnlocked = true;
-        state.adminAnalytics = data.analytics || null;
-        saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
-        syncOrdersFromServer(Array.isArray(data.orders) ? data.orders : []);
-        if (dom.adminPanel) dom.adminPanel.classList.remove("hidden");
-        if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Unlocked";
-            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
-        }
-        openAccountPanel("admin");
-        renderAdminAnalytics();
-        return true;
-    }
-
-    async function persistOrderToBackend(order) {
-        try {
-            const data = await apiFetch("/api/orders/register", {
-                method: "POST",
-                body: JSON.stringify(order)
-            });
-            if (data.order) {
-                mergeOrderIntoHistory(data.order);
-                if (typeof saveData === "function") saveData();
-                if (typeof window.renderHistory === "function") window.renderHistory();
-            }
-        } catch {
-            // local fallback already exists
-        }
-    }
-
-    function formatUsd(value) {
-        return `${Number(value || 0).toFixed(2)} USD`;
-    }
-
-    function formatTnd(value) {
-        return `${Number(value || 0).toFixed(3)} TND`;
-    }
-
-    function formatDateLabel(dateLike) {
-        const date = dateLike ? new Date(dateLike) : new Date();
-        if (Number.isNaN(date.getTime())) return "";
-        return date.toLocaleDateString("en-GB");
-    }
-
-    function cloneData(value) {
-        try {
-            return JSON.parse(JSON.stringify(value));
-        } catch {
-            return value;
-        }
-    }
-
-    function isMeaningfulOptionValue(value = "") {
-        const text = String(value || "").trim();
-        if (!text || text.length > 40) return false;
-        if (/^https?:\/\//i.test(text)) return false;
-        if (/^[0-9\s.,/+%-]+$/.test(text)) return false;
-        if (/all categories|search|download|welcome|sign in|register|click to|feedback|aliexpress|store|shipping|review|rating|buyer protection/i.test(text)) return false;
-        return true;
-    }
-
-    function isMeaningfulOptionGroup(group = {}) {
-        const name = String(group?.name || "").trim();
-        const values = Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : [];
-        if (values.length < 2 || values.length > 12) return false;
-        if (/all categories|download|feedback|search|review/i.test(name)) return false;
-        return true;
-    }
-
-    function getProductOptionGroups(product = state.currentProduct) {
-        const rawGroups = Array.isArray(product?.variants) ? product.variants : [];
-        const groups = rawGroups
-            .map((group) => ({
-                name: String(group?.name || "").trim() || "الخيار",
-                values: Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : []
-            }))
-            .filter(isMeaningfulOptionGroup);
-
-        if (product?.priceUnavailable && product?.source === "partial-fallback") {
-            return groups.filter((group) => /color|colour|size|bundle|storage|material|style|version|option|لون|مقاس|طول|نسخة/i.test(group.name));
-        }
-
-        return groups;
-    }
-
-    function productHasOptions(product = state.currentProduct) {
-        return getProductOptionGroups(product).length > 0;
-    }
-
-    function getSpecsPlaceholder(product = state.currentProduct) {
-        return productHasOptions(product)
-            ? "اكتب الخيار المطلوب هنا: لون، مقاس، طول، نسخة..."
-            : "مثال: Bleu 1.5m";
-    }
-
-    function getSpecsValueText(product = state.currentProduct) {
-        const note = String(dom.calcNote?.value || "").trim();
-        if (note) return note;
-        if (productHasOptions(product)) return "يرجى كتابة اللون / المقاس / الطول المطلوب في خانة المواصفات";
-        return "بدون ملاحظات";
-    }
-
-    function getServiceFeeDisplayText(pricing, product = state.currentProduct) {
-        return productHasOptions(product) ? "مشمولة" : formatTnd(pricing.serviceFee);
-    }
-
-    function updateSpecsGuidance(product = state.currentProduct) {
-        if (!dom.calcNote) return;
-        dom.calcNote.placeholder = getSpecsPlaceholder(product);
-    }
-
-    function getBaseProduct() {
-        return (state && (state.baseProduct || state.currentProduct)) || null;
-    }
-
-    function syncProductInputs(product = state.currentProduct) {
-        if (!product) return;
-
-        const safeTitle = String(product.title || "").trim();
-        if (dom.calcName) {
-            dom.calcName.value = safeTitle && !/^aliexpress$/i.test(safeTitle)
-                ? safeTitle
-                : (dom.calcName.value || "");
-        }
-
-        if (dom.usdPrice) {
-            const price = Number(product.price || 0);
-            dom.usdPrice.value = Number.isFinite(price) && price > 0 ? price.toFixed(2) : "0";
-        }
-
-        if (dom.usdShip) {
-            const shipping = product.shipping == null ? 0 : Number(product.shipping);
-            dom.usdShip.value = Number.isFinite(shipping) && shipping > 0 ? shipping.toFixed(2) : "0";
-        }
-
-        updateSpecsGuidance(product);
-    }
-
-    function parseDeliveryWindow(label) {
-        const values = String(label || "").match(/\d+/g);
-        if (!values || !values.length) return null;
-        const numbers = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
-        if (!numbers.length) return null;
-        if (numbers.length === 1) {
-            return { min: numbers[0], max: numbers[0] };
-        }
-        return { min: Math.min(...numbers), max: Math.max(...numbers) };
-    }
-
-    function toast(message) {
-        if (typeof window.showToast === "function") {
-            window.showToast(message);
-        }
-    }
-
-    function getShippingLabel(value) {
-        if (value == null || Number.isNaN(Number(value))) return "غير متوفر";
-        if (Number(value) === 0) return "شحن مجاني";
-        return `${formatUsd(value)} شحن`;
-    }
-
-    function getPreviewPriceText(product = state.currentProduct) {
-        if (product?.priceUnavailable) return "تسعيرة يدوية";
-        const usdPrice = Number(product?.price || dom.usdPrice?.value || 0);
-        return Number.isFinite(usdPrice) && usdPrice > 0 ? formatUsd(usdPrice) : "";
-    }
-
-    function parseLocaleNumber(value) {
-        const normalized = String(value ?? "")
-            .trim()
-            .replace(/\s+/g, "")
-            .replace(/,/g, ".");
-        const parsed = Number.parseFloat(normalized);
-        return Number.isFinite(parsed) ? parsed : 0;
-    }
-
-    function getRestrictionSummary(product) {
-        if (!product?.restrictions) return "";
-        if (product.restrictions.banned) return "خطر ديوانة مرتفع";
-        if (product.restrictions.restricted) return "يلزم تثبت قبل الطلب";
-        return "مقبول مبدئيًا";
-    }
-
-    function incrementStat(key) {
-        const stats = getLocalStats();
-        stats[key] = Number(stats[key] || 0) + 1;
-        state.stats = stats;
-        writeJsonStorage(LOCAL_STATS_KEY, stats);
-        renderAccountStats();
-    }
-
-    function renderAccountStats() {
-        const stats = getLocalStats();
-        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
-        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
-        if (dom.accountFetches) dom.accountFetches.textContent = Number(stats.fetches || 0);
-        if (dom.accountQuotes) dom.accountQuotes.textContent = Number(stats.manualQuotes || 0);
-        if (dom.accountOrders) dom.accountOrders.textContent = ordersCount;
-        if (dom.accountWish) dom.accountWish.textContent = wishCount;
-        if (dom.metricOrders) dom.metricOrders.textContent = ordersCount;
-        if (dom.metricPromos) {
-            dom.metricPromos.textContent = getCombinedPromos().length;
-        }
-        if (dom.metricFetches) {
-            dom.metricFetches.textContent = Number(stats.fetches || 0);
-        }
-        if (dom.metricRate) {
-            dom.metricRate.textContent = Number(state.liveRate || FX_FALLBACK_RATE).toFixed(3);
-        }
-        renderCustomerProfile();
-        renderNavBadges();
-        renderPriceAlerts();
-        renderReferralCard();
-        renderAdminAnalytics();
-        renderRepeatOrders();
-    }
-
-    function getCustomerProfile() {
-        const stats = getLocalStats();
-        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
-        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
-        const points = (ordersCount * 120) + (Number(stats.fetches || 0) * 5) + (Number(stats.manualQuotes || 0) * 15) + (wishCount * 8);
-        const tags = [];
-
-        if (ordersCount >= 8) tags.push({ label: "VIP CLIENT", tone: "amber" });
-        else if (ordersCount >= 3) tags.push({ label: "RETURNING", tone: "blue" });
-        else tags.push({ label: "NEW CLIENT", tone: "slate" });
-
-        if (Number(stats.fetches || 0) >= 10) tags.push({ label: "POWER SEARCHER", tone: "emerald" });
-        if (Number(stats.manualQuotes || 0) >= 3) tags.push({ label: "QUOTE READY", tone: "purple" });
-        if (wishCount >= 4) tags.push({ label: "HIGH INTENT", tone: "pink" });
-
-        let tier = "BRONZE";
-        if (points >= 1800) tier = "PLATINUM";
-        else if (points >= 900) tier = "GOLD";
-        else if (points >= 350) tier = "SILVER";
-
-        return { points, tags, tier };
-    }
-
-    function renderCustomerProfile() {
-        if (!dom.customerTier || !dom.loyaltyPoints || !dom.customerTagCount || !dom.customerTags) return;
-        const profile = getCustomerProfile();
-        const toneMap = {
-            amber: "bg-amber-400/10 text-amber-300 border-amber-400/20",
-            blue: "bg-blue-500/10 text-blue-300 border-blue-500/20",
-            emerald: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-            purple: "bg-purple-500/10 text-purple-300 border-purple-500/20",
-            pink: "bg-pink-500/10 text-pink-300 border-pink-500/20",
-            slate: "bg-white/5 text-slate-300 border-white/10"
-        };
-
-        dom.customerTier.textContent = profile.tier;
-        dom.loyaltyPoints.textContent = profile.points;
-        dom.customerTagCount.textContent = profile.tags.length;
-        dom.customerTags.innerHTML = profile.tags.map((tag) => `
-            <span class="px-3 py-1 rounded-full border text-[9px] font-black ${toneMap[tag.tone] || toneMap.slate}">
-                ${escapeHtml(tag.label)}
-            </span>
-        `).join("");
-    }
-
-    function ensureNavBadge(buttonId, badgeId, classes) {
-        const button = document.getElementById(buttonId);
-        if (!button) return null;
-        let badge = document.getElementById(badgeId);
-        if (!badge) {
-            button.classList.add("relative");
-            badge = document.createElement("span");
-            badge.id = badgeId;
-            badge.className = classes;
-            badge.textContent = "0";
-            button.appendChild(badge);
-        }
-        return badge;
-    }
-
-    function renderNavBadges() {
-        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
-        const pendingCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory)
-            ? orderHistory.filter((order) => ["pending", "processing", "shipped"].includes(String(order.status || "pending"))).length
-            : 0;
-        const accountBadgeCount = Math.min(9, ordersCount || 0);
-
-        const historyBadge = ensureNavBadge("tab-history", "runtime-history-badge", "absolute -top-1 -left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
-        const accountBadge = ensureNavBadge("tab-account", "runtime-account-badge", "absolute -top-1 -left-1 bg-amber-400 text-black text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
-
-        if (historyBadge) {
-            historyBadge.textContent = pendingCount;
-            historyBadge.classList.toggle("hidden", pendingCount === 0);
-        }
-        if (accountBadge) {
-            accountBadge.textContent = accountBadgeCount;
-            accountBadge.classList.toggle("hidden", accountBadgeCount === 0);
-        }
-    }
-
-    function renderActivityLog() {
-        if (!dom.adminActivity) return;
-        const entries = getActivityLog();
-        if (!entries.length) {
-            dom.adminActivity.innerHTML = `<div class="text-[10px] text-slate-500 italic">No activity yet.</div>`;
-            return;
-        }
-
-        dom.adminActivity.innerHTML = entries.map((entry) => `
-            <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3">
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-[9px] font-black text-white uppercase">${escapeHtml(entry.type || "info")}</span>
-                    <span class="text-[9px] text-slate-500 font-bold">${escapeHtml(entry.at || "")}</span>
-                </div>
-                <div class="text-[10px] text-slate-300 mt-2">${escapeHtml(entry.text || "")}</div>
-            </div>
-        `).join("");
-    }
-
-    function renderNotifications() {
-        if (!dom.notifications) return;
-        const toneMap = {
-            blue: "border-blue-400/20 bg-blue-500/10",
-            emerald: "border-emerald-400/20 bg-emerald-500/10",
-            amber: "border-amber-400/20 bg-amber-400/10",
-            slate: "border-white/5 bg-slate-900/60"
-        };
-        const notices = [];
-        const promos = getCombinedPromos();
-        const latestOrder = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) && orderHistory.length ? orderHistory[0] : null;
-        const stats = getLocalStats();
-
-        if (latestOrder) {
-            notices.push({
-                tone: "blue",
-                title: `Latest order: ${latestOrder.orderRef || latestOrder.id}`,
-                body: latestOrder.adminTracking || latestOrder.trackingHint || getStatusUi(latestOrder.status || "pending").label
-            });
-        }
-        if (promos.length) {
-            notices.push({
-                tone: "emerald",
-                title: `${promos.length} active promos`,
-                body: `Top code: ${promos[0].code}`
-            });
-        }
-        if (stats.manualQuotes > 0) {
-            notices.push({
-                tone: "amber",
-                title: "Manual quote activity",
-                body: `${stats.manualQuotes} quote requests prepared from this device`
-            });
-        }
-        if (!notices.length) {
-            notices.push({
-                tone: "slate",
-                title: "System ready",
-                body: "ابدأ scrape جديد أو اطلب quote باش يبان النشاط هنا."
-            });
-        }
-
-        dom.notifications.innerHTML = notices.slice(0, 4).map((item) => `
-            <div class="rounded-xl border p-3 ${toneMap[item.tone] || toneMap.slate}">
-                <div class="text-[10px] font-black text-white">${escapeHtml(item.title)}</div>
-                <div class="text-[9px] text-slate-300 mt-1 leading-relaxed">${escapeHtml(item.body)}</div>
-            </div>
-        `).join("");
-    }
-
-    function getStatusUi(status) {
-        const statusMap = {
-            pending: { label: "قيد المراجعة", classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-            processing: { label: "تم الشراء", classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
-            shipped: { label: "في الطريق", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
-            delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
-        };
-        return statusMap[status] || statusMap.pending;
-    }
-
-    function findOrderByRef(ref) {
-        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return null;
-        return orderHistory.find((order) => String(order.orderRef || order.id || "").toLowerCase() === String(ref || "").trim().toLowerCase()) || null;
-    }
-
-    function renderTrackLookupResult(order) {
-        if (!dom.trackStatusCard || !dom.trackStatusRef || !dom.trackStatusBadge || !dom.trackStatusNote || !dom.trackStatusExtra) return;
-        if (!order) {
-            dom.trackStatusCard.classList.add("hidden");
-            renderTrackingTimeline(null);
-            return;
-        }
-        const statusUi = getStatusUi(order.status || "pending");
-        dom.trackStatusCard.classList.remove("hidden");
-        dom.trackStatusRef.textContent = order.orderRef || String(order.id || "");
-        dom.trackStatusBadge.textContent = statusUi.label;
-        dom.trackStatusBadge.className = `text-[10px] px-3 py-1 rounded-full font-black border ${statusUi.classes}`;
-        dom.trackStatusNote.textContent = order.trackingHint || order.adminTracking || "مازال ما فماش tracking note مضافة.";
-        dom.trackStatusExtra.textContent = order.adminTracking ? `Tracking: ${order.adminTracking}` : "";
-        renderTrackingTimeline(order);
-    }
-
-    async function searchTrackedOrder() {
-        const ref = dom.trackRef?.value.trim() || "";
-        if (!ref) {
-            toast("دخل مرجع الطلب أولًا.");
-            return;
-        }
-        let order = null;
-        try {
-            const data = await apiFetch(`/api/orders/${encodeURIComponent(ref)}`);
-            order = data.order || null;
-            if (order) {
-                mergeOrderIntoHistory(order);
-                if (typeof saveData === "function") saveData();
-            }
-        } catch {
-            order = null;
-        }
-        if (!order) order = findOrderByRef(ref);
-        if (!order) {
-            renderTrackLookupResult(null);
-            toast("ما لقيناش الطلب بهذا المرجع.");
-            return;
-        }
-        renderTrackLookupResult(order);
-    }
-
-    async function unlockAdmin() {
-        const pin = dom.adminPin?.value.trim() || "";
-        state.adminUnlocked = pin === getAdminPin();
-        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
-        dom.adminPanel.classList.toggle("hidden", !state.adminUnlocked);
-        dom.adminUnlockStatus.textContent = state.adminUnlocked ? "Unlocked" : "Locked";
-        dom.adminUnlockStatus.className = `text-[9px] font-black ${state.adminUnlocked ? "text-emerald-300" : "text-red-300"}`;
-        if (!state.adminUnlocked) {
-            toast("PIN admin غالط.");
-            return;
-        }
-        renderAdminPromos();
-        renderAdminOrders();
-        toast("تم فتح لوحة الإدارة.");
-    }
-
-    function lockAdmin() {
-        state.adminUnlocked = false;
-        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
-        if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Locked";
-            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
-        }
-        openAccountPanel("overview");
-    }
-
-    function renderAdminPromos() {
-        if (!dom.adminPromos) return;
-        const promos = getAdminPromos();
-        if (!promos.length) {
-            dom.adminPromos.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش promo codes محليين توّا.</div>`;
-            return;
-        }
-        dom.adminPromos.innerHTML = promos.map((promo, index) => `
-            <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="text-[10px] font-black text-white">${escapeHtml(promo.code)}</div>
-                    <div class="text-[9px] text-slate-400">
-                        ${promo.type === "percent" ? `${promo.value}%` : `${promo.value} TND`} • 
-                        used ${Number(promo.used || 0)}/${Number(promo.limit || 0) || "∞"} • 
-                        ${promo.expiresAt || "no expiry"}
-                    </div>
-                </div>
-                <button type="button" class="text-[9px] font-black text-red-300 hover:text-red-200 transition-colors" data-remove-promo="${index}">Delete</button>
-            </div>
-        `).join("");
-    }
-
-    function renderAdminOrders() {
-        if (!dom.adminOrders) return;
-        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.slice(0, 8) : [];
-        if (!orders.length) {
-            dom.adminOrders.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش طلبات حتى الآن.</div>`;
-            return;
-        }
-        dom.adminOrders.innerHTML = orders.map((order) => {
-            const statusUi = getStatusUi(order.status || "pending");
-            return `
-                <button type="button" class="w-full text-right rounded-2xl border border-white/5 bg-slate-900/70 p-3 hover:border-amber-400/30 transition-colors" data-fill-order="${escapeHtml(order.orderRef || String(order.id || ""))}">
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</span>
-                        <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
-                    </div>
-                    <div class="text-[9px] text-slate-500 mt-2">${escapeHtml(order.adminTracking || order.trackingHint || "")}</div>
-                </button>
-            `;
-        }).join("");
-    }
-
-    function saveAdminPromo() {
-        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
-        const type = dom.adminPromoType?.value || "percent";
-        const value = Number(dom.adminPromoValue?.value || 0);
-        const limit = Number(dom.adminPromoLimit?.value || 0);
-        const expiresAt = dom.adminPromoExpiry?.value || "";
-        if (!code || value <= 0) {
-            toast("كمّل بيانات الـ promo code.");
-            return;
-        }
-        const promos = getAdminPromos().filter((promo) => promo.code !== code);
-        promos.unshift({ code, type, value, limit, expiresAt, used: 0 });
-        saveAdminPromos(promos);
-        if (dom.adminPromoCode) dom.adminPromoCode.value = "";
-        if (dom.adminPromoValue) dom.adminPromoValue.value = "";
-        if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
-        if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
-        toast("تم حفظ الـ promo code.");
-    }
-
-    function normalizePromo(promo) {
-        if (!promo) return null;
-        const code = String(promo.code || "").trim().toUpperCase();
-        if (!code) return null;
-        return {
-            code,
-            type: promo.type || (promo.discountType === "fixed" ? "fixed" : "percent"),
-            value: Number(promo.value ?? promo.discount ?? 0),
-            limit: Number(promo.limit ?? promo.usageLimit ?? 0),
-            used: Number(promo.used || 0),
-            expiresAt: promo.expiresAt || promo.expiry || promo.expires || ""
-        };
-    }
-
-    function getCombinedPromos() {
-        const cloud = Array.isArray(window.availablePromos) ? window.availablePromos : [];
-        const combined = [...getAdminPromos(), ...cloud].map(normalizePromo).filter(Boolean);
-        const seen = new Set();
-        return combined.filter((promo) => {
-            if (seen.has(promo.code)) return false;
-            seen.add(promo.code);
-            return true;
-        });
-    }
-
-    function applyPromoCode() {
-        const codeInput = document.getElementById("promo-code");
-        const msg = document.getElementById("promo-message");
-        const discountBadge = document.getElementById("discount-badge");
-        const code = String(codeInput?.value || "").trim().toUpperCase();
-        if (!code || typeof currentDiscount === "undefined") {
-            toast("دخل promo code صحيح.");
-            return;
-        }
-
-        const now = new Date();
-        const promo = getCombinedPromos().find((item) => item.code === code);
-        const expired = promo?.expiresAt ? new Date(promo.expiresAt) < now : false;
-        const limitReached = promo?.limit > 0 && promo.used >= promo.limit;
-
-        if (!promo || promo.value <= 0 || expired || limitReached) {
-            currentDiscount = 0;
-            discountType = "";
-            state.activePromoCode = "";
-            if (msg) {
-                msg.classList.remove("hidden", "text-green-400");
-                msg.classList.add("text-red-400");
-                msg.textContent = "الكود غالط، منتهي، أو limit متاعو كمل.";
-            }
-            discountBadge?.classList.add("hidden");
-            if (typeof renderCart === "function") renderCart();
-            toast("الـ promo code موش صالح.");
-            return;
-        }
-
-        currentDiscount = promo.value;
-        discountType = promo.type;
-        state.activePromoCode = promo.code;
-        if (msg) {
-            msg.classList.remove("hidden", "text-red-400");
-            msg.classList.add("text-green-400");
-            msg.textContent = promo.type === "percent"
-                ? `تم تفعيل ${promo.code} بخصم ${promo.value}%`
-                : `تم تفعيل ${promo.code} بخصم ${promo.value} TND`;
-        }
-        discountBadge?.classList.remove("hidden");
-        if (typeof renderCart === "function") renderCart();
-        toast("تم تفعيل الـ promo code.");
-    }
-
-    function markPromoUsed(code) {
-        if (!code) return;
-        const promos = getAdminPromos().slice();
-        const index = promos.findIndex((promo) => String(promo.code || "").trim().toUpperCase() === String(code).trim().toUpperCase());
-        if (index === -1) return;
-        promos[index].used = Number(promos[index].used || 0) + 1;
-        saveAdminPromos(promos);
-    }
-
-    function removeAdminPromo(index) {
-        const promos = getAdminPromos().slice();
-        promos.splice(index, 1);
-        saveAdminPromos(promos);
-        toast("تم حذف الـ promo code.");
-    }
-
-    function fillAdminOrder(ref) {
-        const order = findOrderByRef(ref);
-        if (!order) return;
-        if (dom.adminOrderRef) dom.adminOrderRef.value = order.orderRef || String(order.id || "");
-        if (dom.adminOrderStatus) dom.adminOrderStatus.value = order.status || "pending";
-        if (dom.adminOrderTracking) dom.adminOrderTracking.value = order.adminTracking || order.trackingHint || "";
-    }
-
-    function updateAdminOrder() {
-        const ref = dom.adminOrderRef?.value.trim() || "";
-        if (!ref || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) {
-            toast("دخل مرجع طلب صحيح.");
-            return;
-        }
-        const target = findOrderByRef(ref);
-        if (!target) {
-            toast("الطلب هذا موش موجود.");
-            return;
-        }
-        target.status = dom.adminOrderStatus?.value || "pending";
-        target.adminTracking = dom.adminOrderTracking?.value.trim() || "";
-        target.trackingHint = target.adminTracking || target.trackingHint || "";
-        if (typeof saveData === "function") saveData();
-        if (typeof window.renderHistory === "function") window.renderHistory();
-        renderTrackLookupResult(target);
-        renderAdminOrders();
-        toast("تم تحديث status الطلب.");
-    }
-
-    async function unlockAdminRemote() {
-        const pin = dom.adminPin?.value.trim() || "";
-        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
-
-        try {
-            const data = await apiFetch("/api/admin/login", {
-                method: "POST",
-                body: JSON.stringify({ pin })
-            });
-            state.adminToken = data.token || "";
-            state.adminUnlocked = Boolean(state.adminToken);
-            setStoredAdminToken(state.adminToken);
-            state.adminAnalytics = data.state?.analytics || null;
-            saveAdminPromos(Array.isArray(data.state?.promos) ? data.state.promos : []);
-            syncOrdersFromServer(Array.isArray(data.state?.orders) ? data.state.orders : []);
-            dom.adminPanel.classList.remove("hidden");
-            dom.adminUnlockStatus.textContent = "Unlocked";
-            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
-            openAccountPanel("admin");
-            renderAdminPromos();
-            renderAdminOrders();
-            renderAdminAnalytics();
-            pushActivityLog("admin", "Admin session unlocked and synced.");
-            toast("Admin synced.");
-        } catch (error) {
-            state.adminUnlocked = false;
-            state.adminToken = "";
-            setStoredAdminToken("");
-            dom.adminPanel.classList.add("hidden");
-            dom.adminUnlockStatus.textContent = "Locked";
-            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
-            toast(error.message || "Admin login failed.");
-        }
-    }
-
-    function lockAdminRemote() {
-        state.adminUnlocked = false;
-        state.adminToken = "";
-        setStoredAdminToken("");
-        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
-        if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Locked";
-            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
-        }
-        openAccountPanel("overview");
-    }
-
-    async function searchTrackedOrderRemote() {
-        return searchTrackedOrder();
-    }
-
-    async function saveAdminPromoRemote() {
-        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
-        const type = dom.adminPromoType?.value || "percent";
-        const value = Number(dom.adminPromoValue?.value || 0);
-        const limit = Number(dom.adminPromoLimit?.value || 0);
-        const expiresAt = dom.adminPromoExpiry?.value || "";
-
-        if (!code || value <= 0) {
-            toast("Promo data is incomplete.");
-            return;
-        }
-        if (!state.adminToken) {
-            toast("Unlock admin first.");
-            return;
-        }
-
-        try {
-            const data = await apiFetch("/api/admin/promos", {
-                method: "POST",
-                body: JSON.stringify({ code, type, value, limit, expiresAt, used: 0 })
-            }, true);
-            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
-            if (dom.adminPromoCode) dom.adminPromoCode.value = "";
-            if (dom.adminPromoValue) dom.adminPromoValue.value = "";
-            if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
-            if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
-            pushActivityLog("promo", `Saved promo ${code}.`);
-            toast("Promo saved.");
-        } catch (error) {
-            toast(error.message || "Promo save failed.");
-        }
-    }
-
-    async function removeAdminPromoRemote(index) {
-        const promo = getAdminPromos().slice()[index];
-        if (!promo?.code) return;
-        if (!state.adminToken) {
-            toast("Unlock admin first.");
-            return;
-        }
-
-        try {
-            const data = await apiFetch(`/api/admin/promos/${encodeURIComponent(promo.code)}`, {
-                method: "DELETE"
-            }, true);
-            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
-            pushActivityLog("promo", `Deleted promo ${promo.code}.`);
-            toast("Promo deleted.");
-        } catch (error) {
-            toast(error.message || "Promo delete failed.");
-        }
-    }
-
-    async function updateAdminOrderRemote() {
-        const ref = dom.adminOrderRef?.value.trim() || "";
-        if (!ref) {
-            toast("Order ref required.");
-            return;
-        }
-        if (!state.adminToken) {
-            toast("Unlock admin first.");
-            return;
-        }
-
-        try {
-            const data = await apiFetch(`/api/admin/orders/${encodeURIComponent(ref)}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                    status: dom.adminOrderStatus?.value || "pending",
-                    adminTracking: dom.adminOrderTracking?.value.trim() || ""
-                })
-            }, true);
-            if (data.order) {
-                mergeOrderIntoHistory(data.order);
-                if (typeof saveData === "function") saveData();
-                if (typeof window.renderHistory === "function") window.renderHistory();
-                renderTrackLookupResult(data.order);
-                renderAdminOrders();
-                pushActivityLog("order", `Updated ${ref} to ${dom.adminOrderStatus?.value || "pending"}.`);
-            }
-            toast("Order updated.");
-        } catch (error) {
-            toast(error.message || "Order update failed.");
-        }
-    }
-
-    function renderRecentLinks() {
-        if (!dom.recentLinksCard || !dom.recentLinks) return;
-        state.recentLinks = [];
-        writeJsonStorage(RECENT_LINKS_KEY, []);
-        dom.recentLinks.innerHTML = "";
-        dom.recentLinksCard.classList.add("hidden");
-    }
-
-    function saveRecentLink(product) {
-        return;
-    }
-
-    function useRecentLink(index) {
-        return;
-    }
-
-    function clearRecentLinks() {
-        state.recentLinks = [];
-        writeJsonStorage(RECENT_LINKS_KEY, []);
-        renderRecentLinks();
-    }
-
-    function renderImagePreview(dataUrl) {
-        if (!dom.imagePreviewCard || !dom.imagePreview) return;
-        const hasImage = Boolean(dataUrl);
-        dom.imagePreviewCard.classList.toggle("hidden", !hasImage);
-        if (hasImage) dom.imagePreview.src = dataUrl;
-    }
-
-    function ensurePreviewDescriptionNode() {
-        if (dom.previewDescription) return dom.previewDescription;
-        if (!dom.previewTitle || !dom.previewTitle.parentElement) return null;
-        const node = document.createElement("p");
-        node.id = "runtime-preview-description";
-        node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed max-w-4xl";
-        node.textContent = "وصف المنتج باش يظهر هنا كي يتجلب المنتج.";
-        dom.previewTitle.insertAdjacentElement("afterend", node);
-        dom.previewDescription = node;
-        return node;
-    }
-
-    function applyCalculatorUiCleanup() {
-        const noteBlock = dom.calcNote?.closest("div");
-        const imageBlock = dom.calcImage?.closest("div");
-        if (noteBlock) noteBlock.classList.remove("hidden");
-        if (imageBlock) imageBlock.classList.add("hidden");
-        if (dom.imagePreviewCard) dom.imagePreviewCard.classList.add("hidden");
-        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
-        if (dom.customsCard) dom.customsCard.classList.add("hidden");
-        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
-    }
-
-    function applyAccountUiCleanup() {
-        const toolsPanel = document.querySelector('#section-account details[data-account-panel="tools"]');
-        const notificationsPanel = document.querySelector('#section-account details[data-account-panel="notifications"]');
-        const legacyAccount = document.getElementById("section-account-legacy");
-        if (toolsPanel) {
-            toolsPanel.open = false;
-            toolsPanel.classList.add("hidden");
-        }
-        if (notificationsPanel) {
-            notificationsPanel.open = false;
-            notificationsPanel.classList.add("hidden");
-        }
-        if (legacyAccount) {
-            legacyAccount.remove();
-        }
-    }
-
-    function repairTabLayout() {
-        const main = document.querySelector("main");
-        if (!main) return;
-
-        const orderedSectionIds = [
-            "section-guide",
-            "section-calc",
-            "section-wishlist",
-            "section-history",
-            "section-track",
-            "section-cart",
-            "section-check",
-            "section-account"
-        ];
-
-        let anchor = null;
-        orderedSectionIds.forEach((sectionId) => {
-            const section = document.getElementById(sectionId);
-            if (!section) return;
-            if (!anchor) {
-                if (section.parentElement !== main) {
-                    main.prepend(section);
-                }
-                anchor = section;
-                return;
-            }
-            if (section.parentElement !== main || section.previousElementSibling !== anchor) {
-                anchor.insertAdjacentElement("afterend", section);
-            }
-            anchor = section;
-        });
-
-        const legacyAccount = document.getElementById("section-account-legacy");
-        if (legacyAccount) legacyAccount.remove();
-    }
-
-    function patchTabSwitching() {
-        const sectionIds = ["guide", "calc", "wishlist", "history", "track", "cart", "check", "account"];
-
-        function applyTabState(tabId) {
-            const safeTabId = sectionIds.includes(tabId) ? tabId : "guide";
-            sectionIds.forEach((id) => {
-                const section = document.getElementById(`section-${id}`);
-                const button = document.getElementById(`tab-${id}`);
-                const isActive = id === safeTabId;
-                if (section) {
-                    section.classList.toggle("active", isActive);
-                    section.style.display = isActive ? "block" : "none";
-                }
-                if (button) {
-                    button.classList.toggle("active-tab", isActive);
-                }
-            });
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            if (safeTabId === "guide" && typeof window.initCharts === "function") {
-                window.initCharts();
-            }
-        }
-
-        window.switchTab = applyTabState;
-
-        const activeButton = document.querySelector(".nav-btn.active-tab");
-        const currentTab = activeButton?.id?.replace(/^tab-/, "") || "guide";
-        applyTabState(currentTab);
-    }
-
-    function getAccountPanels() {
-        return Array.from(document.querySelectorAll('#section-account details.account-panel:not(.hidden)'));
-    }
-
-    function openAccountPanel(panelName) {
-        const panels = getAccountPanels();
-        if (!panels.length) return;
-        let matched = false;
-        panels.forEach((panel) => {
-            const shouldOpen = panel.dataset.accountPanel === panelName;
-            panel.open = shouldOpen;
-            matched = matched || shouldOpen;
-        });
-        if (!matched && panels[0]) panels[0].open = true;
-    }
-
-    function initAccountPanels() {
-        const panels = getAccountPanels();
-        if (!panels.length) return;
-        if (!panels.some((panel) => panel.open)) {
-            panels[0].open = true;
-        }
-        panels.forEach((panel) => {
-            if (panel.__accountBound) return;
-            panel.addEventListener("toggle", () => {
-                if (!panel.open) return;
-                panels.forEach((otherPanel) => {
-                    if (otherPanel !== panel) otherPanel.open = false;
-                });
-            });
-            panel.__accountBound = true;
-        });
-    }
-
-    const UI_TRANSLATIONS = {
-        ar: {
-            page_title: "مركز عمليات Alexpress Tunisie",
-            nav_guide: "الدليل",
-            nav_calc: "الحاسبة",
-            nav_cart: "السلة",
-            nav_wish: "المفضلة",
-            nav_track: "التتبع",
-            nav_check: "الأمان",
-            nav_hist: "طلباتي",
-            nav_acc: "الحساب",
-            hero_title_1: "كيفاش تشري",
-            hero_title_2: "من AliExpress؟",
-            hero_desc: "دليلك الكامل باش طلبيتك توصل لباب دارك في تونس، بطريقة واضحة وأنيقة.",
-            hero_btn: "ابدأ الحساب من هنا",
-            trust_1: "أمان كامل",
-            trust_2: "شحن سريع",
-            trust_3: "دعم متواصل",
-            trust_4: "خدمة مضمونة",
-            step1_title: "لوّج في AliExpress",
-            step1_desc: "اختار المنتج اللي يعجبك وخذ الرابط متاعو.",
-            step2_title: "انسخ الرابط",
-            step2_desc: "الصق الرابط هنا باش نجهزلك المعطيات بسرعة.",
-            step3_title: "احسب وراجع",
-            step3_desc: "شوف المعطيات، الوصف، والتنبيهات قبل التأكيد.",
-            step4_title: "أرسل الطلب",
-            step4_desc: "ثبت الطلب وابعثهولنا مباشرة على واتساب.",
-            pay_title: "طرق الدفع المتاحة",
-            faq_title: "أسئلة شائعة",
-            faq_q1: "قداش تقعد الشحنة حتى توصل؟",
-            faq_a1: "عادة بين 15 و45 يوم عمل حسب نوع الشحن والمنتج.",
-            faq_q2: "كيفاش نخلّص بالدينار؟",
-            faq_a2: "تخلّص بالدينار وإحنا نتكفلوا بالدفع للمزوّد.",
-            faq_q3: "فما ضمان؟",
-            faq_a3: "نضمنوا المتابعة والتنسيق حتى يوصل الطلب بطريقة صحيحة.",
-            faq_q4: "قداش نخلّص في البريد؟",
-            faq_a4: "إذا فما معلوم بريد أو ديوانة يبانلك قبل التأكيد أو وقت الاستلام.",
-            transp_title: "شفافية كاملة في الأسعار",
-            transp_desc: "تفاصيل التكلفة ديما واضحة: المنتج، الخدمات، وأي مصاريف إضافية.",
-            transp_1: "سعر المنتج من المصدر",
-            transp_2: "مصاريف الخدمة والتحويل",
-            transp_3: "أي معلوم إضافي عند الاستلام",
-            transp_btn: "امشِ للحاسبة وجرّب",
-            calc_rate: "سعر الصرف اليوم:",
-            calc_guide_btn: "أول مرة تشري؟ اقرأ الدليل",
-            calc_title: "الحاسبة الذكية",
-            banned_err: "المنتج هذا يحتاج مراجعة قبل ما نكملوا الطلب.",
-            lbl_link: "رابط AliExpress",
-            lbl_name: "اسم المنتج",
-            btn_format: "ترتيب الاسم",
-            lbl_spec: "المواصفات (لون، مقاس...)",
-            plc_link: "https://aliexpress.com/item/...",
-            plc_name: "مثال: كابل USB Type-C",
-            plc_spec: "مثال: أسود 1.5م",
-            cart_total_lbl: "المبلغ الجملي:",
-            lbl_pay_method: "اختر وسيلة الدفع",
-            pay_d17: "تطبيق D17",
-            pay_flouci: "تطبيق Flouci",
-            pay_poste: "حوالة بريدية",
-            pay_vir: "تحويل بنكي",
-            btn_send: "إرسال",
-            saf_title: "الأمان والديوانة",
-            saf_desc1: "أهم الفئات اللي تحتاج حذر أو مراجعة في تونس.",
-            saf_desc2: "كل طلب يتراجع حسب نوع المنتج قبل التأكيد النهائي.",
-            saf_calc_title: "حاسبة الديوانة التقريبية",
-            saf_calc_desc: "اختار نوع المنتج وخذ فكرة سريعة على المصاريف المحتملة.",
-            saf_btn_clothes: "ملابس وأحذية",
-            saf_btn_elec: "إلكترونيات",
-            saf_btn_acc: "إكسسوارات",
-            saf_btn_other: "أخرى",
-            acc_title: "حسابي الشخصي",
-            acc_subtitle: "بياناتك وتجربتك محفوظين بطريقة مرتبة.",
-            acc_id_lbl: "معرّف الحساب",
-            acc_sync_status: "حالة المزامنة",
-            acc_sync_ok: "متصل وبالسحابة",
-            lvl_title: "مستوى الحساب",
-            acc_note: "تنجم ترجع لبياناتك من نفس الجهاز أو بالمزامنة وقت تكون متاحة.",
-            footer_desc: "وسيط تونسي مرتب وعملي للتسوق من AliExpress."
-        },
-        fr: {
-            page_title: "Centre Alexpress Tunisie",
-            nav_guide: "Guide",
-            nav_calc: "Calculatrice",
-            nav_cart: "Panier",
-            nav_wish: "Favoris",
-            nav_track: "Suivi",
-            nav_check: "Securite",
-            nav_hist: "Commandes",
-            nav_acc: "Compte",
-            hero_title_1: "Comment acheter",
-            hero_title_2: "sur AliExpress ?",
-            hero_desc: "Une experience claire et elegante pour commander depuis AliExpress vers la Tunisie.",
-            hero_btn: "Commencer le calcul",
-            trust_1: "Securite totale",
-            trust_2: "Livraison rapide",
-            trust_3: "Support continu",
-            trust_4: "Service garanti",
-            step1_title: "Choisissez le produit",
-            step1_desc: "Prenez le lien du produit qui vous interesse.",
-            step2_title: "Collez le lien",
-            step2_desc: "Nous recuperons les informations les plus utiles automatiquement.",
-            step3_title: "Revoyez les details",
-            step3_desc: "Nom, image, description et alertes utiles avant validation.",
-            step4_title: "Envoyez la commande",
-            step4_desc: "Finalisez rapidement via WhatsApp.",
-            pay_title: "Moyens de paiement",
-            faq_title: "Questions frequentes",
-            faq_q1: "Quel est le delai de livraison ?",
-            faq_a1: "En general entre 15 et 45 jours ouvrables.",
-            faq_q2: "Comment payer en dinars ?",
-            faq_a2: "Vous payez en TND et nous gerons le paiement au fournisseur.",
-            faq_q3: "Y a-t-il une garantie ?",
-            faq_a3: "Nous assurons le suivi et la coordination jusqu'a reception.",
-            faq_q4: "Y a-t-il des frais a la poste ?",
-            faq_a4: "Selon le produit, un petit montant peut etre demande a la reception.",
-            transp_title: "Transparence totale",
-            transp_desc: "Les composantes du prix restent claires a chaque etape.",
-            transp_1: "Prix du produit",
-            transp_2: "Frais de service et conversion",
-            transp_3: "Eventuels frais a la reception",
-            transp_btn: "Aller a la calculatrice",
-            calc_rate: "Taux du jour :",
-            calc_guide_btn: "Premiere visite ? Lire le guide",
-            calc_title: "Calculatrice intelligente",
-            banned_err: "Ce produit demande une verification avant confirmation.",
-            lbl_link: "Lien AliExpress",
-            lbl_name: "Nom du produit",
-            btn_format: "Nettoyer le nom",
-            lbl_spec: "Specifications (couleur, taille...)",
-            plc_link: "https://aliexpress.com/item/...",
-            plc_name: "Exemple : Cable USB Type C",
-            plc_spec: "Exemple : Bleu 1.5m",
-            cart_total_lbl: "Total :",
-            lbl_pay_method: "Choisissez le paiement",
-            pay_d17: "Application D17",
-            pay_flouci: "Application Flouci",
-            pay_poste: "Mandat postal",
-            pay_vir: "Virement bancaire",
-            btn_send: "Envoyer",
-            saf_title: "Securite et douane",
-            saf_desc1: "Categories sensibles ou controlees en Tunisie.",
-            saf_desc2: "Chaque demande est revue avant validation finale.",
-            saf_calc_title: "Estimation douane",
-            saf_calc_desc: "Selectionnez la categorie pour une idee rapide.",
-            saf_btn_clothes: "Vetements",
-            saf_btn_elec: "Electronique",
-            saf_btn_acc: "Accessoires",
-            saf_btn_other: "Autre",
-            acc_title: "Mon compte",
-            acc_subtitle: "Vos preferences et votre activite dans un espace propre.",
-            acc_id_lbl: "Identifiant compte",
-            acc_sync_status: "Etat de sync",
-            acc_sync_ok: "Connecte au cloud",
-            lvl_title: "Niveau du compte",
-            acc_note: "Vos donnees restent accessibles sur le meme appareil ou via synchronisation.",
-            footer_desc: "Votre passerelle tunisienne pour acheter sur AliExpress."
-        },
-        en: {
-            page_title: "Alexpress Tunisie Operations Center",
-            nav_guide: "Guide",
-            nav_calc: "Calculator",
-            nav_cart: "Cart",
-            nav_wish: "Wishlist",
-            nav_track: "Tracking",
-            nav_check: "Safety",
-            nav_hist: "Orders",
-            nav_acc: "Account",
-            hero_title_1: "How to buy",
-            hero_title_2: "from AliExpress?",
-            hero_desc: "A clearer, more premium way to manage AliExpress orders for Tunisia.",
-            hero_btn: "Start calculating",
-            trust_1: "Full Security",
-            trust_2: "Fast Delivery",
-            trust_3: "Always-On Support",
-            trust_4: "Guaranteed Service",
-            step1_title: "Pick your product",
-            step1_desc: "Copy the AliExpress link for the item you want.",
-            step2_title: "Paste the link",
-            step2_desc: "We pull the most useful product details automatically.",
-            step3_title: "Review the details",
-            step3_desc: "Check the name, image, description, and any warnings.",
-            step4_title: "Send the order",
-            step4_desc: "Finalize quickly through WhatsApp.",
-            pay_title: "Payment Methods",
-            faq_title: "Frequently Asked Questions",
-            faq_q1: "How long does delivery take?",
-            faq_a1: "Usually between 15 and 45 business days.",
-            faq_q2: "How do I pay in TND?",
-            faq_a2: "You pay locally in TND and we handle the supplier payment.",
-            faq_q3: "Is there any guarantee?",
-            faq_a3: "We provide follow-up and coordination through the full order flow.",
-            faq_q4: "Are there postal fees?",
-            faq_a4: "Some products may have small fees at delivery depending on the shipment.",
-            transp_title: "Full Price Transparency",
-            transp_desc: "Every cost component stays visible throughout the process.",
-            transp_1: "Source product cost",
-            transp_2: "Service and transfer fees",
-            transp_3: "Possible fees on receipt",
-            transp_btn: "Open the calculator",
-            calc_rate: "Today's exchange rate:",
-            calc_guide_btn: "First order? Read the guide",
-            calc_title: "Smart Calculator",
-            banned_err: "This product needs review before final confirmation.",
-            lbl_link: "AliExpress Link",
-            lbl_name: "Product Name",
-            btn_format: "Clean Title",
-            lbl_spec: "Specifications (color, size...)",
-            plc_link: "https://aliexpress.com/item/...",
-            plc_name: "Example: Cable USB Type C",
-            plc_spec: "Example: Blue 1.5m",
-            cart_total_lbl: "Grand Total:",
-            lbl_pay_method: "Choose payment method",
-            pay_d17: "D17 App",
-            pay_flouci: "Flouci App",
-            pay_poste: "Postal Mandate",
-            pay_vir: "Bank Transfer",
-            btn_send: "Send",
-            saf_title: "Safety and Customs",
-            saf_desc1: "Key categories that may need review in Tunisia.",
-            saf_desc2: "Each request is checked before final confirmation.",
-            saf_calc_title: "Customs Estimate",
-            saf_calc_desc: "Select a category for a quick estimate.",
-            saf_btn_clothes: "Clothes",
-            saf_btn_elec: "Electronics",
-            saf_btn_acc: "Accessories",
-            saf_btn_other: "Other",
-            acc_title: "My Account",
-            acc_subtitle: "Your preferences and activity in one clean space.",
-            acc_id_lbl: "Account ID",
-            acc_sync_status: "Sync Status",
-            acc_sync_ok: "Cloud connected",
-            lvl_title: "Account Level",
-            acc_note: "Your data stays available on the same device or through sync when available.",
-            footer_desc: "A polished Tunisian gateway for AliExpress orders."
-        }
-    };
-
-    const RUNTIME_TRANSLATIONS = {
-        ar: {
-            preview_ready: "جاهز لتونس",
-            preview_review: "راجع قبل التأكيد",
-            preview_no_desc: "ما لقيناش وصف واضح، أما الاسم والصورة متوفرين.",
-            stat_shipping: "شحن تونس",
-            stat_delivery: "التوصيل",
-            stat_rating: "التقييم",
-            stat_reviews: "المراجعات",
-            action_open: "فتح المنتج الأصلي",
-            action_alert: "تنبيه هبوط السعر",
-            action_share: "مشاركة الإحالة",
-            trust_title: "ثقة البائع",
-            trust_desc: "تقييم سريع حسب التقييم والمراجعات والشحن والمخاطر",
-            variant_title: "ملاحظة على الخيارات",
-            variant_desc: "إذا المنتج فيه لون أو مقاس أو طول، اكتب الخيار المطلوب في المواصفات لأن السعر ينجم يتبدل",
-            variant_auto: "خيارات",
-            quote_pdf: "PDF / عرض سعر",
-            export_csv: "تصدير CSV",
-            account_overview: "نظرة عامة",
-            account_overview_desc: "ملخص سريع للحساب والنشاط",
-            account_contact: "بيانات وتفضيلات",
-            account_contact_desc: "بياناتك المحفوظة وطرق التواصل",
-            account_admin: "لوحة الإدارة",
-            account_admin_desc: "البروموات والطلبات وإدارة الحالة",
-            cloud_identity: "هوية السحابة",
-            saved_yes: "محفوظة",
-            saved_no: "غير محفوظة",
-            contact_whatsapp: "واتساب",
-            contact_call: "مكالمة",
-            contact_sms: "SMS",
-            cart_eta: "التوصيل",
-            cart_ready: "جاهز",
-            cart_split: "قسّم الطلب",
-            cart_rec_empty: "أضف منتجات للسلة باش يبان التحليل الذكي.",
-            cart_rec_ready: "السلة متوازنة وجاهزة للإرسال كطلب واحد.",
-            cart_rec_risk: "في السلة منتجات تحتاج حذر أو مراجعة. الأفضل تقسيمها أو مراجعتها يدويًا.",
-            cart_rec_eta: "مواعيد التوصيل متباعدة. تقسيم الطلب ينجم يكون أوضح وأسرع.",
-            cart_rec_large: "السلة كبيرة. راجع المقاسات والخيارات قبل الإرسال النهائي.",
-            bundle_default: "تجميعة ذكية",
-            bundle_note_low: "أضف أكثر من منتج باش تتحسن التجميعة أكثر.",
-            bundle_note_hot: "التجميعة هاذي تنجم توفر أكثر في الرسوم والخدمة.",
-            safety_ban: "ممنوع 100%",
-            safety_license: "قد يطلب ترخيص",
-            safety_before: "قبل ما تطلب",
-            safety_docs: "وثائق تنجم تنفع",
-            safety_notice: "تنبيه مهم",
-            remove: "حذف",
-            total: "الإجمالي",
-            shipping_free: "شحن مجاني",
-            reviews_na: "غير متوفر",
-            rating_na: "غير متوفر"
-        },
-        fr: {
-            preview_ready: "Pret pour la Tunisie",
-            preview_review: "A revoir avant validation",
-            preview_no_desc: "La description n'est pas claire pour le moment, mais le nom et l'image sont disponibles.",
-            stat_shipping: "Livraison TN",
-            stat_delivery: "Delai",
-            stat_rating: "Note",
-            stat_reviews: "Avis",
-            action_open: "Ouvrir le produit",
-            action_alert: "Alerte prix",
-            action_share: "Partager l'affiliation",
-            trust_title: "Confiance vendeur",
-            trust_desc: "Resume rapide selon note, avis, livraison et risque douane",
-            variant_title: "Note options",
-            variant_desc: "Si le produit a couleur, taille ou longueur, ecrivez l'option dans les specifications car le prix peut changer",
-            variant_auto: "Options",
-            quote_pdf: "PDF / Devis",
-            export_csv: "Exporter CSV",
-            account_overview: "Vue d'ensemble",
-            account_overview_desc: "Resume rapide du compte et de l'activite",
-            account_contact: "Contact & Preferences",
-            account_contact_desc: "Vos informations sauvegardees et votre moyen de contact",
-            account_admin: "Admin Studio",
-            account_admin_desc: "Promos, commandes et suivi admin",
-            cloud_identity: "Identite cloud",
-            saved_yes: "Sauvegarde",
-            saved_no: "Non sauvegarde",
-            contact_whatsapp: "WhatsApp",
-            contact_call: "Appel",
-            contact_sms: "SMS",
-            cart_eta: "Livraison",
-            cart_ready: "PRET",
-            cart_split: "SEPARER",
-            cart_rec_empty: "Ajoutez des produits pour afficher l'analyse intelligente.",
-            cart_rec_ready: "Panier equilibre et pret a etre envoye comme une seule commande.",
-            cart_rec_risk: "Certains articles demandent plus de prudence. Il vaut mieux separer ou verifier.",
-            cart_rec_eta: "Les delais sont tres differents. Separer la commande peut etre plus pratique.",
-            cart_rec_large: "Panier assez grand. Verifiez bien tailles et options avant validation.",
-            bundle_default: "Bundle intelligent",
-            bundle_note_low: "Ajoutez plus d'articles pour mieux optimiser le bundle.",
-            bundle_note_hot: "Ce bundle peut reduire une partie des frais et du service.",
-            safety_ban: "Interdit 100%",
-            safety_license: "Licence possible",
-            safety_before: "Avant de commander",
-            safety_docs: "Documents utiles",
-            safety_notice: "Note importante",
-            remove: "Supprimer",
-            total: "Total",
-            shipping_free: "Livraison gratuite",
-            reviews_na: "Indispo",
-            rating_na: "Indispo"
-        },
-        en: {
-            preview_ready: "Tunisia Ready",
-            preview_review: "Review Before Checkout",
-            preview_no_desc: "A clear description is not available yet, but the product name and image are ready.",
-            stat_shipping: "Tunisia Shipping",
-            stat_delivery: "Delivery ETA",
-            stat_rating: "Rating",
-            stat_reviews: "Reviews",
-            action_open: "Open Original Product",
-            action_alert: "Price Alert",
-            action_share: "Share Referral",
-            trust_title: "Seller Trust Score",
-            trust_desc: "Quick view based on rating, reviews, shipping, and customs risk",
-            variant_title: "Options Note",
-            variant_desc: "If the product has color, size, or length choices, write the option in specs because the price may change",
-            variant_auto: "Options",
-            quote_pdf: "PDF / Quote",
-            export_csv: "Export CSV",
-            account_overview: "Overview",
-            account_overview_desc: "Quick account and activity summary",
-            account_contact: "Contact & Preferences",
-            account_contact_desc: "Saved customer details and preferred contact method",
-            account_admin: "Admin Studio",
-            account_admin_desc: "Promos, orders, and admin controls",
-            cloud_identity: "Cloud Identity",
-            saved_yes: "Saved",
-            saved_no: "Not saved",
-            contact_whatsapp: "WhatsApp",
-            contact_call: "Call",
-            contact_sms: "SMS",
-            cart_eta: "ETA",
-            cart_ready: "READY",
-            cart_split: "SPLIT",
-            cart_rec_empty: "Add products to see smart cart analysis.",
-            cart_rec_ready: "This cart looks balanced and ready to send as one order.",
-            cart_rec_risk: "Some items need extra customs care. Splitting or manual review is safer.",
-            cart_rec_eta: "Delivery windows are far apart. Splitting the order may be cleaner.",
-            cart_rec_large: "This is a large cart. Double-check sizes and options before sending it.",
-            bundle_default: "Smart Bundle",
-            bundle_note_low: "Add more products to improve the bundle suggestion.",
-            bundle_note_hot: "This bundle can save part of the fees and service cost.",
-            safety_ban: "100% Prohibited",
-            safety_license: "May Need License",
-            safety_before: "Before You Order",
-            safety_docs: "Helpful Documents",
-            safety_notice: "Important Note",
-            remove: "Remove",
-            total: "Total",
-            shipping_free: "Free Shipping",
-            reviews_na: "N/A",
-            rating_na: "N/A"
-        }
-    };
-
-    function currentUiLanguage() {
-        const lang = window.localStorage.getItem("alexpress_lang") || "ar";
-        return RUNTIME_TRANSLATIONS[lang] ? lang : "ar";
-    }
-
-    function rt(key, lang = currentUiLanguage()) {
-        return RUNTIME_TRANSLATIONS[lang]?.[key] || RUNTIME_TRANSLATIONS.ar[key] || key;
-    }
-
-    function applyLanguageMeta(lang) {
-        const rtl = lang === "ar";
-        document.documentElement.lang = lang;
-        document.documentElement.dir = rtl ? "rtl" : "ltr";
-        document.body.classList.toggle("tracking-tight", rtl);
-        document.body.classList.toggle("tracking-[0.01em]", !rtl);
-        if (dom.langSwitch && dom.langSwitch.value !== lang) dom.langSwitch.value = lang;
-        const guideBtn = document.querySelector('.sticky-mobile-bar button[onclick*="guide"]');
-        const cartBtn = document.querySelector('.sticky-mobile-bar button[onclick*="cart"]');
-        const waBtn = document.querySelector('.sticky-mobile-bar a[href*="wa.me"]');
-        if (guideBtn) guideBtn.textContent = rtl ? "الحاسبة" : (lang === "fr" ? "Calcul" : "Calculator");
-        if (cartBtn) cartBtn.textContent = rtl ? "السلة" : (lang === "fr" ? "Panier" : "Cart");
-        if (waBtn) waBtn.textContent = rtl ? "واتساب" : "WhatsApp";
-        const options = dom.langSwitch?.querySelectorAll("option") || [];
-        if (options[0]) options[0].textContent = "TN AR";
-        if (options[1]) options[1].textContent = "FR";
-        if (options[2]) options[2].textContent = "EN";
-    }
-
-    function applyUiTranslations(lang) {
-        const dict = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.ar;
-        document.title = dict.page_title || document.title;
-        document.querySelectorAll("[data-i18n]").forEach((element) => {
-            const key = element.getAttribute("data-i18n");
-            if (!key || !dict[key]) return;
-            element.textContent = dict[key];
-        });
-        document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
-            const key = element.getAttribute("data-i18n-placeholder");
-            if (!key || !dict[key]) return;
-            element.placeholder = dict[key];
-        });
-    }
-
-    function applyRuntimeTranslations(lang) {
-        const setText = (selector, value) => {
-            const element = document.querySelector(selector);
-            if (element) element.textContent = value;
-        };
-        const setMany = (selector, index, value) => {
-            const elements = document.querySelectorAll(selector);
-            if (elements[index]) elements[index].textContent = value;
-        };
-
-        setMany("#runtime-preview-card .runtime-preview-stat-label", 0, rt("stat_shipping", lang));
-        setMany("#runtime-preview-card .runtime-preview-stat-label", 1, rt("stat_delivery", lang));
-        setMany("#runtime-preview-card .runtime-preview-stat-label", 2, rt("stat_rating", lang));
-        setMany("#runtime-preview-card .runtime-preview-stat-label", 3, rt("stat_reviews", lang));
-        setText("#runtime-preview-link span", rt("action_open", lang));
-        setText("#runtime-create-alert", rt("action_alert", lang));
-        setText("#runtime-copy-referral-share", rt("action_share", lang));
-        setText("#runtime-trust-card .text-[10px].font-black.text-white", rt("trust_title", lang));
-        setText("#runtime-trust-card .text-[9px].text-slate-500.font-bold", rt("trust_desc", lang));
-        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 0, rt("stat_rating", lang));
-        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 1, rt("stat_reviews", lang));
-        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 2, lang === "ar" ? "المبيعات" : (lang === "fr" ? "Ventes" : "Sold"));
-        setText("#runtime-variants-card .text-[10px].font-black.text-white", rt("variant_title", lang));
-        setText("#runtime-variants-card .text-[9px].text-slate-500.font-bold", rt("variant_desc", lang));
-        setText("#runtime-variants-card span.px-3.py-1.rounded-full", rt("variant_auto", lang));
-        setText("#runtime-download-quote", rt("quote_pdf", lang));
-        setText("#runtime-export-csv", rt("export_csv", lang));
-        setText("#section-account details[data-account-panel='overview'] .text-sm.font-black.text-white", rt("account_overview", lang));
-        setText("#section-account details[data-account-panel='overview'] .text-[11px].text-slate-500.font-bold", rt("account_overview_desc", lang));
-        setText("#section-account details[data-account-panel='prefs'] .text-sm.font-black.text-white", rt("account_contact", lang));
-        setText("#section-account details[data-account-panel='prefs'] .text-[11px].text-slate-500.font-bold", rt("account_contact_desc", lang));
-        setText("#section-account details[data-account-panel='admin'] .text-sm.font-black.text-white", rt("account_admin", lang));
-        setText("#section-account details[data-account-panel='admin'] .text-[11px].text-slate-500.font-bold", rt("account_admin_desc", lang));
-        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-red-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_ban", lang));
-        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-amber-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_license", lang));
-        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-emerald-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_before", lang));
-        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 0, rt("safety_docs", lang));
-        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 1, rt("safety_notice", lang));
-
-        const contactOptions = dom.accountContactMethod?.querySelectorAll("option") || [];
-        if (contactOptions[0]) contactOptions[0].textContent = rt("contact_whatsapp", lang);
-        if (contactOptions[1]) contactOptions[1].textContent = rt("contact_call", lang);
-        if (contactOptions[2]) contactOptions[2].textContent = rt("contact_sms", lang);
-    }
-
-    function applyLanguage(lang = "ar") {
-        const safeLang = UI_TRANSLATIONS[lang] ? lang : "ar";
-        window.localStorage.setItem("alexpress_lang", safeLang);
-        applyLanguageMeta(safeLang);
-        applyUiTranslations(safeLang);
-        applyRuntimeTranslations(safeLang);
-        if (dom.previewMeta && dom.previewMeta.textContent === "Product Summary") {
-            dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
-        }
-        if (typeof window.renderCart === "function") window.renderCart();
-        if (typeof window.renderHistory === "function") window.renderHistory();
-        renderNotifications();
-        renderSavedPacks();
-        renderBundleDeals();
-        renderCartInsights();
-        if (state.currentProduct) renderPreview(state.currentProduct);
-    }
-
-    function clearImagePreview() {
-        if (dom.calcImage) dom.calcImage.value = "";
-        renderImagePreview("");
-    }
-
-    function loadAccountPrefsIntoForm() {
-        const prefs = getAccountPrefs();
-        if (dom.accountPhone) dom.accountPhone.value = prefs.phone || "";
-        if (dom.accountCity) dom.accountCity.value = prefs.city || "";
-        if (dom.accountAddress) dom.accountAddress.value = prefs.address || "";
-        if (dom.accountContactMethod) dom.accountContactMethod.value = prefs.contactMethod || "whatsapp";
-        if (dom.accountPrefsStatus) {
-            const hasPrefs = Boolean(prefs.phone || prefs.city || prefs.address);
-            dom.accountPrefsStatus.textContent = hasPrefs ? rt("saved_yes") : rt("saved_no");
-            dom.accountPrefsStatus.className = `text-[9px] font-black ${hasPrefs ? "text-emerald-400" : "text-slate-500"}`;
-        }
-    }
-
-    function saveAccountPrefs() {
-        const prefs = {
-            phone: dom.accountPhone?.value.trim() || "",
-            city: dom.accountCity?.value.trim() || "",
-            address: dom.accountAddress?.value.trim() || "",
-            contactMethod: dom.accountContactMethod?.value || "whatsapp"
-        };
-        state.accountPrefs = prefs;
-        writeJsonStorage(ACCOUNT_PREFS_KEY, prefs);
-        loadAccountPrefsIntoForm();
-        toast("تم حفظ بياناتك السريعة.");
-    }
-
-    function getEffectiveRate() {
-        return Number(state.liveRate || FX_FALLBACK_RATE) * (1 + FX_MARKUP);
-    }
-
-    function calculatePricingData() {
-        const productUsd = parseLocaleNumber(dom.usdPrice?.value || "0");
-        const shippingUsd = parseLocaleNumber(dom.usdShip?.value || "0");
-        const rate = getEffectiveRate();
-        const productTnd = productUsd * rate;
-        const shippingTnd = shippingUsd * rate;
-        const subtotalUsd = productUsd + shippingUsd;
-        const subtotalTnd = productTnd + shippingTnd;
-        const serviceFee = subtotalTnd > 0 ? Math.max(SERVICE_FEE_MIN_TND, subtotalTnd * SERVICE_FEE_PERCENT) : 0;
-        const finalTnd = subtotalTnd + serviceFee;
-
-        return {
-            productUsd,
-            shippingUsd,
-            productTnd,
-            shippingTnd,
-            subtotalUsd,
-            subtotalTnd,
-            serviceFee,
-            finalTnd,
-            rate
-        };
-    }
-
-    function renderBreakdown(pricing) {
-        if (!dom.breakdownCard) return;
-        const hasData = pricing.productUsd > 0 || pricing.shippingUsd > 0;
-        dom.breakdownCard.classList.toggle("hidden", !hasData);
-        if (!hasData) return;
-
-        if (dom.breakdownProduct) dom.breakdownProduct.textContent = formatTnd(pricing.productTnd);
-        if (dom.breakdownShipping) dom.breakdownShipping.textContent = pricing.shippingUsd === 0 ? "شحن مجاني" : formatTnd(pricing.shippingTnd);
-        if (dom.breakdownServiceLabel) dom.breakdownServiceLabel.textContent = "عمولة الخدمة";
-        if (dom.breakdownService) dom.breakdownService.textContent = getServiceFeeDisplayText(pricing);
-        if (dom.breakdownTotal) dom.breakdownTotal.textContent = formatTnd(pricing.finalTnd);
-    }
-
-    function renderBudgetPlanner(pricing) {
-        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
-        return;
-        if (!dom.budgetCard || !dom.budgetInput || !dom.budgetBuffer || !dom.budgetStatus || !dom.budgetRemaining || !dom.budgetSafeTotal || !dom.budgetMaxUsd || !dom.budgetNote) {
-            return;
-        }
-
-        const prefs = getBudgetPrefs();
-        if (document.activeElement !== dom.budgetInput && prefs.budget && !dom.budgetInput.value) {
-            dom.budgetInput.value = prefs.budget;
-        }
-        if (prefs.buffer && dom.budgetBuffer.value !== prefs.buffer) {
-            dom.budgetBuffer.value = prefs.buffer;
-        }
-
-        const budget = Number.parseFloat(dom.budgetInput.value || prefs.budget || "0") || 0;
-        const buffer = Number.parseFloat(dom.budgetBuffer.value || prefs.buffer || "10") || 0;
-        const hasBudget = budget > 0;
-        const hasPricing = pricing.productUsd > 0 || pricing.shippingUsd > 0;
-
-        dom.budgetCard.classList.toggle("hidden", !hasBudget && !hasPricing);
-        if (!hasBudget && !hasPricing) return;
-
-        const safeSpend = Math.max(0, budget * (1 - (buffer / 100)));
-        const remaining = budget - pricing.finalTnd;
-        const subtotalThreshold = SERVICE_FEE_MIN_TND / SERVICE_FEE_PERCENT;
-        const safeSubtotalTnd = safeSpend >= subtotalThreshold * (1 + SERVICE_FEE_PERCENT)
-            ? safeSpend / (1 + SERVICE_FEE_PERCENT)
-            : Math.max(0, safeSpend - SERVICE_FEE_MIN_TND);
-        const maxProductUsd = Math.max(0, (safeSubtotalTnd / Math.max(pricing.rate || getEffectiveRate(), 0.0001)) - pricing.shippingUsd);
-
-        let statusText = "READY";
-        let statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-slate-500/10 text-slate-200";
-        let note = "أدخل budget باش تشوف التوصية الذكية.";
-
-        if (!hasBudget) {
-            note = "المنتج محضر. زيد budget بالدينار باش نوريولك margin الأمان.";
-        } else if (!hasPricing) {
-            note = `عندك safe spend حتى ${formatTnd(safeSpend)} بعد buffer ${buffer}%. كمل السعر والشحن باش نقارنوهم بالميزانية.`;
-        } else if (pricing.finalTnd <= safeSpend) {
-            statusText = "SAFE";
-            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-300";
-            note = `المنتج داخل الـ safe zone. يبقالك ${formatTnd(Math.max(0, remaining))} من budget الكلي.`;
-        } else if (pricing.finalTnd <= budget) {
-            statusText = "TIGHT";
-            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-amber-400/10 text-amber-300";
-            note = `المنتج داخل budget، أما buffer الأمان تقريبًا تستهلك. max product price المقترح هو ${maxProductUsd.toFixed(2)} USD مع نفس الشحن.`;
-        } else {
-            statusText = "OVER";
-            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-red-500/10 text-red-300";
-            note = `المنتج فوق budget بحوالي ${formatTnd(Math.abs(remaining))}. جرّب تنقص سعر المنتج، تبدل الشحن، أو اطلب manual quote.`;
-        }
-
-        dom.budgetStatus.textContent = statusText;
-        dom.budgetStatus.className = statusClasses;
-        dom.budgetRemaining.textContent = hasBudget && hasPricing ? formatTnd(remaining) : formatTnd(0);
-        dom.budgetRemaining.className = `text-lg font-black ${remaining < 0 ? "text-red-300" : "text-white"}`;
-        dom.budgetSafeTotal.textContent = formatTnd(safeSpend);
-        dom.budgetMaxUsd.textContent = `${maxProductUsd.toFixed(2)} USD`;
-        dom.budgetNote.textContent = note;
-    }
-
-    function getCartInsights() {
-        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        const deliveryWindows = items
-            .map((item) => parseDeliveryWindow(item.deliveryEstimate))
-            .filter(Boolean);
-        const freeShipping = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
-        const riskyItems = items.filter((item) => item?.restrictions?.banned || item?.restrictions?.restricted).length;
-        const totalUnits = items.reduce((sum, item) => sum + Number(item.qty || 1), 0);
-        const totalService = items.reduce((sum, item) => sum + (Number(item.serviceFeeTnd || 0) * Number(item.qty || 1)), 0);
-        const etaMin = deliveryWindows.length ? Math.min(...deliveryWindows.map((window) => window.min)) : null;
-        const etaMax = deliveryWindows.length ? Math.max(...deliveryWindows.map((window) => window.max)) : null;
-        const mixedEta = etaMin != null && etaMax != null && (etaMax - etaMin >= 10);
-        const splitRecommended = riskyItems > 0 || mixedEta;
-
-        let recommendation = rt("cart_rec_ready");
-        if (riskyItems > 0) {
-            recommendation = rt("cart_rec_risk");
-        } else if (mixedEta) {
-            recommendation = rt("cart_rec_eta");
-        } else if (totalUnits >= 6) {
-            recommendation = rt("cart_rec_large");
-        }
-
-        return {
-            totalUnits,
-            totalService,
-            freeShipping,
-            riskyItems,
-            etaLabel: etaMin != null && etaMax != null ? `${etaMin}-${etaMax} days` : "--",
-            splitRecommended,
-            recommendation
-        };
-    }
-
-    function renderCartInsights() {
-        if (!dom.cartInsightsCard || !dom.cartHealth || !dom.cartUnits || !dom.cartService || !dom.cartFreeShip || !dom.cartRisk || !dom.cartEta || !dom.cartRecommendation) {
-            return;
-        }
-
-        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        const hasItems = items.length > 0;
-        dom.cartInsightsCard.classList.toggle("hidden", !hasItems);
-        if (!hasItems) return;
-
-        const insights = getCartInsights();
-        dom.cartUnits.textContent = String(insights.totalUnits);
-        dom.cartService.textContent = formatTnd(insights.totalService);
-        dom.cartFreeShip.textContent = String(insights.freeShipping);
-        dom.cartRisk.textContent = String(insights.riskyItems);
-        dom.cartEta.textContent = `${rt("cart_eta")}: ${insights.etaLabel}`;
-        dom.cartRecommendation.textContent = insights.recommendation;
-        dom.cartHealth.textContent = insights.splitRecommended ? rt("cart_split") : rt("cart_ready");
-        dom.cartHealth.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            insights.splitRecommended ? "bg-amber-400/10 text-amber-300" : "bg-emerald-500/10 text-emerald-300"
-        }`;
-    }
-
-    function formatCompactCount(value) {
-        const count = Number(value || 0);
-        if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-        if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-        return String(count);
-    }
-
-    function buildDisplayProductTitle(title) {
-        const raw = String(title || "").replace(/\s+/g, " ").trim();
-        if (!raw) return "منتج AliExpress";
-        const words = raw.split(" ");
-        if (raw.length <= 58 && words.length <= 8) return raw;
-
-        const stopWords = new Set(["for", "with", "and", "the", "a", "an", "of", "to", "in", "on", "wholesale"]);
-        const picked = [];
-        const seen = new Set();
-
-        for (const word of words) {
-            const clean = word.replace(/[^\w-]/g, "");
-            const key = clean.toLowerCase();
-            if (!clean) continue;
-            if (picked.length >= 7) break;
-            if (seen.has(key) && !stopWords.has(key)) continue;
-            picked.push(word);
-            seen.add(key);
-        }
-
-        const compact = picked.join(" ").trim().slice(0, 54).trim();
-        return compact.length && compact.length < raw.length ? `${compact}...` : raw;
-    }
-
-    function renderSellerTrust(product) {
-        if (!dom.trustCard || !dom.trustBadge || !dom.trustRating || !dom.trustReviews || !dom.trustSold || !dom.trustNote) return;
-        if (!product || (Number(product.rating || 0) <= 0 && Number(product.reviewCount || 0) <= 0 && Number(product.soldCount || 0) <= 0)) {
-            dom.trustCard.classList.add("hidden");
-            return;
-        }
-
-        const trust = product.trustScore || { score: 60, label: rt("trust_desc") };
-        dom.trustCard.classList.remove("hidden");
-        dom.trustBadge.dir = "ltr";
-        dom.trustBadge.textContent = `${trust.score} / 100`;
-        dom.trustBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            trust.score >= 80 ? "bg-emerald-500/10 text-emerald-300" :
-            trust.score >= 65 ? "bg-blue-500/10 text-blue-300" :
-            "bg-amber-400/10 text-amber-300"
-        }`;
-        dom.trustRating.textContent = Number(product.rating || 0).toFixed(1);
-        dom.trustReviews.textContent = formatCompactCount(product.reviewCount || 0);
-        dom.trustSold.textContent = formatCompactCount(product.soldCount || 0);
-        dom.trustNote.textContent = product.restrictions?.banned
-            ? `${rt("trust_title")}: ${trust.label}. ${rt("cart_rec_risk")}`
-            : (product.restrictions?.restricted
-                ? `${rt("trust_title")}: ${trust.label}. ${rt("safety_license")}`
-                : `${rt("trust_title")}: ${trust.label}.`);
-    }
-
-    function renderVariants(product) {
-        if (!dom.variantsCard || !dom.variantGroups) return;
-        dom.variantsCard.classList.add("hidden");
-        state.selectedVariants = {};
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        dom.variantGroups.innerHTML = "";
-        renderVariantSummary();
-        return;
-
-        const groups = getProductOptionGroups(product);
-        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
-        if (!groups.length) {
-            state.selectedVariants = {};
-            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-            renderVariantSummary();
-            return;
-        }
-
-        const variantsHeader = dom.variantsCard.querySelector(".flex.items-center.justify-between.gap-3");
-        if (variantsHeader) variantsHeader.classList.add("hidden");
-
-        dom.variantGroups.innerHTML = `
-            <div class="space-y-2">
-                ${groups.map((group, index) => `
-                    <div class="space-y-2">
-                        <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
-                        <div class="flex flex-wrap gap-2">
-                            ${group.values.map((value) => `
-                                <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
-                                    ${escapeHtml(value)}
-                                </span>
-                            `).join("")}
-                        </div>
-                    </div>
-                `).join("")}
-            </div>
-        `;
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        renderVariantSummary();
-        return;
-
-        dom.variantGroups.innerHTML = `
-            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
-                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
-                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
-                </div>
-            </div>
-        `;
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        renderVariantSummary();
-        return;
-
-        dom.variantGroups.innerHTML = `
-            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
-                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
-                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
-                </div>
-            </div>
-        `;
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        renderVariantSummary();
-        return;
-
-        dom.variantGroups.innerHTML = `
-            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
-                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
-                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
-                </div>
-                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
-                    المواصفات: لون، مقاس، طول، نسخة، pack...
-                </div>
-                <div class="space-y-2">
-                    ${groups.map((group, index) => `
-                        <div class="space-y-2">
-                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
-                            <div class="flex flex-wrap gap-2">
-                                ${group.values.map((value) => `
-                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
-                                        ${escapeHtml(value)}
-                                    </span>
-                                `).join("")}
-                            </div>
-                        </div>
-                    `).join("")}
-                </div>
-            </div>
-        `;
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        renderVariantSummary();
-    }
-
-    function renderVariants(product) {
-        if (!dom.variantsCard || !dom.variantGroups) return;
-        const groups = getProductOptionGroups(product);
-        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
-        if (!groups.length) {
-            state.selectedVariants = {};
-            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-            renderVariantSummary();
-            return;
-        }
-
-        dom.variantGroups.innerHTML = `
-            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
-                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
-                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
-                </div>
-                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
-                    المواصفات: لون، مقاس، طول، نسخة، باك...
-                </div>
-                <div class="space-y-2">
-                    ${groups.map((group, index) => `
-                        <div class="space-y-2">
-                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `الخيار ${index + 1}`)}</div>
-                            <div class="flex flex-wrap gap-2">
-                                ${group.values.map((value) => `
-                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
-                                        ${escapeHtml(value)}
-                                    </span>
-                                `).join("")}
-                            </div>
-                        </div>
-                    `).join("")}
-                </div>
-            </div>
-        `;
-        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
-        renderVariantSummary();
-    }
-
-    function renderCustomsAdvisor(product) {
-        if (dom.customsCard) dom.customsCard.classList.add("hidden");
-        return;
-        if (!dom.customsCard || !dom.customsLevel || !dom.customsNote || !dom.customsDocs || !dom.customsAlt) return;
-        if (!product) {
-            dom.customsCard.classList.add("hidden");
-            return;
-        }
-
-        const advisor = product.customsAdvisor || {};
-        dom.customsCard.classList.remove("hidden");
-        dom.customsLevel.textContent = String(advisor.level || "low").toUpperCase();
-        dom.customsLevel.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            advisor.level === "high" ? "bg-red-500/10 text-red-300" :
-            advisor.level === "medium" ? "bg-amber-400/10 text-amber-300" :
-            "bg-emerald-500/10 text-emerald-300"
-        }`;
-        dom.customsNote.textContent = advisor.note || "No customs issue detected yet.";
-        dom.customsDocs.innerHTML = (Array.isArray(advisor.docs) ? advisor.docs : []).map((doc) => `
-            <span class="px-3 py-1 rounded-full bg-black/20 border border-white/5 text-[9px] font-black text-slate-200">${escapeHtml(doc)}</span>
-        `).join("");
-        dom.customsAlt.textContent = advisor.saferAlternative || "";
-    }
-
-    function getSimilarOrderAverage(title) {
-        const normalized = String(title || "").trim().toLowerCase();
-        if (!normalized || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return 0;
-        const matches = orderHistory.flatMap((order) => Array.isArray(order.items) ? order.items : [])
-            .filter((item) => String(item.name || "").toLowerCase().includes(normalized.slice(0, 8)) || normalized.includes(String(item.name || "").toLowerCase().slice(0, 8)))
-            .map((item) => Number(item.totalWithFee || item.tnd || 0))
-            .filter((value) => value > 0);
-        if (!matches.length) return 0;
-        return matches.reduce((sum, value) => sum + value, 0) / matches.length;
-    }
-
-    function renderQuoteComparison(product) {
-        if (dom.quoteCompareCard) dom.quoteCompareCard.classList.add("hidden");
-        return;
-    }
-
-    function renderResellerMode() {
-        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
-        return;
-        if (!dom.resellerPrice || !dom.resellerQty || !dom.profitUnit || !dom.profitTotal || !dom.profitRoi || !dom.profitBreakEven || !dom.resellerStatus) return;
-        const pricing = calculatePricingData();
-        const resale = Number(dom.resellerPrice.value || 0);
-        const qty = Math.max(1, Number(dom.resellerQty.value || 1));
-        const cost = pricing.finalTnd;
-        const profitUnit = resale - cost;
-        const totalProfit = profitUnit * qty;
-        const roi = cost > 0 ? (profitUnit / cost) * 100 : 0;
-
-        dom.profitUnit.textContent = cost > 0 ? profitUnit.toFixed(3) : "0.000";
-        dom.profitTotal.textContent = cost > 0 ? totalProfit.toFixed(3) : "0.000";
-        dom.profitRoi.textContent = `${roi.toFixed(1)}%`;
-        dom.profitBreakEven.textContent = cost.toFixed(3);
-        dom.resellerStatus.textContent = cost <= 0 ? "READY" : (profitUnit > 0 ? "PROFIT" : "LOSS");
-        dom.resellerStatus.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            cost <= 0 ? "bg-slate-500/10 text-slate-200" :
-            profitUnit > 0 ? "bg-emerald-500/10 text-emerald-300" :
-            "bg-red-500/10 text-red-300"
-        }`;
-    }
-
-    function renderBundleDeals() {
-        if (!dom.bundleCard || !dom.bundleBadge || !dom.bundleSavings || !dom.bundleTitle || !dom.bundleNote) return;
-        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        dom.bundleCard.classList.toggle("hidden", items.length < 2);
-        if (items.length < 2) return;
-
-        const freeShippingCount = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
-        const serviceFees = items.reduce((sum, item) => sum + Number(item.serviceFeeTnd || 0), 0);
-        const estimatedSavings = (serviceFees * 0.2) + (freeShippingCount * 1.5);
-        const names = items.slice(0, 2).map((item) => item.name).filter(Boolean);
-
-        dom.bundleSavings.textContent = formatTnd(estimatedSavings);
-        dom.bundleTitle.textContent = names.length ? `${names.join(" + ")}` : rt("bundle_default");
-        dom.bundleBadge.textContent = estimatedSavings >= 8 ? "HOT" : rt("bundle_default");
-        dom.bundleNote.textContent = estimatedSavings >= 8
-            ? rt("bundle_note_hot")
-            : rt("bundle_note_low");
-    }
-
-    function renderVoiceNote() {
-        if (dom.voiceCard) {
-            dom.voiceCard.classList.add("hidden");
-            dom.voiceCard.style.display = "none";
-        }
-        if (!dom.voicePlayer || !dom.voiceStatus || !dom.voiceNote) return;
-        const hasVoice = Boolean(state.voiceNote?.url);
-        dom.voicePlayer.classList.toggle("hidden", !hasVoice);
-        if (hasVoice) {
-            dom.voicePlayer.src = state.voiceNote.url;
-            dom.voiceStatus.textContent = "READY";
-            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black";
-            dom.voiceNote.textContent = state.voiceNote.label || "Voice note attached.";
-        } else {
-            dom.voicePlayer.removeAttribute("src");
-            dom.voiceStatus.textContent = "EMPTY";
-            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black";
-            dom.voiceNote.textContent = "No voice note attached yet.";
-        }
-    }
-
-    function setVoiceNoteFromBlob(blob, label) {
-        if (!blob) return;
-        if (state.voiceNote?.url && state.voiceNote.url.startsWith("blob:")) {
-            window.URL.revokeObjectURL(state.voiceNote.url);
-        }
-        state.voiceNote = {
-            url: window.URL.createObjectURL(blob),
-            label
-        };
-        renderVoiceNote();
-        pushActivityLog("voice", "Voice note attached to current order.");
-    }
-
-    function renderPriceAlerts() {
-        if (!dom.alertWatchlist || !dom.alertCount) return;
-        const alerts = Array.isArray(state.priceAlerts) ? state.priceAlerts : [];
-        dom.alertCount.textContent = `${alerts.length} ${alerts.length === 1 ? "watch" : "watches"}`;
-        if (!alerts.length) {
-            dom.alertWatchlist.innerHTML = `<div class="text-[10px] text-slate-500 italic">No alerts yet.</div>`;
-            return;
-        }
-        dom.alertWatchlist.innerHTML = alerts.map((alert) => `
-            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="text-[10px] font-black text-white">${escapeHtml(alert.title || "AliExpress Product")}</div>
-                    <div class="text-[9px] text-slate-500 font-bold">Target ${escapeHtml(formatUsd(alert.targetPriceUsd || 0))} • ship ${escapeHtml(formatUsd(alert.targetShippingUsd || 0))}</div>
-                </div>
-                <button type="button" data-remove-alert="${escapeHtml(alert.url)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-200 hover:bg-red-500/20 transition-colors">Delete</button>
-            </div>
-        `).join("");
-    }
-
-    function renderReferralCard() {
-        if (!dom.referralCode || !dom.referralCredits || !dom.referralTier || !dom.referralNote) return;
-        const referral = getReferralState();
-        dom.referralCode.textContent = referral.code;
-        dom.referralCredits.textContent = String(referral.credits || 0);
-        dom.referralTier.textContent = referral.credits >= 100 ? "Ambassador" : (referral.credits >= 40 ? "Booster" : "Starter");
-        dom.referralNote.textContent = referral.appliedCodes?.length
-            ? `Applied ${referral.appliedCodes.length} referral code(s). Credits are ready to use for future promos.`
-            : "Share your code to grow your rewards balance.";
-    }
-
-    function renderAdminAnalytics() {
-        if (!dom.adminAnalytics) return;
-        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
-        const analytics = state.adminAnalytics || {};
-        const totalRevenue = analytics.totalRevenue != null ? analytics.totalRevenue : orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-        const topProducts = Array.isArray(analytics.topProducts) ? analytics.topProducts : [];
-        const topPromos = Array.isArray(analytics.topPromos) ? analytics.topPromos : [];
-        const repeatCustomers = Array.isArray(analytics.repeatCustomers) ? analytics.repeatCustomers : [];
-
-        dom.adminAnalytics.innerHTML = `
-            <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
-                    <div class="text-lg font-black text-white">${orders.length}</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders</div>
-                </div>
-                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
-                    <div class="text-lg font-black text-amber-300" dir="ltr">${formatTnd(totalRevenue)}</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Revenue</div>
-                </div>
-            </div>
-            <div class="text-[10px] font-black text-white">Top Products</div>
-            <div class="space-y-2">
-                ${(topProducts.length ? topProducts : [{ name: "No product data yet", count: 0 }]).map((item) => `
-                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
-                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.name || item.id || "Unknown")}</span>
-                        <span class="text-[9px] text-amber-300 font-black">${escapeHtml(item.count || item.ordersCount || 0)}</span>
-                    </div>
-                `).join("")}
-            </div>
-            <div class="text-[10px] font-black text-white">Promo / Repeat Clients</div>
-            <div class="space-y-2">
-                ${[...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].length ? [...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].map((item) => `
-                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
-                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.code || item.id || "Client")}</span>
-                        <span class="text-[9px] text-blue-300 font-black">${escapeHtml(item.used || item.ordersCount || 0)}</span>
-                    </div>
-                `).join("") : `<div class="text-[10px] text-slate-500 italic">No analytics yet.</div>`}
-            </div>
-        `;
-    }
-
-    function getOrderTimelineSteps(order) {
-        const status = String(order?.status || "pending");
-        const steps = [
-            { key: "pending", label: "Review" },
-            { key: "processing", label: "Purchase" },
-            { key: "shipped", label: "Transit" },
-            { key: "delivered", label: "Delivered" }
-        ];
-        const currentIndex = steps.findIndex((step) => step.key === status);
-        return steps.map((step, index) => ({
-            ...step,
-            active: currentIndex >= index,
-            current: currentIndex === index
-        }));
-    }
-
-    function renderTrackingTimeline(order) {
-        if (!dom.trackTimeline) return;
-        if (!order) {
-            dom.trackTimeline.innerHTML = "";
-            return;
-        }
-        dom.trackTimeline.innerHTML = getOrderTimelineSteps(order).map((step) => `
-            <div class="rounded-2xl border p-3 text-center ${step.active ? "bg-amber-400/10 border-amber-400/20 text-amber-300" : "bg-white/5 border-white/5 text-slate-500"}">
-                <div class="text-[9px] font-black uppercase">${escapeHtml(step.label)}</div>
-                <div class="text-[8px] font-bold mt-1">${step.current ? "Current" : (step.active ? "Done" : "Next")}</div>
-            </div>
-        `).join("");
-    }
-
-    function renderRepeatOrders() {
-        if (!dom.repeatOrders || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
-        const orders = orderHistory.slice(0, 3).filter((order) => Array.isArray(order.items) && order.items.length);
-        dom.repeatOrders.classList.toggle("hidden", orders.length === 0);
-        if (!orders.length) return;
-        dom.repeatOrders.innerHTML = `
-            <div class="text-[10px] font-black text-white">Repeat-Order Assistant</div>
-            ${orders.map((order) => `
-                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
-                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml((order.items || []).map((item) => item.name).slice(0, 2).join(" + "))}</div>
-                    </div>
-                    <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
-                </div>
-            `).join("")}
-        `;
-    }
-
-    function createPriceAlertFromCurrentProduct() {
-        const product = state.currentProduct;
-        if (!product?.url) {
-            toast("Fetch a product first.");
-            return;
-        }
-        const alerts = getPriceAlerts().filter((entry) => entry.url !== product.url);
-        alerts.unshift({
-            url: product.url,
-            title: product.title || dom.calcName?.value.trim() || "منتج AliExpress",
-            targetPriceUsd: Number(product.price || dom.usdPrice?.value || 0),
-            targetShippingUsd: Number(product.shipping || dom.usdShip?.value || 0),
-            createdAt: new Date().toISOString()
-        });
-        savePriceAlerts(alerts);
-        pushActivityLog("alert", `Created price alert for ${product.title || "product"}.`);
-        toast("Price-drop alert saved.");
-    }
-
-    function removePriceAlert(url) {
-        savePriceAlerts(getPriceAlerts().filter((entry) => entry.url !== url));
-        toast("Alert removed.");
-    }
-
-    function checkPriceAlerts(product) {
-        const alerts = getPriceAlerts();
-        const watch = alerts.find((entry) => entry.url === product?.url);
-        if (!watch) return;
-        const currentPrice = Number(product.price || 0);
-        const currentShipping = Number(product.shipping || 0);
-        if ((currentPrice > 0 && currentPrice < Number(watch.targetPriceUsd || 0)) || currentShipping < Number(watch.targetShippingUsd || 0)) {
-            toast(`Price drop detected for ${product.title || "saved alert"}!`);
-            pushActivityLog("alert", `Price drop detected for ${product.title || "saved alert"}.`);
-        }
-    }
-
-    function copyReferral(shareMode = false) {
-        const referral = getReferralState();
-        const text = shareMode
-            ? `Use my Alexpress referral code: ${referral.code}`
-            : referral.code;
-        if (navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(text).then(() => toast("Referral copied."));
-            return;
-        }
-        toast("Clipboard unavailable.");
-    }
-
-    function applyReferralCode() {
-        const referral = getReferralState();
-        const code = String(dom.referralInput?.value || "").trim().toUpperCase();
-        if (!code || code === referral.code) {
-            toast("Enter a valid referral code.");
-            return;
-        }
-        if (referral.appliedCodes.includes(code)) {
-            toast("This referral code is already used.");
-            return;
-        }
-        referral.appliedCodes.push(code);
-        referral.credits = Number(referral.credits || 0) + 20;
-        saveReferralState(referral);
-        if (dom.referralInput) dom.referralInput.value = "";
-        pushActivityLog("referral", `Applied referral code ${code}.`);
-        toast("Referral bonus added.");
-    }
-
-    function applyVariantSelection(group, value) {
-        const current = String(dom.calcNote?.value || "").trim();
-        const cleanedParts = current.split("|").map((part) => part.trim()).filter(Boolean).filter((part) => !part.toLowerCase().startsWith(String(group || "").toLowerCase()));
-        cleanedParts.push(`${group}: ${value}`);
-        if (dom.calcNote) dom.calcNote.value = cleanedParts.join(" | ");
-        state.selectedVariants = {
-            ...(state.selectedVariants || {}),
-            [group]: value
-        };
-        if (dom.variantGroups) {
-            dom.variantGroups.querySelectorAll("[data-variant-group][data-variant-value]").forEach((button) => {
-                const isMatch = button.getAttribute("data-variant-group") === String(group || "") && button.getAttribute("data-variant-value") === String(value || "");
-                button.classList.toggle("is-active", isMatch);
-            });
-        }
-        renderVariantSummary();
-        toast(`${group} set to ${value}`);
-    }
-
-    function renderVariantSummary() {
-        if (!dom.previewVariantSummary) return;
-        const selectedEntries = Object.entries(state.selectedVariants || {}).filter(([, value]) => String(value || "").trim());
-        const hasSelection = selectedEntries.length > 0;
-        dom.previewVariantSummary.classList.toggle("hidden", !hasSelection);
-        if (!hasSelection) return;
-        dom.previewVariantSummary.textContent = selectedEntries.map(([group, value]) => `${group}: ${value}`).join(" • ");
-    }
-
-    function loadOrderIntoCart(orderRef) {
-        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || typeof cart === "undefined" || !Array.isArray(cart)) return;
-        const order = orderHistory.find((entry) => String(entry.orderRef || entry.id || "") === String(orderRef || ""));
-        if (!order || !Array.isArray(order.items)) return;
-        cart = cloneData(order.items);
-        if (typeof updateBadges === "function") updateBadges();
-        if (typeof renderCart === "function") renderCart();
-        if (typeof saveData === "function") saveData();
-        if (typeof window.switchTab === "function") window.switchTab("cart");
-        pushActivityLog("repeat", `Loaded repeat order ${orderRef}.`);
-        toast("Order loaded back into cart.");
-    }
-
-    async function startVoiceRecording() {
-        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-            toast("Voice recording is not supported on this device.");
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            state.audioChunks = [];
-            recorder.ondataavailable = (event) => {
-                if (event.data?.size) state.audioChunks.push(event.data);
-            };
-            recorder.onstop = () => {
-                const blob = new Blob(state.audioChunks, { type: recorder.mimeType || "audio/webm" });
-                setVoiceNoteFromBlob(blob, `Recorded voice note (${Math.max(1, Math.round(blob.size / 1024))} KB)`);
-                stream.getTracks().forEach((track) => track.stop());
-            };
-            recorder.start();
-            state.mediaRecorder = recorder;
-            dom.voiceStatus.textContent = "REC";
-            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-[10px] font-black";
-            dom.voiceNote.textContent = "Recording in progress...";
-        } catch {
-            toast("Microphone access was blocked.");
-        }
-    }
-
-    function stopVoiceRecording() {
-        if (state.mediaRecorder && state.mediaRecorder.state !== "inactive") {
-            state.mediaRecorder.stop();
-            state.mediaRecorder = null;
-        }
-    }
-
-    function renderAlerts(product) {
-        if (!dom.insightsCard || !dom.alerts || !dom.deliveryEstimate || !dom.riskBadge) return;
-
-        const alerts = (Array.isArray(product?.alerts) ? product.alerts : []).filter((alert) => !/affiliate api/i.test(String(alert?.text || "")));
-        const hasInsights = Boolean(product) || alerts.length > 0;
-        dom.insightsCard.classList.toggle("hidden", !hasInsights);
-        if (!hasInsights) return;
-
-        dom.deliveryEstimate.textContent = `التوصيل: ${product?.deliveryEstimate || "غير متوفر"}`;
-
-        const restrictionText = getRestrictionSummary(product);
-        dom.riskBadge.textContent = restrictionText || "تحذير";
-        dom.riskBadge.classList.toggle("hidden", !restrictionText);
-        dom.riskBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
-            product?.restrictions?.banned
-                ? "bg-red-500/10 text-red-300"
-                : product?.restrictions?.restricted
-                    ? "bg-amber-400/10 text-amber-300"
-                    : "bg-emerald-500/10 text-emerald-300"
-        }`;
-
-        const renderedAlerts = [];
-        if (alerts.length) {
-            alerts.forEach((alert) => {
-                const tone =
-                    alert.level === "danger"
-                        ? "border-red-500/30 bg-red-500/10 text-red-200"
-                        : alert.level === "warning"
-                            ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
-                            : "border-blue-500/30 bg-blue-500/10 text-blue-100";
-                renderedAlerts.push(`
-                    <div class="rounded-2xl border ${tone} p-3 text-[10px] md:text-xs font-bold leading-relaxed">
-                        ${escapeHtml(alert.text)}
-                    </div>
-                `);
-            });
-        } else {
-            renderedAlerts.push(`
-                <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[10px] md:text-xs font-bold text-emerald-100 leading-relaxed">
-                    المنتج ظاهر مبدئيًا مقبول للطلب، وإذا تحب نراجعولك التفاصيل يدويًا إحنا موجودين.
-                </div>
-            `);
-        }
-
-        dom.alerts.innerHTML = renderedAlerts.join("");
-    }
-
-    function renderRestrictionBanner(product) {
-        if (!dom.bannedError || !dom.bannedErrorText) return;
-        if (!product?.restrictions?.banned && !product?.restrictions?.restricted) {
-            dom.bannedError.classList.add("hidden");
-            return;
-        }
-
-        const text = product.restrictions.banned
-            ? "عذراً، المنتج هذا عندو خطر حجز كبير في تونس. اطلب تسعيرة يدوية قبل التأكيد."
-            : "ملاحظة: المنتج هذا ينجم يحتاج مراجعة أو تصريح قبل ما نكملوه.";
-        dom.bannedErrorText.textContent = text;
-        dom.bannedError.classList.remove("hidden");
-    }
-
-    function renderPricing() {
-        const pricing = calculatePricingData();
-
-        if (dom.tndResult) {
-            dom.tndResult.innerHTML = `${pricing.finalTnd.toFixed(3)} <span class="text-base md:text-xl text-amber-400/50">TND</span>`;
-        }
-        if (dom.rateBadge) {
-            dom.rateBadge.textContent = pricing.subtotalUsd > 0 ? `سعر الصرف: ${pricing.rate.toFixed(3)}` : "--";
-        }
-        if (dom.liveRateDisplay) {
-            dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
-        }
-        if (dom.previewPrice) {
-            const previewPriceText = getPreviewPriceText(state.currentProduct) || (state.currentProduct?.priceUnavailable ? "تسعيرة يدوية" : "");
-            dom.previewPrice.textContent = previewPriceText;
-            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
-        }
-        if (dom.quickOrderBtn) {
-            dom.quickOrderBtn.disabled = pricing.finalTnd <= 0;
-            dom.quickOrderBtn.classList.toggle("opacity-60", pricing.finalTnd <= 0);
-            dom.quickOrderBtn.classList.toggle("cursor-not-allowed", pricing.finalTnd <= 0);
-        }
-
-        renderBreakdown(pricing);
-        renderBudgetPlanner(pricing);
-        renderQuoteComparison(state.currentProduct);
-        renderResellerMode();
-        return pricing;
-    }
-
-    function renderPreview(product, options = {}) {
-        const resetSelection = Boolean(options.resetSelection);
-        if (resetSelection) {
-            state.baseProduct = cloneData(product);
-            state.selectedVariants = {};
-            state.activeVariantOffer = null;
-        }
-        state.currentProduct = product;
-        updateSpecsGuidance(getBaseProduct() || product);
-        if (!dom.previewCard) return;
-        const previewDescriptionNode = ensurePreviewDescriptionNode();
-        const currentLang = currentUiLanguage();
-
-        const pricing = calculatePricingData();
-        const sourceKey = String(product?.source || "scrape").toLowerCase();
-        const hasShippingValue = product?.shipping != null && product.shipping !== "" && Number.isFinite(Number(product.shipping));
-        const hasDeliveryValue = Boolean(String(product?.deliveryEstimate || "").trim());
-        const hasRatingValue = Number(product?.rating || 0) > 0;
-        const hasReviewValue = Number(product?.reviewCount || 0) > 0;
-        const sourceLabelMap = {
-            ar: {
-                "api+scrape": "بيانات مؤكدة",
-                "scrape": "جلب مباشر",
-                "partial-fallback": "بيانات جزئية",
-                "api-fallback": "بيانات الكاتالوج"
-            },
-            fr: {
-                "api+scrape": "Donnees verifiees",
-                "scrape": "Capture live",
-                "partial-fallback": "Donnees partielles",
-                "api-fallback": "Catalogue"
-            },
-            en: {
-                "api+scrape": "Verified Data",
-                "scrape": "Live Capture",
-                "partial-fallback": "Partial Data",
-                "api-fallback": "Catalog Data"
-            }
-        };
-        const sourceUiMap = {
-            "api+scrape": { label: sourceLabelMap[currentLang]["api+scrape"], classes: "runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20" },
-            "scrape": { label: sourceLabelMap[currentLang]["scrape"], classes: "runtime-preview-chip bg-sky-500/10 text-sky-300 border-sky-500/20" },
-            "partial-fallback": { label: sourceLabelMap[currentLang]["partial-fallback"], classes: "runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20" },
-            "api-fallback": { label: sourceLabelMap[currentLang]["api-fallback"], classes: "runtime-preview-chip bg-violet-500/10 text-violet-200 border-violet-500/20" }
-        };
-        const sourceUi = sourceUiMap[sourceKey] || {
-            label: String(product?.source || "scrape").replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
-            classes: "runtime-preview-chip bg-white/5 text-slate-200 border-white/10"
-        };
-        const emptyDescription = currentLang === "ar"
-            ? "ما لقيناش وصف واضح للمنتج."
-            : (currentLang === "fr" ? "La description n'est pas disponible pour le moment." : "Description is not available yet.");
-        const metaLabel = product?.manualQuoteRecommended
-            ? rt("preview_review")
-            : rt("preview_ready");
-
-        dom.previewCard.classList.remove("hidden");
-        if (dom.previewImage) {
-            dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
-        }
-        if (dom.previewTitle) {
-            const fullTitle = product.title || "منتج AliExpress";
-            dom.previewTitle.textContent = buildDisplayProductTitle(fullTitle);
-            dom.previewTitle.title = fullTitle;
-        }
-        if (dom.previewMeta) {
-            dom.previewMeta.textContent = metaLabel;
-            dom.previewMeta.className = `runtime-preview-chip ${
-                product?.manualQuoteRecommended
-                    ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
-                    : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
-            }`;
-        }
-        if (dom.previewPrice) {
-            const previewPriceText = getPreviewPriceText(product) || (product?.priceUnavailable ? "تسعيرة يدوية" : "");
-            dom.previewPrice.textContent = previewPriceText;
-            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
-        }
-        if (dom.previewLink) {
-            dom.previewLink.href = product.url || "#";
-        }
-        if (dom.previewSource) {
-            dom.previewSource.textContent = sourceUi.label;
-            dom.previewSource.className = sourceUi.classes;
-        }
-        if (dom.previewShipping) {
-            dom.previewShipping.textContent = hasShippingValue
-                ? (Number(product.shipping) === 0 ? rt("shipping_free") : getShippingLabel(product.shipping))
-                : rt("reviews_na");
-        }
-        if (dom.previewDelivery) {
-            dom.previewDelivery.textContent = hasDeliveryValue ? product.deliveryEstimate : rt("reviews_na");
-        }
-        if (dom.previewRating) {
-            dom.previewRating.textContent = hasRatingValue ? Number(product.rating || 0).toFixed(1) : rt("rating_na");
-        }
-        if (dom.previewReviews) {
-            dom.previewReviews.textContent = hasReviewValue ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
-        }
-        if (previewDescriptionNode) {
-            previewDescriptionNode.textContent = product.description || emptyDescription;
-            previewDescriptionNode.title = product.description || emptyDescription;
-        }
-        renderVariantSummary();
-
-        renderAlerts(product);
-        renderRestrictionBanner(product);
-        renderSellerTrust(product);
-        renderVariants(getBaseProduct() || product);
-        renderCustomsAdvisor(product);
-        renderQuoteComparison(product);
-        checkPriceAlerts(product);
-    }
-
-    function setError(message = "") {
-        if (!dom.scrapeError) return;
-        dom.scrapeError.textContent = message;
-        dom.scrapeError.classList.toggle("hidden", !message);
-    }
-
-    function setLoading(isLoading) {
-        if (dom.scrapeBtn) {
-            dom.scrapeBtn.disabled = isLoading;
-            dom.scrapeBtn.classList.toggle("opacity-70", isLoading);
-            dom.scrapeBtn.classList.toggle("cursor-not-allowed", isLoading);
-        }
-        if (dom.scrapeLoader) {
-            dom.scrapeLoader.classList.toggle("hidden", !isLoading);
-        }
-    }
-
-    async function loadLiveRate() {
-        state.liveRate = FX_FALLBACK_RATE;
-        if (dom.liveRateDisplay) {
-            dom.liveRateDisplay.textContent = `1 USD ≈ ${FX_FALLBACK_RATE.toFixed(3)} TND`;
-        }
-        if (dom.rateBadge) {
-            dom.rateBadge.textContent = `سعر الصرف: ${FX_FALLBACK_RATE.toFixed(3)}`;
-        }
-        renderPricing();
-        renderAccountStats();
-    }
-
-    async function scrapeProduct() {
-        const url = dom.calcLink?.value.trim() || "";
-        if (!isAliExpressUrl(url)) {
-            const message = "يرجى إدخال رابط AliExpress صحيح";
-            setError(message);
-            toast(message);
-            return;
-        }
-
-        setError("");
-        setLoading(true);
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/product?url=${encodeURIComponent(url)}`, {
-                cache: "no-store",
-                headers: {
-                    "cache-control": "no-cache"
-                }
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || "فشل الجلب التلقائي، حاول مرة أخرى");
-            }
-
-            state.baseProduct = cloneData(data);
-            state.currentProduct = cloneData(data);
-            state.activeVariantOffer = null;
-            incrementStat("fetches");
-            syncProductInputs(state.currentProduct);
-            renderPreview(state.currentProduct, { resetSelection: true });
-            renderPricing();
-            saveRecentLink(data);
-            pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
-            if (data.priceUnavailable) {
-                setError("السعر exact موش متوفر توّا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب.");
-                toast("لقينا المنتج، أما السعر exact يحتاج مراجعة يدوية.");
-            } else {
-                toast(data.manualQuoteRecommended ? "تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد." : "تم جلب البيانات بنجاح!");
-            }
-        } catch (error) {
-            const message = error.message || "خطأ في الاتصال بسيرفر الجلب";
-            setError(message);
-            toast(message);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    function buildCustomerSummaryLines() {
-        const prefs = getAccountPrefs();
-        const lines = [];
-        if (prefs.phone) lines.push(`الهاتف: ${prefs.phone}`);
-        if (prefs.city) lines.push(`المدينة: ${prefs.city}`);
-        if (prefs.address) lines.push(`العنوان: ${prefs.address}`);
-        if (prefs.contactMethod) lines.push(`طريقة التواصل: ${prefs.contactMethod}`);
-        return lines;
-    }
-
-    function buildManualQuoteMessage() {
-        const pricing = calculatePricingData();
-        const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
-        const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
-        const note = getSpecsValueText(state.currentProduct);
-        const restrictions = getRestrictionSummary(state.currentProduct);
-
-        return [
-            "سلام، نحب تسعيرة يدوية للمنتج هذا:",
-            `المنتج: ${title}`,
-            `الرابط: ${link || "غير متوفر"}`,
-            `السعر: ${formatUsd(pricing.productUsd)}`,
-            `الشحن: ${pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd)}`,
-            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
-            `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
-            `المواصفات: ${note}`,
-            restrictions ? `ملاحظة: ${restrictions}` : ""
-        ].filter(Boolean).join("\n");
-    }
-
-    function openWhatsAppMessage(message) {
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
-    }
-
-    function sendManualQuote() {
-        const link = dom.calcLink?.value.trim() || "";
-        if (!link && !dom.calcName?.value.trim()) {
-            toast("حط الرابط أو اسم المنتج أولاً");
-            return;
-        }
-        incrementStat("manualQuotes");
-        saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || "AliExpress product" });
-        pushActivityLog("quote", "Prepared a manual quote request.");
-        openWhatsAppMessage([buildManualQuoteMessage()].concat(buildCustomerSummaryLines()).join("\n"));
-    }
-
-    function quickOrderFromForm() {
-        const pricing = calculatePricingData();
-        if (pricing.finalTnd <= 0) {
-            toast("كمّل بيانات المنتج أولاً");
-            return;
-        }
-
-        const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
-        const note = getSpecsValueText(state.currentProduct);
-        const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
-        const delivery = state.currentProduct?.deliveryEstimate || "غير متوفر";
-        const shippingText = pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd);
-
-        const message = [
-            "سلام، نحب نطلب المنتج هذا:",
-            `المنتج: ${title}`,
-            `الرابط: ${link || "غير متوفر"}`,
-            `سعر المنتج: ${formatUsd(pricing.productUsd)}`,
-            `الشحن: ${shippingText}`,
-            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
-            `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
-            `التوصيل المتوقع: ${delivery}`,
-            `المواصفات: ${note}`
-        ].join("\n");
-
-        saveRecentLink(state.currentProduct || { url: link, title });
-        pushActivityLog("quick-order", `Prepared quick order for ${title}.`);
-        openWhatsAppMessage([message].concat(buildCustomerSummaryLines()).join("\n"));
-    }
-
-    function renderSavedPacks() {
-        if (!dom.savedPacks || !dom.packCount || !dom.savePackBtn) return;
-        const packs = Array.isArray(state.savedPacks) ? state.savedPacks : [];
-        dom.packCount.textContent = `${packs.length} ${packs.length === 1 ? "pack" : "packs"}`;
-
-        const cartItems = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        dom.savePackBtn.disabled = cartItems.length === 0;
-        dom.savePackBtn.classList.toggle("opacity-60", cartItems.length === 0);
-        dom.savePackBtn.classList.toggle("cursor-not-allowed", cartItems.length === 0);
-
-        if (!packs.length) {
-            dom.savedPacks.innerHTML = `<div class="text-[10px] text-slate-500 italic">No saved packs yet.</div>`;
-            return;
-        }
-
-        dom.savedPacks.innerHTML = packs.map((pack) => `
-            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="text-[11px] font-black text-white">${escapeHtml(pack.name || "Saved Pack")}</div>
-                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml(pack.itemCount || 0)} items • ${escapeHtml(formatTnd(pack.total || 0))} • ${escapeHtml(formatDateLabel(pack.createdAt))}</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button type="button" data-pack-load="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[9px] font-black hover:bg-emerald-400 transition-colors">Load</button>
-                        <button type="button" data-pack-delete="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[9px] font-black hover:bg-red-500/20 transition-colors">Delete</button>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    ${(Array.isArray(pack.items) ? pack.items.slice(0, 3) : []).map((item) => `
-                        <span class="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
-                            ${escapeHtml(item.name || "Item")}
-                        </span>
-                    `).join("")}
-                    ${(Array.isArray(pack.items) && pack.items.length > 3) ? `<span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-slate-400">+${pack.items.length - 3} more</span>` : ""}
-                </div>
-            </div>
-        `).join("");
-    }
-
-    function saveCurrentPack() {
-        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        if (!items.length) {
-            toast("السلة فارغة، ما نجمناش نحفظو pack.");
-            return;
-        }
-
-        const packName = (dom.packName?.value || "").trim() || `Pack ${formatDateLabel(new Date())}`;
-        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
-        const packs = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((pack) => pack.name !== packName);
-        packs.unshift({
-            id: `${Date.now()}`,
-            name: packName,
-            createdAt: new Date().toISOString(),
-            itemCount: items.reduce((sum, item) => sum + Number(item.qty || 1), 0),
-            total,
-            items: cloneData(items)
-        });
-        saveSavedPacks(packs);
-        if (dom.packName) dom.packName.value = "";
-        pushActivityLog("pack", `Saved pack ${packName}.`);
-        toast("تم حفظ الـ pack بنجاح.");
-    }
-
-    function loadSavedPack(id) {
-        const pack = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
-        if (!pack || typeof cart === "undefined" || !Array.isArray(cart)) return;
-        cart = cloneData(pack.items || []);
-        if (typeof updateBadges === "function") updateBadges();
-        if (typeof renderCart === "function") renderCart();
-        if (typeof saveData === "function") saveData();
-        if (typeof window.switchTab === "function") window.switchTab("cart");
-        pushActivityLog("pack", `Loaded pack ${pack.name}.`);
-        toast("تم تحميل الـ pack إلى السلة.");
-    }
-
-    function deleteSavedPack(id) {
-        const deleted = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
-        const next = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((item) => String(item.id) !== String(id));
-        saveSavedPacks(next);
-        if (deleted) {
-            pushActivityLog("pack", `Deleted pack ${deleted.name}.`);
-        }
-        toast("تم حذف الـ pack.");
-    }
-
-    function downloadBlob(filename, content, type) {
-        const blob = new Blob([content], { type });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = filename;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.URL.revokeObjectURL(url);
-    }
-
-    function downloadQuoteDocument() {
-        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-        if (!items.length) {
-            toast("السلة فارغة، ما فماش quote باش نخرجوها.");
-            return;
-        }
-
-        const paymentSelect = document.getElementById("payment-method");
-        const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || "Not selected";
-        const quoteRef = `QT-${Date.now().toString().slice(-8)}`;
-        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
-        const customerLines = buildCustomerSummaryLines();
-        const rows = items.map((item, index) => `
-            <tr>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${index + 1}</td>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name || "Item")}</td>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.note || "-")}</td>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${Number(item.qty || 1)}</td>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1)))}</td>
-            </tr>
-        `).join("");
-
-        const html = `<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<title>Alexpress Quote ${quoteRef}</title>
-<style>
-body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
-.hero { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
-.badge { display:inline-block; background:#fef3c7; color:#92400e; padding:6px 12px; border-radius:999px; font-weight:700; font-size:12px; }
-.card { border:1px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:20px; }
-table { width:100%; border-collapse:collapse; font-size:14px; }
-th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-.muted { color:#64748b; font-size:12px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#fbbf24">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" id="manifest-placeholder">
+    
+    <title>مركز عمليات Alexpress Tunisie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- PostTrack Widget Script -->
+    <script async src="https://posttrack.com/js/min/posttrackwidget.js"></script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #080a0c; color: #f8fafc; transition: background-color 0.3s, color 0.3s; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        .glass-card {
+            background: rgba(20, 30, 45, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* --- PRO FEATURE: Modern Nav Buttons (Pill Style) --- */
+        .nav-btn {
+            border-radius: 9999px; /* Fully rounded */
+            padding: 6px 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .active-tab {
+            background-color: rgba(30, 41, 59, 0.9); /* Dark slate background */
+            color: #fbbf24 !important; /* Amber text */
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .light-mode .active-tab {
+            background-color: #ffffff;
+            color: #f59e0b !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        /* ---------------------------------------------------- */
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+        
+        .banned-grid-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .banned-grid-item:hover {
+            border-color: rgba(251, 191, 36, 0.3);
+            background: rgba(251, 191, 36, 0.02);
+            transform: scale(1.02);
+        }
+
+        /* Widget Input Styling Override for site theme */
+        .search-input {
+            width: 100%;
+            background: #0f172a !important;
+            border: 1px solid #334155 !important;
+            border-radius: 12px !important;
+            padding: 12px !important;
+            color: #fff !important;
+            font-size: 14px !important;
+            margin-bottom: 10px !important;
+            outline: none !important;
+            text-align: inherit;
+        }
+        .search-btn {
+            width: 100%;
+            background: #fbbf24 !important;
+            color: #000 !important;
+            font-weight: 900 !important;
+            border-radius: 12px !important;
+            padding: 12px !important;
+            cursor: pointer !important;
+            border: none !important;
+            transition: all 0.2s !important;
+        }
+        .search-btn:hover { background: #fcd34d !important; transform: translateY(-2px); }
+        #search-result { margin-top: 20px; color: #fff; text-align: inherit; }
+        
+        .social-icon-btn { transition: all 0.3s ease; }
+        .social-icon-btn:hover { transform: translateY(-3px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        .trust-badge {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.1);
+        }
+
+        /* Floating Cart Button Style */
+        .floating-cart {
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            z-index: 99;
+            background: #fbbf24;
+            color: #000;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 15px rgba(251,191,36,0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .floating-cart:hover { transform: scale(1.1); }
+        html[dir="ltr"] .floating-cart { left: auto; right: 20px; } /* Flip position in LTR */
+
+        /* Logo Animation */
+        @keyframes glowPulse {
+            0% { box-shadow: 0 0 5px rgba(251,191,36,0.2); transform: scale(1); }
+            50% { box-shadow: 0 0 20px rgba(251,191,36,0.8); transform: scale(1.05); }
+            100% { box-shadow: 0 0 5px rgba(251,191,36,0.2); transform: scale(1); }
+        }
+        .logo-anim {
+            animation: glowPulse 2s infinite ease-in-out;
+        }
+
+        /* VIP Card Shimmer Effect */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        .animate-shimmer {
+            animation: shimmer 2.5s infinite linear;
+        }
+
+        /* PRO FEATURE: Light Mode Overrides */
+        body.light-mode { background-color: #f1f5f9; color: #0f172a; }
+        .light-mode .glass-card { background: rgba(255, 255, 255, 0.85); border-color: rgba(0,0,0,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1); }
+        .light-mode .bg-slate-900, .light-mode .bg-black\/60, .light-mode .bg-black\/40 { background-color: #ffffff; border-color: #e2e8f0; }
+        .light-mode .bg-slate-800 { background-color: #f8fafc; border-color: #e2e8f0; }
+        .light-mode .text-white { color: #0f172a !important; }
+        .light-mode .text-slate-400, .light-mode .text-slate-300 { color: #475569 !important; }
+        .light-mode .text-slate-500 { color: #64748b !important; }
+        .light-mode input, .light-mode textarea, .light-mode select { color: #0f172a !important; background-color: #f8fafc !important; }
+        .light-mode .banned-grid-item { background: rgba(0, 0, 0, 0.03); border-color: rgba(0,0,0,0.05); }
+        .light-mode .trust-badge { border-color: rgba(251, 191, 36, 0.3); }
+        .light-mode #social-proof { background: rgba(255, 255, 255, 0.95); border-color: rgba(0,0,0,0.1); }
+        .light-mode .nav-container { background-color: rgba(241, 245, 249, 0.8); border-color: rgba(0,0,0,0.05); }
+
+        /* Custom styling for details summary to hide default marker */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        .recent-link-chip { transition: all 0.25s ease; }
+        .recent-link-chip:hover { transform: translateY(-2px); }
+        .sticky-mobile-bar {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 120;
+            width: min(92vw, 420px);
+        }
+        .screenshot-preview-grid {
+            display: grid;
+            grid-template-columns: 96px 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+        @media (max-width: 767px) {
+            .sticky-mobile-bar { display: block; }
+        }
+        @media (min-width: 768px) {
+            .sticky-mobile-bar { display: none; }
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.10), transparent 28%),
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(255,255,255,0.015), transparent 22%);
+            z-index: -1;
+        }
+        .glass-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .glass-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent 28%, transparent 72%, rgba(251,191,36,0.06));
+            opacity: 0.8;
+        }
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            background: rgba(255,255,255,0.04);
+        }
+        .nav-container {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 35px rgba(0,0,0,0.20);
+        }
+        header.glass-card {
+            backdrop-filter: blur(18px);
+            box-shadow: 0 14px 40px rgba(0,0,0,0.22);
+        }
+        main {
+            padding-top: 1.25rem;
+            padding-bottom: 6.5rem;
+        }
+        .trust-badge,
+        .banned-grid-item,
+        details,
+        .recent-link-chip {
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+        }
+        .light-mode body::before {
+            background:
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 28%),
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(15,23,42,0.025), transparent 18%);
+        }
+        :root {
+            --panel-border: rgba(255, 255, 255, 0.07);
+            --panel-highlight: rgba(251, 191, 36, 0.16);
+            --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.30);
+            --text-soft: #94a3b8;
+        }
+        body {
+            background:
+                radial-gradient(circle at top center, rgba(15, 23, 42, 0.9), transparent 35%),
+                linear-gradient(180deg, #06080c 0%, #0a1017 45%, #091018 100%);
+        }
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.45), transparent 82%);
+            z-index: -1;
+            opacity: 0.22;
+        }
+        main {
+            max-width: 1140px !important;
+        }
+        header.glass-card {
+            background: rgba(12, 17, 27, 0.82);
+            border-color: var(--panel-border);
+        }
+        .light-mode header.glass-card {
+            background: rgba(255,255,255,0.88);
+        }
+        .nav-btn {
+            letter-spacing: 0.01em;
+            min-height: 38px;
+        }
+        .active-tab {
+            background: linear-gradient(180deg, rgba(36, 48, 71, 0.96), rgba(21, 31, 47, 0.96));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 22px rgba(0,0,0,0.26);
+        }
+        .glass-card {
+            box-shadow: var(--panel-shadow);
+            border-color: var(--panel-border);
+        }
+        .glass-card:hover {
+            border-color: rgba(251, 191, 36, 0.14);
+        }
+        input,
+        textarea,
+        select {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.08), inset 0 1px 0 rgba(255,255,255,0.03);
+            transform: translateY(-1px);
+        }
+        button,
+        a {
+            transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease, color 0.22s ease, border-color 0.22s ease;
+        }
+        button:hover,
+        a:hover {
+            box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        }
+        #section-guide > .text-center h2 {
+            font-size: clamp(2rem, 5vw, 4.4rem);
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+            text-shadow: 0 12px 30px rgba(0,0,0,0.35);
+        }
+        #section-guide > .text-center p {
+            color: #a4afc0 !important;
+            font-style: normal !important;
+            max-width: 760px;
+        }
+        #section-guide > .text-center button {
+            min-width: 220px;
+            border-radius: 1.25rem;
+        }
+        #section-guide .trust-badge,
+        #section-guide .glass-card.p-5.rounded-3xl,
+        #section-guide .glass-card.p-6.rounded-3xl,
+        #section-guide .glass-card.p-5.md\:p-8 {
+            backdrop-filter: blur(18px);
+        }
+        #section-guide .grid.grid-cols-2.lg\:grid-cols-4 .glass-card,
+        #section-guide .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 .glass-card {
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+        #section-guide .grid.grid-cols-2.lg\:grid-cols-4 .glass-card:hover,
+        #section-guide .grid.grid-cols-1.sm\:grid-cols-2.lg\:grid-cols-4 .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 34px rgba(0,0,0,0.24);
+        }
+        #section-calc .glass-card,
+        #section-cart .glass-card,
+        #section-history .glass-card,
+        #section-account .glass-card,
+        #section-check .glass-card,
+        #section-track .glass-card {
+            backdrop-filter: blur(20px);
+        }
+        #runtime-preview-card {
+            background:
+                linear-gradient(145deg, rgba(10, 18, 30, 0.98), rgba(16, 28, 44, 0.94)),
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 32%);
+            border-color: var(--panel-highlight) !important;
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.32);
+            max-width: 760px;
+            margin-inline: auto;
+        }
+        #runtime-preview-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.08), transparent 24%);
+            pointer-events: none;
+        }
+        @keyframes footerGlowFloat {
+            0%, 100% {
+                transform: translateY(0);
+                text-shadow: 0 0 0 rgba(251, 191, 36, 0);
+            }
+            50% {
+                transform: translateY(-2px);
+                text-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+            }
+        }
+        .footer-love {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: #fbbf24;
+            animation: footerGlowFloat 2.8s ease-in-out infinite;
+        }
+        .footer-love-heart {
+            display: inline-block;
+            animation: footerGlowFloat 1.8s ease-in-out infinite;
+        }
+        #runtime-preview-image {
+            width: 96px !important;
+            height: 96px !important;
+            border-radius: 1.35rem !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            box-shadow:
+                0 12px 28px rgba(0,0,0,0.28),
+                inset 0 1px 0 rgba(255,255,255,0.04);
+            padding: 0.15rem;
+        }
+        .runtime-preview-stat {
+            background: linear-gradient(180deg, rgba(5, 10, 18, 0.78), rgba(10, 17, 29, 0.66));
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 1rem;
+            padding: 0.72rem 0.8rem;
+            min-height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.18rem;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.03),
+                0 10px 24px rgba(0,0,0,0.14);
+        }
+        .runtime-preview-stat-label {
+            font-size: 0.58rem;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: rgba(148, 163, 184, 0.85);
+        }
+        .runtime-preview-stat-value {
+            font-size: 0.88rem;
+            font-weight: 900;
+            color: #fff;
+            line-height: 1.22;
+        }
+        .runtime-preview-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .42rem .72rem;
+            border-radius: 999px;
+            font-size: .58rem;
+            font-weight: 900;
+            letter-spacing: .04em;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(7, 12, 20, 0.74);
+            color: #dbeafe;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .runtime-preview-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .55rem;
+            padding: .68rem .92rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: .66rem;
+            font-weight: 900;
+            transition: all .25s ease;
+            min-height: 40px;
+        }
+        .runtime-preview-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 30px rgba(0,0,0,0.22);
+        }
+        #runtime-preview-title {
+            font-size: clamp(1.08rem, 1.3vw + 0.95rem, 1.45rem) !important;
+            line-height: 1.18 !important;
+            letter-spacing: -0.04em;
+            max-width: 100%;
+            text-wrap: pretty;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            word-break: break-word;
+        }
+        #runtime-preview-description {
+            font-size: 0.76rem !important;
+            line-height: 1.45 !important;
+            color: rgba(226, 232, 240, 0.74) !important;
+            max-width: 100%;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+        }
+        #runtime-preview-card .runtime-preview-main {
+            display: grid;
+            grid-template-columns: 110px minmax(0, 1fr);
+            align-items: start;
+            gap: 0.95rem;
+        }
+        #runtime-preview-card .runtime-preview-copy {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0.75rem;
+            min-width: 0;
+        }
+        #runtime-preview-card .runtime-preview-media {
+            position: relative;
+            flex-shrink: 0;
+            align-self: flex-start;
+            width: 110px;
+            max-width: 100%;
+            padding: 0.3rem;
+            border-radius: 1.5rem;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.01)),
+                radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 68%);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.06),
+                0 12px 30px rgba(0,0,0,0.2);
+        }
+        #runtime-preview-card .runtime-preview-media::after {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 1.1rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            pointer-events: none;
+        }
+        #runtime-preview-card .runtime-preview-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.55rem;
+        }
+        #runtime-preview-card .runtime-preview-actions .runtime-preview-action {
+            width: 100%;
+        }
+        #runtime-preview-card .runtime-preview-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.65rem;
+            flex-wrap: wrap;
+        }
+        #runtime-preview-price {
+            font-size: clamp(1.35rem, 1.2vw + 1rem, 1.8rem) !important;
+            line-height: 1;
+        }
+        @media (max-width: 768px) {
+            #runtime-preview-image {
+                width: 84px !important;
+                height: 84px !important;
+            }
+            #runtime-preview-title {
+                font-size: 1rem !important;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+            }
+            #runtime-preview-description {
+                font-size: 0.7rem !important;
+                line-height: 1.35 !important;
+                -webkit-line-clamp: 1;
+                line-clamp: 1;
+            }
+            #runtime-preview-card .runtime-preview-main {
+                grid-template-columns: 88px minmax(0, 1fr);
+                align-items: start;
+            }
+            #runtime-preview-card .runtime-preview-media {
+                width: 88px;
+            }
+            #runtime-preview-card .runtime-preview-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+        #runtime-variant-groups button.is-active {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(59, 130, 246, 0.16));
+            border-color: rgba(251, 191, 36, 0.45);
+            color: #fff;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        #runtime-breakdown-card,
+        #runtime-quote-compare-card,
+        #runtime-cart-insights-card,
+        #runtime-bundle-card {
+            background: linear-gradient(180deg, rgba(8, 14, 24, 0.88), rgba(11, 18, 29, 0.82));
+        }
+        #cart-footer .bg-slate-900\/40,
+        #cart-footer .bg-slate-900\/80 {
+            backdrop-filter: blur(14px);
+        }
+        footer.glass-card {
+            background: rgba(10, 16, 25, 0.92);
+            border-top-color: rgba(255,255,255,0.06);
+        }
+        .light-mode .active-tab {
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+        }
+        .light-mode #runtime-preview-card,
+        .light-mode #runtime-breakdown-card,
+        .light-mode #runtime-quote-compare-card,
+        .light-mode #runtime-cart-insights-card,
+        .light-mode #runtime-bundle-card,
+        .light-mode footer.glass-card {
+            background: rgba(255,255,255,0.92);
+        }
+        #section-account .account-shell {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+        #section-account .account-panel {
+            border-radius: 1.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: linear-gradient(155deg, rgba(10, 18, 30, 0.98), rgba(15, 27, 43, 0.9));
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        #section-account .account-panel[open] {
+            border-color: rgba(251, 191, 36, 0.22);
+            box-shadow: 0 24px 56px rgba(0, 0, 0, 0.28);
+        }
+        #section-account .account-panel-summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.15rem 1.25rem;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+        }
+        #section-account .account-panel-summary::-webkit-details-marker {
+            display: none;
+        }
+        #section-account .account-panel-body {
+            padding: 0 1.25rem 1.25rem;
+        }
+        #section-account .account-chevron {
+            transition: transform 0.25s ease;
+        }
+        #section-account .account-panel[open] .account-chevron {
+            transform: rotate(180deg);
+        }
+        #section-account .account-kpi {
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(5, 11, 19, 0.56);
+            border-radius: 1.25rem;
+            padding: 1rem;
+        }
+        #section-account .account-subcard {
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.18);
+            padding: 1rem;
+        }
+        #section-account .account-summary-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-radius: 999px;
+            border: 1px solid rgba(251, 191, 36, 0.16);
+            background: rgba(251, 191, 36, 0.08);
+            color: #fde68a;
+            padding: 0.3rem 0.7rem;
+            font-size: 10px;
+            font-weight: 900;
+        }
+        #section-account .vip-level-shell {
+            position: relative;
+            overflow: hidden;
+            border-radius: 2rem;
+            border: 1px solid rgba(251, 191, 36, 0.28);
+            background:
+                radial-gradient(circle at top right, rgba(251, 191, 36, 0.10), transparent 26%),
+                linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(10, 16, 23, 0.94) 100%);
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.30);
+        }
+        #section-account .vip-level-shell::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(115deg, rgba(255,255,255,0.06), transparent 28%, transparent 70%, rgba(251,191,36,0.07)),
+                linear-gradient(180deg, rgba(255,255,255,0.03), transparent 18%);
+            opacity: 0.95;
+        }
+        #section-account .vip-level-grid {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 1.25rem;
+            align-items: center;
+        }
+        #section-account .vip-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.55rem;
+        }
+        #section-account .vip-tier-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0, 0, 0, 0.24);
+            font-size: 0.64rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #f8fafc;
+        }
+        #section-account .vip-xp-pill {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.25rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.22);
+        }
+        #section-account .vip-progress-shell {
+            margin-top: 0.8rem;
+            padding: 0.9rem 1rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(2, 6, 12, 0.45);
+        }
+        #section-account .vip-progress-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 0.6rem;
+        }
+        #section-account .vip-progress-note {
+            font-size: 0.62rem;
+            font-weight: 900;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        #section-account .vip-side-mark {
+            min-width: 132px;
+            text-align: center;
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.24);
+            padding: 1rem 0.9rem;
+        }
+        #section-account .vip-side-mark-label {
+            font-size: 0.62rem;
+            font-weight: 900;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-top: 0.35rem;
+        }
+        @media (max-width: 767px) {
+            #section-account .vip-level-grid {
+                grid-template-columns: 1fr;
+            }
+            #section-account .vip-side-mark {
+                min-width: 0;
+                width: 100%;
+            }
+        }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase Instances
+        window.firebaseCore = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot };
+    </script>
 </head>
-<body>
-    <div class="hero">
-        <div>
-            <div class="badge">Alexpress Tunisie Quote</div>
-            <h1 style="margin:14px 0 8px;">Quote ${quoteRef}</h1>
-            <div class="muted">Generated ${escapeHtml(new Date().toLocaleString("en-GB"))}</div>
+<body class="custom-scrollbar overflow-x-hidden transition-all duration-300">
+
+<div class="min-h-screen flex flex-col">
+    <!-- Top Navigation -->
+    <header class="sticky top-0 z-50 glass-card border-b border-white/5 py-3 px-3 md:px-6 flex flex-wrap items-center justify-between gap-y-3">
+        <div class="flex items-center gap-2 shrink-0">
+            <div class="w-8 h-8 md:w-10 md:h-10 rounded-full border-2 border-amber-400 overflow-hidden bg-white shrink-0 logo-anim">
+                <img src="https://i.ibb.co/PzhWh2ML/New-Project-18.png" alt="Logo" class="w-full h-full object-cover">
+            </div>
+            <h1 class="font-black text-sm md:text-xl tracking-tight hidden sm:block uppercase shrink-0">ALEXPRESS <span class="text-amber-400">TUNISIE</span></h1>
         </div>
-        <div style="text-align:right;">
-            <div><strong>Total:</strong> ${escapeHtml(formatTnd(total))}</div>
-            <div><strong>Payment:</strong> ${escapeHtml(paymentLabel)}</div>
-            <div><strong>Items:</strong> ${items.length}</div>
+        
+        <!-- PRO FEATURE: Multi-line Nav (No hidden buttons) -->
+        <div class="w-full order-3 md:order-2 md:w-auto md:flex-grow flex justify-center mt-1 md:mt-0">
+            <nav class="nav-container flex flex-wrap justify-center gap-1 md:gap-1.5 p-1.5 bg-slate-900/40 rounded-2xl md:rounded-full border border-white/5 shadow-inner w-full md:w-max">
+                <button onclick="switchTab('guide')" id="tab-guide" class="nav-btn text-[10px] md:text-sm font-bold active-tab whitespace-nowrap" data-i18n="nav_guide">الدليل</button>
+                <button onclick="switchTab('calc')" id="tab-calc" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-white whitespace-nowrap" data-i18n="nav_calc">الحاسبة</button>
+                <button onclick="switchTab('cart')" id="tab-cart" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-white relative whitespace-nowrap">
+                    <span data-i18n="nav_cart">السلة</span>
+                    <span id="cart-badge" class="hidden absolute top-0 left-0 bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black animate-bounce z-10 shadow-lg border border-black/20">0</span>
+                </button>
+                <button onclick="switchTab('wishlist')" id="tab-wishlist" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-pink-400 whitespace-nowrap relative">
+                    <span data-i18n="nav_wish">المفضلة</span> <i class="fas fa-heart text-[8px] md:text-[10px] mx-1"></i>
+                    <span id="wishlist-badge" class="hidden absolute top-0 left-0 bg-pink-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black z-10 shadow-lg border border-black/20">0</span>
+                </button>
+                <button onclick="switchTab('track')" id="tab-track" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-white whitespace-nowrap" data-i18n="nav_track">التتبع</button>
+                <button onclick="switchTab('check')" id="tab-check" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-white whitespace-nowrap" data-i18n="nav_check">الأمان</button>
+                <button onclick="switchTab('history')" id="tab-history" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-blue-400 whitespace-nowrap" data-i18n="nav_hist">طلباتي</button>
+                <button onclick="switchTab('account')" id="tab-account" class="nav-btn text-[10px] md:text-sm font-bold text-slate-400 hover:text-amber-400 whitespace-nowrap" data-i18n="nav_acc">الحساب</button>
+            </nav>
         </div>
+
+        <div class="flex gap-2 items-center shrink-0 order-2 md:order-3">
+            <!-- PRO FEATURE: Multilingual Switcher -->
+            <select id="lang-switch" onchange="changeLanguage(this.value)" class="bg-slate-900/80 text-white border border-slate-700 rounded-lg text-xs p-1 outline-none focus:border-amber-400 transition-colors cursor-pointer shadow-sm font-bold">
+                <option value="ar">🇹🇳 AR</option>
+                <option value="fr">🇫🇷 FR</option>
+                <option value="en">🇬🇧 EN</option>
+            </select>
+            <!-- PRO FEATURE: Theme Toggle -->
+            <button onclick="toggleTheme()" class="text-slate-400 hover:text-amber-400 transition-colors p-1.5" title="Theme">
+                <i id="theme-icon" class="fas fa-sun text-base md:text-xl"></i>
+            </button>
+            <!-- PRO FEATURE: Install PWA App -->
+            <button onclick="installApp()" id="install-btn" class="hidden md:flex bg-amber-400/20 text-amber-400 border border-amber-400/50 hover:bg-amber-400 hover:text-black transition-colors px-2 py-1 rounded-lg text-[10px] font-black items-center gap-1 shadow-sm">
+                <i class="fas fa-download"></i> App
+            </button>
+        </div>
+    </header>
+
+    <!-- Floating Cart Button -->
+    <div id="floating-cart-btn" class="floating-cart hidden" onclick="switchTab('cart')">
+        <i class="fas fa-shopping-cart text-lg"></i>
+        <span id="floating-cart-badge" class="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black hidden shadow-lg">0</span>
     </div>
-    <div class="card">
-        <h3 style="margin-top:0;">Customer Summary</h3>
-        <div class="muted">${customerLines.length ? customerLines.map((line) => escapeHtml(line)).join("<br>") : "No customer info saved yet."}</div>
-    </div>
-    <div class="card">
-        <h3 style="margin-top:0;">Order Lines</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Product</th>
-                    <th>Notes</th>
-                    <th>Qty</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    </div>
-</body>
-</html>`;
 
-        const quoteWindow = window.open("", "_blank", "noopener,noreferrer");
-        if (!quoteWindow) {
-            downloadBlob(`alexpress-quote-${quoteRef}.html`, html, "text/html;charset=utf-8");
-            toast("فتح الطباعة ما نجحش، هبطنا quote HTML بدلها.");
-            return;
-        }
-        quoteWindow.document.open();
-        quoteWindow.document.write(html);
-        quoteWindow.document.close();
-        quoteWindow.focus();
-        window.setTimeout(() => quoteWindow.print(), 300);
-    }
+    <main class="flex-grow p-3 md:p-8 max-w-6xl mx-auto w-full relative">
+        
+        <!-- Tab: Interactive Guide -->
+        <div id="section-guide" class="tab-content active space-y-8 md:space-y-12">
+            <div class="text-center relative">
+                <h2 class="text-2xl md:text-5xl font-black mb-4"><span data-i18n="hero_title_1">كيفاش تشري</span> <span class="text-amber-400" data-i18n="hero_title_2">من AliExpress؟</span></h2>
+                <p class="text-slate-400 text-xs md:text-base max-w-2xl mx-auto italic italic leading-relaxed mb-6" data-i18n="hero_desc">دليلك الكامل باش قضيتك توصلك لباب دارك في تونس مريغلة، بكل أمان وشفافية.</p>
+                
+                <button onclick="switchTab('calc')" class="bg-amber-400 text-black px-8 py-3.5 rounded-2xl font-black text-sm shadow-[0_14px_30px_rgba(251,191,36,0.28)] hover:scale-[1.03] inline-flex items-center gap-2">
+                    <i class="fas fa-calculator"></i> <span data-i18n="hero_btn">ابدا احسب قضيتك من هنا</span>
+                </button>
+            </div>
 
-    function exportOrdersCsv() {
-        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
-        if (!orders.length) {
-            toast("ما فماش طلبات باش نصدرهم.");
-            return;
-        }
+            <!-- Pro Section: Why Us -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                <div class="trust-badge p-4 rounded-2xl text-center">
+                    <i class="fas fa-shield-alt text-amber-400 text-xl md:text-2xl mb-2"></i>
+                    <h4 class="text-[10px] md:text-xs font-black" data-i18n="trust_1">أمان كامل</h4>
+                </div>
+                <div class="trust-badge p-4 rounded-2xl text-center">
+                    <i class="fas fa-shipping-fast text-amber-400 text-xl md:text-2xl mb-2"></i>
+                    <h4 class="text-[10px] md:text-xs font-black" data-i18n="trust_2">شحن سريع</h4>
+                </div>
+                <div class="trust-badge p-4 rounded-2xl text-center">
+                    <i class="fas fa-headset text-amber-400 text-xl md:text-2xl mb-2"></i>
+                    <h4 class="text-[10px] md:text-xs font-black" data-i18n="trust_3">دعم 24/7</h4>
+                </div>
+                <div class="trust-badge p-4 rounded-2xl text-center">
+                    <i class="fas fa-check-circle text-amber-400 text-xl md:text-2xl mb-2"></i>
+                    <h4 class="text-[10px] md:text-xs font-black" data-i18n="trust_4">خدمة مضمونة</h4>
+                </div>
+            </div>
 
-        const rows = [
-            ["orderRef", "date", "status", "paymentMethod", "totalTnd", "itemsCount", "promoCode", "tracking", "items"]
-        ];
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-align">
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div id="runtime-metric-orders" class="text-xl font-black text-amber-400">0</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders Logged</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div id="runtime-metric-promos" class="text-xl font-black text-emerald-400">0</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Promos</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div id="runtime-metric-fetches" class="text-xl font-black text-blue-400">0</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl text-center">
+                    <div id="runtime-metric-rate" class="text-xl font-black text-white">3.800</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
+                </div>
+            </div>
 
-        orders.forEach((order) => {
-            rows.push([
-                order.orderRef || order.id || "",
-                order.date || "",
-                order.status || "pending",
-                order.paymentMethod || "",
-                Number(order.total || 0).toFixed(3),
-                Number(order.itemsCount || (Array.isArray(order.items) ? order.items.length : 0)),
-                order.promoCode || "",
-                order.adminTracking || order.trackingHint || "",
-                Array.isArray(order.items) ? order.items.map((item) => item.name).join(" | ") : ""
-            ]);
-        });
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-align">
+                <div class="glass-card p-5 rounded-3xl relative overflow-hidden group border-r-2 border-amber-400/20 rtl:border-r-2 ltr:border-l-2 ltr:border-r-0">
+                    <span class="absolute rtl:-right-4 rtl:-top-4 ltr:-left-4 ltr:-top-4 text-6xl md:text-8xl text-white/5 font-black group-hover:text-amber-400/10 transition-colors">1</span>
+                    <div class="text-xl mb-3 text-amber-400"><i class="fas fa-search"></i></div>
+                    <h3 class="text-base font-black mb-2" data-i18n="step1_title">لوّج في AliExpress</h3>
+                    <p class="text-[10px] md:text-xs text-slate-400 leading-relaxed" data-i18n="step1_desc">حل تطبيق AliExpress واختار السلعة اللي حاجتك بيها.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl relative overflow-hidden group border-r-2 border-amber-400/20 rtl:border-r-2 ltr:border-l-2 ltr:border-r-0">
+                    <span class="absolute rtl:-right-4 rtl:-top-4 ltr:-left-4 ltr:-top-4 text-6xl md:text-8xl text-white/5 font-black group-hover:text-amber-400/10 transition-colors">2</span>
+                    <div class="text-xl mb-3 text-amber-400"><i class="fas fa-copy"></i></div>
+                    <h3 class="text-base font-black mb-2" data-i18n="step2_title">انسخ الرابط</h3>
+                    <p class="text-[10px] md:text-xs text-slate-400 leading-relaxed" data-i18n="step2_desc">اضغط على زر المشاركة واعمل نسخ للرابط.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl relative overflow-hidden group border-r-2 border-amber-400/20 rtl:border-r-2 ltr:border-l-2 ltr:border-r-0">
+                    <span class="absolute rtl:-right-4 rtl:-top-4 ltr:-left-4 ltr:-top-4 text-6xl md:text-8xl text-white/5 font-black group-hover:text-amber-400/10 transition-colors">3</span>
+                    <div class="text-xl mb-3 text-amber-400"><i class="fas fa-calculator"></i></div>
+                    <h3 class="text-base font-black mb-2" data-i18n="step3_title">احسب وزيد للسلة</h3>
+                    <p class="text-[10px] md:text-xs text-slate-400 leading-relaxed" data-i18n="step3_desc">حط الرابط والسعر بالدولار في الحاسبة.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl relative overflow-hidden group border-r-2 border-amber-400/20 rtl:border-r-2 ltr:border-l-2 ltr:border-r-0">
+                    <span class="absolute rtl:-right-4 rtl:-top-4 ltr:-left-4 ltr:-top-4 text-6xl md:text-8xl text-white/5 font-black group-hover:text-amber-400/10 transition-colors">4</span>
+                    <div class="text-xl mb-3 text-amber-400"><i class="fas fa-paper-plane"></i></div>
+                    <h3 class="text-lg font-black mb-2" data-i18n="step4_title">أرسل الطلب</h3>
+                    <p class="text-[10px] md:text-xs text-slate-400 leading-relaxed" data-i18n="step4_desc">ثبت واختار الطريقة اللي تحب تبعثلنا بيها الطلب.</p>
+                </div>
+            </div>
 
-        const csv = rows.map((row) => row.map((cell) => {
-            const value = String(cell ?? "");
-            return `"${value.replace(/"/g, '""')}"`;
-        }).join(",")).join("\n");
-
-        downloadBlob(`alexpress-orders-${formatDateLabel(new Date()).replace(/\//g, "-")}.csv`, csv, "text/csv;charset=utf-8");
-        toast("تم تصدير orders CSV.");
-    }
-
-    function getCurrentProductMeta() {
-        const pricing = calculatePricingData();
-        return {
-            image: state.currentProduct?.image || "",
-            rating: Number(state.currentProduct?.rating || 0),
-            shippingUsd: pricing.shippingUsd,
-            productUsd: pricing.productUsd,
-            serviceFeeTnd: pricing.serviceFee,
-            serviceFeeDisplay: getServiceFeeDisplayText(pricing, state.currentProduct),
-            finalTnd: pricing.finalTnd,
-            deliveryEstimate: state.currentProduct?.deliveryEstimate || "",
-            alerts: state.currentProduct?.alerts || [],
-            restrictions: state.currentProduct?.restrictions || null,
-            trustScore: state.currentProduct?.trustScore || null,
-            reviewCount: Number(state.currentProduct?.reviewCount || 0),
-            soldCount: Number(state.currentProduct?.soldCount || 0),
-            source: state.currentProduct?.source || "manual",
-            hasOptions: productHasOptions(state.currentProduct)
-        };
-    }
-
-    function patchGetFormData() {
-        if (typeof original.getFormData !== "function") return;
-
-        window._getFormData = function patchedGetFormData() {
-            const item = original.getFormData();
-            if (!item) return item;
-
-            const meta = getCurrentProductMeta();
-            item.image = meta.image;
-            item.rating = meta.rating;
-            item.shippingUsd = meta.shippingUsd;
-            item.productUsd = meta.productUsd;
-            item.serviceFeeTnd = meta.serviceFeeTnd;
-            item.serviceFeeDisplay = meta.serviceFeeDisplay;
-            item.totalWithFee = meta.finalTnd;
-            item.deliveryEstimate = meta.deliveryEstimate;
-            item.alerts = meta.alerts;
-            item.restrictions = meta.restrictions;
-            item.trustScore = meta.trustScore;
-            item.reviewCount = meta.reviewCount;
-            item.soldCount = meta.soldCount;
-            item.source = meta.source;
-            item.hasOptions = meta.hasOptions;
-
-            return item;
-        };
-    }
-
-    function buildOrderMessage(items, paymentLabel, finalTotal, orderRef) {
-        const lines = [`🚀 *طلب جديد Alexpress Tunisie*`, ``, `🧾 *المرجع:* ${orderRef}`, `💳 *الدفع:* ${paymentLabel}`, ``];
-
-        items.forEach((item, index) => {
-            lines.push(`📦 *منتج ${index + 1}:* ${item.name}`);
-            lines.push(`🔗 الرابط: ${item.link || "غير متوفر"}`);
-            lines.push(`🔢 الكمية: ${item.qty || 1}`);
-            lines.push(`📝 المواصفات: ${item.note || (item.hasOptions ? "يرجى تحديد اللون / المقاس / الطول المطلوب" : "بدون ملاحظات")}`);
-            lines.push(`💵 سعر المنتج: ${formatUsd(item.productUsd || item.usd || 0)}`);
-            lines.push(`🚚 الشحن: ${Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0)}`);
-            lines.push(`🧰 عمولة الخدمة: ${item.serviceFeeDisplay || (item.hasOptions ? "مشمولة" : formatTnd(item.serviceFeeTnd || 0))}`);
-            lines.push(`💰 الإجمالي: ${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}`);
-            if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
-            if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: خطر ديوانة مرتفع`);
-            else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: يلزم تثبت قبل الطلب`);
-            lines.push(`────────────`);
-        });
-
-        if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
-            lines.push(`🎟️ التخفيض: ${discountType === "percent" ? `${currentDiscount}%` : `${currentDiscount} TND`}`);
-        }
-
-        lines.push(`💵 *TOTAL:* ${formatTnd(finalTotal)}`);
-        lines.push(`📲 نحب تأكيد الطلب والمتابعة.`);
-        return lines.join("\n");
-    }
-
-    function pushOrderHistory(entry) {
-        if (typeof orderHistory === "undefined") return;
-        orderHistory.unshift(entry);
-        if (orderHistory.length > 20) orderHistory.pop();
-    }
-
-    function clearCartState() {
-        if (typeof cart !== "undefined") {
-            cart = [];
-        }
-        if (typeof currentDiscount !== "undefined") currentDiscount = 0;
-        if (typeof discountType !== "undefined") discountType = "";
-        document.getElementById("promo-code")?.setAttribute("value", "");
-        const promoInput = document.getElementById("promo-code");
-        if (promoInput) promoInput.value = "";
-        document.getElementById("promo-message")?.classList.add("hidden");
-        document.getElementById("discount-badge")?.classList.add("hidden");
-        if (typeof updateBadges === "function") updateBadges();
-        if (typeof renderCart === "function") renderCart();
-        if (typeof saveData === "function") saveData();
-    }
-
-    function patchRenderCart() {
-        if (typeof window.renderCart !== "function" || window.renderCart.__runtimeWrapped) return;
-        const wrapped = function patchedRenderCart() {
-            const list = document.getElementById("cart-items-list");
-            const footer = document.getElementById("cart-footer");
-            const totalDisplay = document.getElementById("cart-total-display");
-            const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
-
-            if (!list || !footer || !totalDisplay) {
-                renderCartInsights();
-                renderBundleDeals();
-                renderSavedPacks();
-                return;
-            }
-
-            if (!items.length) {
-                list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${typeof t === "function" ? t("cart_empty") : "The cart is empty."}</div>`;
-                totalDisplay.textContent = "TND 0.000";
-                footer.classList.add("hidden");
-                renderCartInsights();
-                renderBundleDeals();
-                renderSavedPacks();
-                return;
-            }
-
-            footer.classList.remove("hidden");
-
-            let subtotal = 0;
-            list.innerHTML = items.map((item) => {
-                const qty = Math.max(1, Number(item.qty || 1));
-                const lineTotal = Number(item.totalWithFee || item.tnd || 0) * qty;
-                subtotal += lineTotal;
-                const shippingText = Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0);
-                const ratingText = Number(item.rating || 0) > 0 ? Number(item.rating || 0).toFixed(1) : rt("rating_na");
-                const reviewText = Number(item.reviewCount || 0) > 0 ? formatCompactCount(item.reviewCount || 0) : rt("reviews_na");
-                const imgHtml = item.image
-                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
-                    : `<div class="w-20 h-20 rounded-2xl border border-white/10 bg-black/20 flex items-center justify-center text-slate-500 shrink-0"><i class="fas fa-box text-xl"></i></div>`;
-
-                return `
-                    <div class="bg-slate-900/55 p-4 md:p-5 rounded-3xl border border-white/5 space-y-4 auto-align shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
-                        <div class="flex flex-col md:flex-row gap-4 md:items-start">
-                            ${imgHtml}
-                            <div class="flex-1 min-w-0 space-y-2">
-                                <div class="text-sm md:text-base font-black text-white leading-relaxed break-words">${escapeHtml(item.name || "Product")}</div>
-                                <div class="flex flex-wrap gap-2 text-[9px] font-black">
-                                    ${item.note ? `<span class="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300">${escapeHtml(item.note)}</span>` : ""}
-                                    ${item.deliveryEstimate ? `<span class="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">${escapeHtml(item.deliveryEstimate)}</span>` : ""}
-                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">${escapeHtml(shippingText)}</span>
-                                </div>
-                                ${item.link && item.link !== "https://" ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-blue-300 hover:text-white transition-colors break-all"><i class="fas fa-up-right-from-square"></i><span>${typeof t === "function" ? t("prod_link") : "Product Link"}</span></a>` : ""}
+            <!-- Payment Methods & FAQ Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Payment Methods Updated -->
+                <div class="glass-card p-6 rounded-3xl auto-align">
+                    <h3 class="text-lg font-black mb-6 text-amber-400 flex items-center gap-2"><i class="fas fa-wallet"></i> <span data-i18n="pay_title">طرق الدفع المتاحة</span></h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="flex flex-col items-center gap-2 bg-white/5 p-3 rounded-2xl border border-white/5">
+                            <div class="w-12 h-12 bg-white rounded-xl overflow-hidden flex items-center justify-center shadow-lg p-1">
+                                <img src="https://i.ibb.co/hRw8dWDV/unnamed-8.png" onerror="this.src='https://i.ibb.co/Msw02j7/d17.png'" alt="D17" class="w-full h-full object-contain">
                             </div>
+                            <span class="text-[10px] font-bold">D17</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2 bg-white/5 p-3 rounded-2xl border border-white/5">
+                            <div class="w-12 h-12 bg-white rounded-xl overflow-hidden flex items-center justify-center shadow-lg p-1">
+                                <img src="https://play-lh.googleusercontent.com/CK9-8mnJO0rlqQf8-D44yX_J1iEXqZ7RqpXJnTkIlrpqBgiBIT5TQXtORU55vDG-vXU" alt="Flouci" class="w-full h-full object-contain">
+                            </div>
+                            <span class="text-[10px] font-bold">Flouci</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2 bg-white/5 p-3 rounded-2xl border border-white/5">
+                            <div class="w-12 h-12 bg-white rounded-xl overflow-hidden flex items-center justify-center shadow-lg p-1">
+                                <img src="https://yt3.googleusercontent.com/ytc/AIdro_kdvFmOKvYNGVeNHYntzr3jOZSaZxh67sThYe8EKZ-qFg=s900-c-k-c0x00ffffff-no-rj" alt="Poste" class="w-full h-full object-contain">
+                            </div>
+                            <span class="text-[10px] font-bold">Poste</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2 bg-white/5 p-3 rounded-2xl border border-white/5">
+                            <div class="w-12 h-12 bg-white rounded-xl overflow-hidden flex items-center justify-center shadow-lg p-1">
+                                <img src="https://vfluo.fr/cdn/shop/files/virement_bancaire_1300x1300_2267b12b-5f6f-4af6-8cc2-06c2f8590902_1080x.png?v=1667486674" alt="Virement" class="w-full h-full object-contain">
+                            </div>
+                            <span class="text-[10px] font-bold text-center">Virement</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ -->
+                <div class="glass-card p-6 rounded-3xl auto-align overflow-hidden">
+                    <h3 class="text-lg font-black mb-4 text-amber-400 flex items-center gap-2"><i class="fas fa-question-circle"></i> <span data-i18n="faq_title">أسئلة شائعة</span></h3>
+                    <div class="space-y-3 h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+                        <details class="group bg-white/5 rounded-xl p-3 cursor-pointer">
+                            <summary class="text-[10px] md:text-xs font-bold list-none flex justify-between items-center">
+                                <span data-i18n="faq_q1">قداش وقت باش توصل السلعة؟</span>
+                                <i class="fas fa-chevron-down text-[8px] group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <p class="text-[9px] md:text-[10px] text-slate-400 mt-2 leading-relaxed" data-i18n="faq_a1">تاخذ عادةً بين 15 و 45 يوم عمل حسب نوع الشحن المختار.</p>
+                        </details>
+                        <details class="group bg-white/5 rounded-xl p-3 cursor-pointer">
+                            <summary class="text-[10px] md:text-xs font-bold list-none flex justify-between items-center">
+                                <span data-i18n="faq_q2">كيفاش نخلص بالدينار؟</span>
+                                <i class="fas fa-chevron-down text-[8px] group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <p class="text-[9px] md:text-[10px] text-slate-400 mt-2 leading-relaxed" data-i18n="faq_a2">تخلصنا عبر D17 أو Mandat بـ TND واحنا نخلصوا للمزود بالعملة الصعبة.</p>
+                        </details>
+                        <details class="group bg-white/5 rounded-xl p-3 cursor-pointer">
+                            <summary class="text-[10px] md:text-xs font-bold list-none flex justify-between items-center">
+                                <span data-i18n="faq_q3">فما ضمان (Garantie)؟</span>
+                                <i class="fas fa-chevron-down text-[8px] group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <p class="text-[9px] md:text-[10px] text-slate-400 mt-2 leading-relaxed" data-i18n="faq_a3">نضمنولك وصول المنتج أو استرجاع أموالك إذا صار مشكل من طرفنا.</p>
+                        </details>
+                        <details class="group bg-white/5 rounded-xl p-3 cursor-pointer">
+                            <summary class="text-[10px] md:text-xs font-bold list-none flex justify-between items-center">
+                                <span data-i18n="faq_q4">قداش نخلص في البوسطة؟</span>
+                                <i class="fas fa-chevron-down text-[8px] group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <p class="text-[9px] md:text-[10px] text-slate-400 mt-2 leading-relaxed" data-i18n="faq_a4">تدفع معلوم بسيط (بين 4 و 15د) للموظف عند استلام طردك.</p>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 auto-align">
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center"><i class="fas fa-star"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">آية من صفاقس</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Smartwatch + écouteurs</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">الخدمة واضحة والسعر النهائي كان مطابق تقريبًا، والمتابعة على واتساب كانت سريعة برشة.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center"><i class="fas fa-box-open"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">محمد من سوسة</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Pièces auto + accessoires</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">عجبني خاصة إنو عطاوني تنبيه قبل ما نأكد على منتج فيه ريسك ديوانة، وهذا زاد ثقة كبيرة.</p>
+                </div>
+                <div class="glass-card p-5 rounded-3xl border border-white/5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-2xl bg-pink-500/10 text-pink-400 flex items-center justify-center"><i class="fas fa-heart"></i></div>
+                        <div>
+                            <div class="text-xs font-black text-white">إيناس من تونس</div>
+                            <div class="text-[10px] text-amber-400 font-bold">Mode + cadeaux</div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 leading-relaxed">الواجهة سهلة برشة على التليفون، ونجمّت نبعث الطلب مباشرة من الحاسبة من غير تعقيد.</p>
+                </div>
+            </div>
+
+            <div class="glass-card p-5 md:p-8 rounded-3xl md:rounded-[40px] border border-white/5 shadow-2xl">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div class="auto-align">
+                        <h3 class="text-xl md:text-2xl font-black mb-4 text-amber-400" data-i18n="transp_title">شفافية كاملة في الأسعار</h3>
+                        <p class="text-slate-400 mb-6 text-xs md:text-sm leading-relaxed" data-i18n="transp_desc">في Alexpress Tunisie، ما فماش أسوام مخبية. السعر اللي يظهرلك هو اللي تخلصو.</p>
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span><span class="text-[10px] md:text-xs text-slate-300" data-i18n="transp_1">سعر السلعة في AliExpress + الشحن الدولي</span></div>
+                            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span><span class="text-[10px] md:text-xs text-slate-300" data-i18n="transp_2">عمولة الخدمة ومصاريف البنك</span></div>
+                            <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-600 shrink-0"></span><span class="text-[10px] md:text-xs text-slate-300" data-i18n="transp_3">معلوم البريد عند الاستلام (إن وُجد)</span></div>
+                        </div>
+                        <button onclick="switchTab('calc')" class="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-2">
+                            <span data-i18n="transp_btn">امشي للحاسبة وجرب وحدك</span> <i class="fas fa-arrow-left mt-0.5 rtl:rotate-0 ltr:rotate-180"></i>
+                        </button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="transparencyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Calculator -->
+        <div id="section-calc" class="tab-content space-y-6 md:space-y-8">
+            <!-- Pro Section: Real-time Exchange Rate Badge -->
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                <div class="bg-slate-900 border border-amber-400/20 px-4 py-2 rounded-full flex items-center gap-3 shadow-lg dir-ltr-fix">
+                    <span class="text-amber-400 text-xs font-black" data-i18n="calc_rate">سعر الصرف اليوم:</span>
+                    <span class="text-white text-xs font-bold" id="live-rate-display">1 USD ≈ 3.800 TND</span>
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"></span>
+                </div>
+                
+                <button onclick="switchTab('guide')" class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-2 rounded-full text-[10px] font-bold hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2 shadow-sm">
+                    <i class="fas fa-info-circle"></i> <span data-i18n="calc_guide_btn">أول مرة تشري؟ اقرا الدليل</span>
+                </button>
+            </div>
+
+            <div class="glass-card p-6 md:p-8 rounded-3xl md:rounded-[40px] max-w-2xl mx-auto border-t-2 border-amber-400 shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black mb-6 text-center text-amber-400" data-i18n="calc_title">الحاسبة الذكية</h2>
+
+                <div id="banned-error" class="hidden bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center gap-3 mb-6 auto-align">
+                    <span class="text-white bg-red-500 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">!</span>
+                    <p class="text-[10px] text-red-500 font-bold leading-relaxed" data-i18n="banned_err">عذراً، هذا المنتج ممنوع استيراده في تونس.</p>
+                </div>
+                
+                <div class="space-y-5 auto-align">
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest text-amber-400" data-i18n="lbl_link">رابط AliExpress</label>
+                        <input type="text" id="calc-link" data-i18n-placeholder="plc_link" placeholder="https://aliexpress.com/item/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-xs font-bold text-amber-400 outline-none focus:border-amber-400 text-left" dir="ltr">
+                        <div class="mt-3 flex flex-col sm:flex-row gap-2">
+                            <button id="runtime-scrape-btn" type="button" class="bg-blue-600 text-white px-4 py-3 rounded-xl text-xs font-black hover:bg-blue-500 transition-all flex items-center justify-center gap-2 shadow-lg">
+                                <i class="fas fa-wand-magic-sparkles"></i>
+                                <span>جلب تلقائي</span>
+                            </button>
+                            <div id="runtime-scrape-loader" class="hidden text-[10px] text-blue-400 font-black flex items-center gap-2 px-2">
+                                <span class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+                                <span>جاري جلب بيانات المنتج...</span>
+                            </div>
+                        </div>
+                        <div id="runtime-scrape-error" class="hidden mt-2 text-[10px] text-red-400 font-black"></div>
+                    </div>
+                    <div id="runtime-preview-card" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
+                        <div class="relative z-10 space-y-4">
+                            <div class="runtime-preview-main flex flex-col md:flex-row auto-align">
+                                <div class="runtime-preview-media">
+                                    <img id="runtime-preview-image" src="" alt="Product preview" class="w-24 h-24 rounded-[1.2rem] object-cover border border-white/10 bg-slate-900">
+                                </div>
+                                <div class="runtime-preview-copy flex-1 min-w-0 space-y-3">
+                                    <div class="flex flex-wrap gap-2 items-center">
+                                        <span id="runtime-preview-source" class="runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20 uppercase">SCRAPE</span>
+                                        <span id="runtime-preview-meta" class="runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Tunisia Ready</span>
+                                        <span id="runtime-preview-variant-summary" class="hidden runtime-preview-chip bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20">No option selected</span>
+                                    </div>
+                                    <h3 id="runtime-preview-title" class="text-lg md:text-[1.35rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
+                                    <p id="runtime-preview-description" class="text-xs text-slate-300 leading-6 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
+                                    <div class="runtime-preview-summary">
+                                        <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.00 USD</div>
+                                    </div>
+                                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+                                        <div class="runtime-preview-stat">
+                                            <div class="runtime-preview-stat-label">Tunisia Shipping</div>
+                                            <div id="runtime-preview-shipping" class="runtime-preview-stat-value">Free</div>
+                                        </div>
+                                        <div class="runtime-preview-stat">
+                                            <div class="runtime-preview-stat-label">Delivery ETA</div>
+                                            <div id="runtime-preview-delivery" class="runtime-preview-stat-value">12-25 days</div>
+                                        </div>
+                                        <div class="runtime-preview-stat">
+                                            <div class="runtime-preview-stat-label">التقييم</div>
+                                            <div id="runtime-preview-rating" class="runtime-preview-stat-value">0.0</div>
+                                        </div>
+                                        <div class="runtime-preview-stat">
+                                            <div class="runtime-preview-stat-label">المراجعات</div>
+                                            <div id="runtime-preview-reviews" class="runtime-preview-stat-value">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="runtime-preview-actions">
+                                        <a id="runtime-preview-link" href="#" target="_blank" rel="noopener noreferrer" class="runtime-preview-action bg-white/5 text-slate-200 hover:bg-white/10">
+                                            <i class="fas fa-arrow-up-right-from-square"></i>
+                                            <span>فتح المنتج الأصلي</span>
+                                        </a>
+                                        <button id="runtime-create-alert" type="button" class="runtime-preview-action bg-amber-400/10 text-amber-300 hover:bg-amber-400 hover:text-black">Price-Drop Alert</button>
+                                        <button id="runtime-copy-referral-share" type="button" class="runtime-preview-action bg-blue-500/10 text-blue-300 hover:bg-blue-500 hover:text-white">Share Referral</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="runtime-trust-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">ثقة البائع</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تقييم سريع حسب التقييم والمراجعات والشحن ومخاطر الديوانة</div>
+                            </div>
+                            <span id="runtime-trust-badge" dir="ltr" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">0 / 100</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-trust-rating" class="text-lg font-black text-white">0.0</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">التقييم</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-trust-reviews" class="text-lg font-black text-blue-300">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المراجعات</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-trust-sold" class="text-lg font-black text-amber-300">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المبيعات</div>
+                            </div>
+                        </div>
+                        <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">إجلب منتج باش يبان تقييم الثقة متاعو.</div>
+                    </div>
+                    <div id="runtime-variants-card" class="hidden bg-fuchsia-500/5 p-4 rounded-2xl border border-fuchsia-500/20 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">ملاحظة على الخيارات</div>
+                                <div class="text-[9px] text-slate-500 font-bold">إذا المنتج فيه لون أو مقاس أو طول، السعر ينجم يتبدل حسب الخيار</div>
+                            </div>
+                            <span class="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-300 text-[10px] font-black">خيارات</span>
+                        </div>
+                        <div id="runtime-variant-groups" class="space-y-3"></div>
+                    </div>
+                    <div id="runtime-recent-links-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">آخر الروابط اللي خدمت عليهم</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تنجم ترجع لهم بسرعة وتعاود الجلب</div>
+                            </div>
+                            <button id="runtime-clear-links" type="button" class="text-[9px] font-black text-slate-400 hover:text-red-300 transition-colors">مسح</button>
+                        </div>
+                        <div id="runtime-recent-links" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <!-- Smart Format Feature JS Version -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-[9px] font-black text-slate-500 uppercase tracking-widest" data-i18n="lbl_name">اسم المنتج</label>
+                            <button onclick="formatTitleJS()" class="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors bg-blue-400/10 px-2 py-1 rounded-lg border border-blue-400/20 shadow-sm flex items-center gap-1">
+                                <i class="fas fa-broom"></i> <span data-i18n="btn_format">ترتيب الاسم</span>
+                            </button>
+                        </div>
+                        <input type="text" id="calc-name" data-i18n-placeholder="plc_name" placeholder="مثال: Cable USB Type C" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-xs md:text-sm font-bold text-white outline-none focus:border-amber-400 transition-all duration-300">
+                    </div>
+                    <div class="hidden">
+                        <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest" data-i18n="lbl_spec">المواصفات (لون، مقاس...)</label>
+                        <textarea id="calc-note" rows="2" data-i18n-placeholder="plc_spec" placeholder="مثال Bleu 1.5m" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-xs md:text-sm font-bold text-white outline-none focus:border-amber-400"></textarea>
+                    </div>
+                    
+                    <!-- PRO FEATURE: Actual File Upload for Screenshot -->
+                    <div>
+                        <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest" data-i18n="lbl_img">صورة المنتج (Capture)</label>
+                        <input type="file" id="calc-image" accept="image/*" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-400 file:text-slate-900 hover:file:bg-amber-500 outline-none transition-all cursor-pointer">
+                    </div>
+                    <div id="runtime-image-preview-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5">
+                        <div class="screenshot-preview-grid auto-align">
+                            <img id="runtime-image-preview" src="" alt="Screenshot preview" class="w-24 h-24 rounded-2xl object-cover border border-white/10 bg-slate-900">
+                            <div class="space-y-2">
+                                <div class="text-[10px] font-black text-white">Capture مضافة للطلب</div>
+                                <p class="text-[9px] text-slate-500 leading-relaxed">إذا الجلب التلقائي ما ينجحش، الـ capture تساعدنا نراجع التسعيرة يدويًا بسرعة.</p>
+                                <button id="runtime-image-clear" type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-[9px] font-black text-white hover:bg-slate-700 transition-colors">
+                                    <i class="fas fa-trash-alt"></i>
+                                    <span>حذف الـ capture</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest text-amber-400 auto-align" data-i18n="lbl_price">السعر ($)</label>
+                            <input type="number" id="usd-price" oninput="calculateTND()" placeholder="$0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-base md:text-lg font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black text-slate-500 mb-2 uppercase tracking-widest text-amber-400 auto-align" data-i18n="lbl_ship">الشحن ($)</label>
+                            <input type="number" id="usd-ship" oninput="calculateTND()" placeholder="$0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 md:p-4 text-base md:text-lg font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                        </div>
+                    </div>
+                    <div class="bg-black/40 p-5 md:p-6 rounded-2xl border border-white/5 text-center">
+                        <div id="tnd-result" class="text-2xl md:text-4xl font-black text-amber-400" dir="ltr">0.000 TND</div>
+                        <div id="rate-badge" class="mt-2 text-[8px] text-slate-600 font-bold tracking-widest">--</div>
+                    </div>
+                    <div id="runtime-breakdown-card" class="hidden bg-slate-950/60 p-4 md:p-5 rounded-2xl border border-white/5 space-y-3">
+                        <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
+                            <span>سعر المنتج</span>
+                            <span id="runtime-breakdown-product" dir="ltr">0.000 TND</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
+                            <span>الشحن</span>
+                            <span id="runtime-breakdown-shipping" dir="ltr">0.000 TND</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
+                            <span id="runtime-breakdown-service-label">عمولة الخدمة</span>
+                            <span id="runtime-breakdown-service" dir="ltr">0.000 TND</span>
+                        </div>
+                        <div class="pt-3 border-t border-white/5 flex items-center justify-between text-xs md:text-sm font-black text-amber-400">
+                            <span>الإجمالي النهائي</span>
+                            <span id="runtime-breakdown-total" dir="ltr">0.000 TND</span>
+                        </div>
+                    </div>
+                    <div id="runtime-insights-card" class="hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-3">
+                        <div class="flex flex-wrap gap-2">
+                            <span id="runtime-delivery-estimate" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">التوصيل: غير متوفر</span>
+                            <span id="runtime-risk-badge" class="hidden px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-[10px] font-black">تحذير</span>
+                        </div>
+                        <div id="runtime-alerts" class="space-y-2"></div>
+                    </div>
+                    <div id="runtime-budget-card" class="hidden bg-emerald-500/5 p-4 md:p-5 rounded-2xl border border-emerald-500/20 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Smart Budget Planner</div>
+                                <div class="text-[9px] text-slate-500 font-bold">حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا</div>
+                            </div>
+                            <span id="runtime-budget-status" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">READY</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                            <input id="runtime-budget-input" type="number" min="0" step="1" placeholder="Budget TND" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400 ltr-input" dir="ltr">
+                            <select id="runtime-budget-buffer" class="w-full sm:w-[160px] bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400">
+                                <option value="5">5% buffer</option>
+                                <option value="10" selected>10% buffer</option>
+                                <option value="15">15% buffer</option>
+                                <option value="20">20% buffer</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-budget-remaining" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Remaining</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-budget-safe-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Safe Spend</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-budget-max-usd" class="text-lg font-black text-amber-300" dir="ltr">0.00 USD</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">أقصى سعر بالدولار</div>
+                            </div>
+                        </div>
+                        <div id="runtime-budget-note" class="text-[10px] font-bold text-slate-300 leading-relaxed">أدخل budget باش تشوف التوصية الذكية.</div>
+                    </div>
+                    <div id="runtime-customs-card" class="hidden bg-red-500/5 p-4 md:p-5 rounded-2xl border border-red-500/20 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Smart Customs Advisor</div>
+                                <div class="text-[9px] text-slate-500 font-bold">مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب</div>
+                            </div>
+                            <span id="runtime-customs-level" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">LOW</span>
+                        </div>
+                        <div id="runtime-customs-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">No customs issue detected yet.</div>
+                        <div id="runtime-customs-docs" class="flex flex-wrap gap-2"></div>
+                        <div id="runtime-customs-alt" class="text-[9px] text-slate-400 font-bold leading-relaxed"></div>
+                    </div>
+                    <div id="runtime-quote-compare-card" class="hidden hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-4" style="display:none !important;">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Auto-Quote Comparison</div>
+                                <div class="text-[9px] text-slate-500 font-bold">قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review</div>
+                            </div>
+                            <span id="runtime-quote-compare-status" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">LIVE</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-quote-auto" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Auto Quote</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-quote-similar" class="text-lg font-black text-amber-300" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Similar Orders</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-quote-manual" class="text-lg font-black text-blue-300" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Manual Target</div>
+                            </div>
+                        </div>
+                        <div id="runtime-quote-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Fetch a product to compare pricing confidence.</div>
+                    </div>
+                    <div id="runtime-reseller-card" class="hidden bg-amber-400/5 p-4 md:p-5 rounded-2xl border border-amber-400/20 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Profit / Reseller Mode</div>
+                                <div class="text-[9px] text-slate-500 font-bold">أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even</div>
+                            </div>
+                            <span id="runtime-reseller-status" class="px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black">READY</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input id="runtime-reseller-price" type="number" min="0" step="0.5" placeholder="Resale Price TND" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                            <input id="runtime-reseller-qty" type="number" min="1" step="1" value="1" placeholder="Qty" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">USD</div>
-                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(item.productUsd || item.usd || 0)}</div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-profit-unit" class="text-lg font-black text-white" dir="ltr">0.000</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Profit / Unit</div>
                             </div>
-                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_rating"))}</div>
-                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(ratingText)}</div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-profit-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Profit</div>
                             </div>
-                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_reviews"))}</div>
-                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(reviewText)}</div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-profit-roi" class="text-lg font-black text-blue-300" dir="ltr">0%</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">ROI</div>
                             </div>
-                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
-                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("total"))}</div>
-                                <div class="text-sm font-black text-amber-300 mt-1" dir="ltr">${formatTnd(lineTotal)}</div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-profit-break-even" class="text-lg font-black text-amber-300" dir="ltr">0.000</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Break-Even</div>
                             </div>
                         </div>
-                        <div class="flex items-center justify-between gap-3 border-t border-white/5 pt-4">
-                            <div class="flex items-center bg-black/40 rounded-2xl px-3 py-2 gap-4 border border-white/5" dir="ltr">
-                                <button onclick="changeQty(${item.id}, -1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">-</button>
-                                <span class="text-xs font-black text-white min-w-[18px] text-center">${qty}</span>
-                                <button onclick="changeQty(${item.id}, 1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">+</button>
-                            </div>
-                            <button onclick="removeItem(${item.id})" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[10px] font-black hover:bg-red-500/20 transition-colors">${escapeHtml(rt("remove"))}</button>
-                        </div>
                     </div>
-                `;
-            }).join("");
-
-            let finalTotal = subtotal;
-            if (typeof currentDiscount !== "undefined" && Number(currentDiscount || 0) > 0) {
-                if (typeof discountType !== "undefined" && discountType === "percent") {
-                    finalTotal = subtotal - (subtotal * (Number(currentDiscount || 0) / 100));
-                } else {
-                    finalTotal = Math.max(0, subtotal - Number(currentDiscount || 0));
-                }
-            }
-
-            totalDisplay.textContent = `TND ${Number(finalTotal || 0).toFixed(3)}`;
-            renderCartInsights();
-            renderBundleDeals();
-            renderSavedPacks();
-        };
-        wrapped.__runtimeWrapped = true;
-        window.renderCart = wrapped;
-    }
-
-    function patchSendOrder() {
-        if (typeof window.sendOrder !== "function") return;
-
-        window.sendOrder = function patchedSendOrder(channel) {
-            if (typeof cart === "undefined" || !Array.isArray(cart) || cart.length === 0) {
-                toast("السلة فارغة.. ابدأ بالحساب!");
-                return;
-            }
-
-            const paymentSelect = document.getElementById("payment-method");
-            const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || "غير محدد";
-            const orderRef = `AX-${Date.now().toString().slice(-8)}`;
-
-            let subtotal = 0;
-            cart.forEach((item) => {
-                subtotal += (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1));
-            });
-
-            let finalTotal = subtotal;
-            if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
-                if (typeof discountType !== "undefined" && discountType === "percent") {
-                    finalTotal = subtotal - (subtotal * (currentDiscount / 100));
-                } else {
-                    finalTotal = Math.max(0, subtotal - currentDiscount);
-                }
-            }
-
-            const message = [buildOrderMessage(cart, paymentLabel, finalTotal, orderRef)]
-                .concat(buildCustomerSummaryLines())
-                .join("\n");
-            const referral = getReferralState();
-            const orderEntry = {
-                id: Date.now(),
-                orderRef,
-                date: new Date().toLocaleString("ar-TN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
-                total: finalTotal,
-                itemsCount: cart.length,
-                items: JSON.parse(JSON.stringify(cart)),
-                status: "pending",
-                paymentMethod: paymentLabel,
-                trackingHint: "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.",
-                adminTracking: "",
-                promoCode: state.activePromoCode || "",
-                customer: getAccountPrefs(),
-                referralCode: referral.code,
-                loyaltyCredit: Math.max(0, Math.round(finalTotal * 0.03))
-            };
-            pushOrderHistory(orderEntry);
-            persistOrderToBackend(orderEntry);
-            pushActivityLog("order", `Placed new order ${orderRef}.`);
-            referral.credits = Number(referral.credits || 0) + Number(orderEntry.loyaltyCredit || 0);
-            saveReferralState(referral);
-
-            if (typeof saveData === "function") saveData();
-            if (typeof window.renderHistory === "function") window.renderHistory();
-            if (state.activePromoCode) {
-                markPromoUsed(state.activePromoCode);
-                state.activePromoCode = "";
-            }
-
-            const encoded = encodeURIComponent(message);
-            const urls = {
-                whatsapp: `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`,
-                messenger: `https://m.me/alexpresstunisie?text=${encoded}`,
-                instagram: `https://ig.me/m/alexpress.tunisie?text=${encoded}`
-            };
-            window.open(urls[channel] || urls.whatsapp, "_blank", "noopener,noreferrer");
-
-            clearCartState();
-            renderVoiceNote();
-            toast("تم تجهيز الطلب وإرساله!");
-        };
-    }
-
-    function patchPromoLogic() {
-        window.applyPromo = applyPromoCode;
-    }
-
-    function renderHistoryCard(order) {
-        const status = order.status || "pending";
-        const statusMap = {
-            pending: { label: "في الانتظار", classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-            processing: { label: "قيد المعالجة", classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
-            shipped: { label: "تم الشحن", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
-            delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
-        };
-        const statusUi = getStatusUi(status);
-        const items = Array.isArray(order.items) ? order.items : [];
-        const trackingText = order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.";
-        const steps = ["pending", "processing", "shipped", "delivered"];
-
-        const itemsHtml = items.map((item) => `
-            <div class="rounded-2xl border border-white/5 bg-black/20 p-3 space-y-1">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="text-[11px] font-black text-white">${escapeHtml(item.name || "منتج")}</div>
-                        <div class="text-[9px] text-slate-400 break-all">${escapeHtml(item.link || "")}</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button id="runtime-manual-quote" type="button" class="py-3 bg-slate-800 border border-slate-700 text-white font-black rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
+                            <i class="fas fa-headset"></i>
+                            <span>اطلب تسعيرة يدوية</span>
+                        </button>
+                        <button id="runtime-quick-order" type="button" class="py-3 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>اطلب توّا على واتساب</span>
+                        </button>
                     </div>
-                    <div class="text-[10px] font-black text-amber-400 shrink-0">${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}</div>
-                </div>
-                <div class="flex flex-wrap gap-2 text-[9px] text-slate-400">
-                    <span>QTE: ${Number(item.qty || 1)}</span>
-                    <span>${Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0)}</span>
-                    ${item.deliveryEstimate ? `<span>${escapeHtml(item.deliveryEstimate)}</span>` : ""}
+                    
+                    <!-- PRO FEATURE: Dual Actions (Cart & Wishlist) -->
+                    <div class="flex gap-2">
+                        <button onclick="addItemToCart()" class="flex-grow py-4 bg-amber-400 text-black font-black rounded-xl hover:bg-amber-500 transition-all flex items-center justify-center gap-2 text-sm shadow-[0_4px_15px_rgba(251,191,36,0.2)]">
+                            <span data-i18n="btn_add_cart">إضافة للسلة</span> <i class="fas fa-cart-plus"></i>
+                        </button>
+                        <button onclick="addItemToWishlist()" title="أضف للمفضلة" class="w-16 flex-shrink-0 py-4 bg-slate-800 border border-slate-700 text-pink-500 font-black rounded-xl hover:bg-slate-700 hover:text-pink-400 transition-all flex items-center justify-center shadow-lg">
+                            <i class="fas fa-heart text-lg"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-        `).join("");
+        </div>
 
-        return `
-            <div class="bg-slate-900/60 rounded-2xl border border-white/5 overflow-hidden">
-                <div class="p-4 flex items-start justify-between gap-4">
-                    <div class="space-y-1 min-w-0">
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <span class="text-[10px] font-black text-slate-500">#${escapeHtml(order.orderRef || String(order.id || ""))}</span>
-                            <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
+        <!-- Tab: Wishlist -->
+        <div id="section-wishlist" class="tab-content space-y-6 md:space-y-8 auto-align">
+            <div class="glass-card p-5 md:p-8 rounded-3xl md:rounded-[40px] max-w-3xl mx-auto shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black text-pink-400 text-center mb-6" data-i18n="wish_title">قائمة الأمنيات ❤️</h2>
+                <p class="text-[10px] text-slate-400 text-center mb-6" data-i18n="wish_desc">المنتجات اللي خبيتها باش تفكر فيها بعدين.</p>
+                <div id="wishlist-items-list" class="space-y-4 mb-8">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: History -->
+        <div id="section-history" class="tab-content space-y-6 md:space-y-8 auto-align">
+            <div class="glass-card p-5 md:p-8 rounded-3xl md:rounded-[40px] max-w-3xl mx-auto shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black text-blue-400 text-center mb-6" data-i18n="hist_title">طلباتي السابقة 📜</h2>
+                <p class="text-[10px] text-slate-400 text-center mb-6" data-i18n="hist_desc">أرشيف الطلبات اللي بعثتهملنا من قبل.</p>
+                <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mb-6">
+                    <input id="runtime-history-search" type="text" placeholder="قلّب بالمرجع، الحالة، أو اسم المنتج..." class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-blue-400">
+                    <select id="runtime-history-status" class="w-full md:w-[190px] bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-blue-400">
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                    </select>
+                </div>
+                <div id="runtime-repeat-orders" class="hidden mb-6 space-y-3"></div>
+                <div id="history-items-list" class="space-y-4 mb-8">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Tracking -->
+        <div id="section-track" class="tab-content space-y-6 md:space-y-8 text-center">
+            <div class="glass-card p-6 md:p-8 rounded-3xl md:rounded-[40px] max-w-2xl mx-auto border-t-2 border-amber-400 shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black mb-4 text-amber-400 text-center uppercase tracking-wider" data-i18n="track_title">تتبع الطرود 📦</h2>
+                <p class="text-slate-400 text-[10px] md:text-xs mb-8" data-i18n="track_desc">أدخل رقم التتبع الخاص بك لرؤية حالة شحنتك.</p>
+                
+                <div data-ptwidget-type="search" data-ptwidget-result-container-id="search-result" class="auto-align">
+                    <input class="search-input" type="text" placeholder="Tracking Number">
+                    <button class="search-btn">TRACK</button>
+                </div>
+                <div id="search-result" class="mt-8 auto-align"></div>
+
+                <div class="mt-8 bg-slate-900/60 p-5 rounded-3xl border border-white/5 space-y-4 auto-align">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-black text-white">تتبع داخلي للطلبات</h3>
+                            <p class="text-[10px] text-slate-500 font-bold">دخل مرجع الطلب متاعك وشوف آخر status وtracking note</p>
                         </div>
-                        <div class="text-[10px] text-slate-400">${escapeHtml(order.date || "")}</div>
-                        <div class="text-[10px] text-blue-300 font-bold">${escapeHtml(trackingText)}</div>
-                        <div class="flex flex-wrap gap-2 pt-2">
-                            ${steps.map((step, index) => {
-                                const active = steps.indexOf(status) >= index;
-                                return `<span class="text-[8px] px-2 py-1 rounded-full border ${active ? "bg-amber-400/10 text-amber-300 border-amber-400/20" : "bg-white/5 text-slate-500 border-white/5"}">${escapeHtml(getStatusUi(step).label)}</span>`;
-                            }).join("")}
-                        </div>
+                        <span class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">AX REF</span>
                     </div>
-                    <div class="text-left rtl:text-left ltr:text-right shrink-0">
-                        <div class="text-sm font-black text-blue-400" dir="ltr">${formatTnd(order.total || 0)}</div>
-                        <div class="text-[9px] text-slate-500 mt-1">${Number(order.itemsCount || items.length || 0)} منتج</div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input id="runtime-track-ref" type="text" placeholder="AX-12345678" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                        <button id="runtime-track-search-btn" type="button" class="bg-amber-400 text-black px-5 py-3 rounded-xl text-xs font-black hover:bg-amber-500 transition-colors">شوف الحالة</button>
+                    </div>
+                    <div id="runtime-track-status-card" class="hidden rounded-2xl border border-white/5 bg-black/20 p-4 space-y-2">
+                        <div class="flex items-center justify-between gap-3">
+                            <div id="runtime-track-status-ref" class="text-xs font-black text-white">AX-00000000</div>
+                            <div id="runtime-track-status-badge" class="text-[10px] px-3 py-1 rounded-full font-black bg-amber-400/10 text-amber-300">Pending</div>
+                        </div>
+                        <div id="runtime-track-status-note" class="text-[10px] text-slate-400 leading-relaxed">---</div>
+                        <div id="runtime-track-status-extra" class="text-[10px] text-blue-300 font-bold"></div>
+                        <div id="runtime-track-timeline" class="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-3 border-t border-white/5"></div>
                     </div>
                 </div>
-                <details class="group/details border-t border-white/5">
+
+                <div class="mt-10 border-t border-white/10 pt-6">
+                    <p class="text-[10px] text-slate-400 mb-3 font-bold" data-i18n="track_post_note">كي يوصل الكولي لتونس تنجم تتبعو في سيت متاع البوسطة:</p>
+                    <a href="https://www.poste.tn/suivi.php" target="_blank" class="w-full py-4 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
+                        <span data-i18n="btn_track_post">تتبع عبر Poste.tn الرسمي</span> <i class="fas fa-external-link-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Panier -->
+        <div id="section-cart" class="tab-content space-y-6 md:space-y-8 auto-align">
+            <div class="glass-card p-5 md:p-8 rounded-3xl md:rounded-[40px] max-w-3xl mx-auto shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black text-amber-400 text-center mb-6" data-i18n="cart_title">سلة المشتريات</h2>
+                <div id="cart-items-list" class="space-y-4 mb-8">
+                    <!-- Populated by JS -->
+                </div>
+                <div id="cart-footer" class="hidden border-t border-white/5 pt-6">
+                    
+                    <!-- PRO FEATURE: Promo Code System -->
+                    <div class="bg-slate-900/40 p-4 rounded-xl border border-white/5 mb-6">
+                        <label class="block text-[10px] font-black text-slate-400 mb-2" data-i18n="lbl_promo">عندك كود برومو؟ 🎟️</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="promo-code" data-i18n-placeholder="plc_promo" placeholder="أدخل الكود هنا..." class="w-full bg-black/60 border border-slate-700 rounded-lg p-2 text-xs text-white focus:border-amber-400 outline-none ltr-input" dir="ltr">
+                            <button onclick="applyPromo()" class="bg-slate-700 text-white px-4 rounded-lg text-[10px] font-bold hover:bg-amber-400 hover:text-black transition-colors" data-i18n="btn_apply_promo">تفعيل</button>
+                        </div>
+                        <div id="promo-message" class="text-[9px] font-bold mt-2 text-green-400 hidden"></div>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-6 rounded-2xl border border-white/5 text-center mb-6 relative overflow-hidden">
+                        <div id="discount-badge" class="hidden absolute top-0 rtl:right-0 ltr:left-0 bg-red-500 text-white px-3 py-1 text-[10px] font-black rtl:rounded-bl-xl ltr:rounded-br-xl shadow-lg" data-i18n="discount_badge">تخفيض مفعل!</div>
+                        <div class="text-[10px] text-slate-400 font-bold mb-1" data-i18n="cart_total_lbl">المبلغ الجملي:</div>
+                        <div id="cart-total-display" class="text-3xl font-black text-amber-400 mb-4 transition-all duration-500" dir="ltr">TND 0.000</div>
+                        
+                        <div class="auto-align border-t border-white/10 pt-5 mt-2">
+                            <label class="block text-[11px] font-black text-slate-300 mb-3 flex items-center gap-2"><i class="fas fa-credit-card text-amber-400"></i> <span data-i18n="lbl_pay_method">اختار وسيلة الدفع اللي تساعدك:</span></label>
+                            <select id="payment-method" class="w-full bg-black/60 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-amber-400 outline-none transition-colors">
+                                <option value="D17" data-i18n="pay_d17">📱 تطبيق D17</option>
+                                <option value="Flouci" data-i18n="pay_flouci">💸 App Flouci</option>
+                                <option value="Poste" data-i18n="pay_poste">📮 حوالة بريدية (Poste)</option>
+                                <option value="Virement" data-i18n="pay_vir">🏦 تحويل بنكي (Virement)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="runtime-cart-insights-card" class="hidden bg-blue-500/5 p-5 rounded-2xl border border-blue-500/20 space-y-4 mb-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Cart Intelligence</div>
+                                <div class="text-[9px] text-slate-500 font-bold">ملخص fees والشحن والـ risk باش تعرف هل cart هذا مناسب للإرسال كيف ما هو</div>
+                            </div>
+                            <span id="runtime-cart-health" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">READY</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-cart-units" class="text-lg font-black text-white">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Units</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-cart-service" class="text-lg font-black text-amber-300" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Service Fees</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-cart-free-ship" class="text-lg font-black text-emerald-300">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Free Ship</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-cart-risk" class="text-lg font-black text-red-300">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Risk Items</div>
+                            </div>
+                        </div>
+                        <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-2 auto-align">
+                            <div id="runtime-cart-eta" class="text-[10px] font-black text-blue-300">ETA: --</div>
+                            <div id="runtime-cart-recommendation" class="text-[10px] text-slate-300 leading-relaxed">أضف منتجات للسلة باش يظهر التقييم الذكي.</div>
+                        </div>
+                    </div>
+                    <div id="runtime-bundle-card" class="hidden bg-fuchsia-500/5 p-5 rounded-2xl border border-fuchsia-500/20 space-y-4 mb-6">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Bundle Deals</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تجميع المنتجات في bundle واحد مع توفير تقريبي وتوصية combo</div>
+                            </div>
+                            <span id="runtime-bundle-badge" class="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-300 text-[10px] font-black">COMBO</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-bundle-savings" class="text-lg font-black text-emerald-300" dir="ltr">0.000 TND</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Estimated Savings</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-bundle-title" class="text-lg font-black text-white">Starter Bundle</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Suggested Bundle</div>
+                            </div>
+                        </div>
+                        <div id="runtime-bundle-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Add at least two items to unlock bundle suggestions.</div>
+                    </div>
+                    <div id="runtime-voice-card" class="hidden bg-slate-900/70 border border-white/5 rounded-2xl p-5 space-y-4 mb-6" style="display:none !important;">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-black text-white">Voice Note Order Support</div>
+                                <div class="text-[9px] text-slate-500 font-bold">سجل note صوتية أو حمّل ملف audio باش تضيف تعليمات على الطلب</div>
+                            </div>
+                            <span id="runtime-voice-status" class="px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black">EMPTY</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <button id="runtime-voice-record" type="button" class="bg-red-500/10 border border-red-500/20 text-red-200 font-black rounded-xl py-3 text-xs hover:bg-red-500/20 transition-colors">Start Recording</button>
+                            <button id="runtime-voice-stop" type="button" class="bg-slate-800 border border-slate-700 text-white font-black rounded-xl py-3 text-xs hover:bg-slate-700 transition-colors">Stop</button>
+                            <input id="runtime-voice-upload" type="file" accept="audio/*" class="w-full bg-black/30 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                        </div>
+                        <audio id="runtime-voice-player" class="hidden w-full" controls></audio>
+                        <div id="runtime-voice-note" class="text-[10px] text-slate-400 font-bold leading-relaxed">No voice note attached yet.</div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                        <button id="runtime-download-quote" type="button" class="bg-slate-900/70 border border-white/5 text-white font-black rounded-xl py-3 text-xs hover:border-amber-400 hover:text-amber-300 transition-colors">
+                            PDF / Quote
+                        </button>
+                        <button id="runtime-export-csv" type="button" class="bg-slate-900/70 border border-white/5 text-white font-black rounded-xl py-3 text-xs hover:border-blue-400 hover:text-blue-300 transition-colors">
+                            Export Orders CSV
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 h-12 md:h-14">
+                        <button onclick="sendOrder('instagram')" class="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white rounded-xl flex items-center justify-center shadow-lg hover:opacity-90"><i class="fab fa-instagram text-lg"></i></button>
+                        <button onclick="sendOrder('messenger')" class="bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-blue-600"><i class="fab fa-facebook-messenger text-lg"></i></button>
+                        <button onclick="sendOrder('whatsapp')" class="col-span-2 bg-green-500 text-white font-black rounded-xl flex items-center justify-center gap-2 shadow-lg hover:bg-green-600"><span data-i18n="btn_send">إرسال</span> <i class="fab fa-whatsapp text-lg"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Safety Check -->
+        <div id="section-check" class="tab-content space-y-8 auto-align">
+            <div class="glass-card p-5 md:p-8 rounded-3xl shadow-2xl">
+                <h2 class="text-xl md:text-2xl font-black mb-6 text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
+                <p class="text-[10px] text-slate-400 mb-6 text-center" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصاً من الديوانة التونسية:</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="banned-list"></div>
+
+                <div class="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                    <div class="flex items-start gap-3">
+                        <span class="text-red-500 mt-1"><i class="fas fa-exclamation-triangle"></i></span>
+                        <p class="text-[9px] text-slate-300 leading-relaxed italic" data-i18n="saf_desc2">
+                            نحن نقوم بدراسة كل طلب على حدة. إذا كان المنتج يتطلب ترخيصاً، سنقوم بإعلامك قبل تأكيد الطلب.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-6 bg-slate-900/80 border border-blue-500/30 rounded-3xl relative overflow-hidden shadow-[0_0_20px_rgba(59,130,246,0.1)] auto-align">
+                    <div class="absolute top-0 rtl:right-0 ltr:left-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+                    <h3 class="text-lg font-black mb-3 pro-text relative z-10 flex items-center gap-2"><i class="fas fa-calculator"></i> <span data-i18n="saf_calc_title">حاسبة الديوانة التقريبية (Poste) 🇹🇳</span></h3>
+                    <p class="text-[10px] text-slate-400 mb-4 relative z-10" data-i18n="saf_calc_desc">اختار نوع المنتج باش نعطيوك فكرة قداش تنجم تخلص عند الاستلام في البوسطة التونسية.</p>
+                    
+                    <div class="grid grid-cols-2 gap-3 mb-4 relative z-10">
+                        <button onclick="estimateCustoms('clothes', this)" class="customs-btn bg-slate-800 border border-slate-700 p-3 rounded-xl text-xs font-bold text-slate-200 hover:border-blue-400 focus:bg-blue-600/20 focus:border-blue-400 transition-all"><span data-i18n="saf_btn_clothes">👕 ملابس وأحذية</span></button>
+                        <button onclick="estimateCustoms('electronics', this)" class="customs-btn bg-slate-800 border border-slate-700 p-3 rounded-xl text-xs font-bold text-slate-200 hover:border-blue-400 focus:bg-blue-600/20 focus:border-blue-400 transition-all"><span data-i18n="saf_btn_elec">🎧 إلكترونيات</span></button>
+                        <button onclick="estimateCustoms('accessories', this)" class="customs-btn bg-slate-800 border border-slate-700 p-3 rounded-xl text-xs font-bold text-slate-200 hover:border-blue-400 focus:bg-blue-600/20 focus:border-blue-400 transition-all"><span data-i18n="saf_btn_acc">⌚ إكسسوارات</span></button>
+                        <button onclick="estimateCustoms('other', this)" class="customs-btn bg-slate-800 border border-slate-700 p-3 rounded-xl text-xs font-bold text-slate-200 hover:border-blue-400 focus:bg-blue-600/20 focus:border-blue-400 transition-all"><span data-i18n="saf_btn_other">📦 أخرى</span></button>
+                    </div>
+                    
+                    <div id="customs-result" class="hidden mt-4 p-4 rounded-xl text-xs leading-relaxed bg-blue-500/10 border border-blue-500/30 text-blue-500 md:text-blue-300 relative z-10 text-center font-bold"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="bg-slate-900/70 border border-red-500/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-red-300 uppercase tracking-[0.25em] mb-3">ممنوع 100%</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>درون و GPS Trackers</div>
+                            <div>Spy Cameras و أجهزة تنصت</div>
+                            <div>Vapes و أسلحة و لوازم صيد</div>
+                            <div>TV Box / Receivers و أجهزة لاسلكية حساسة</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/70 border border-amber-400/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-amber-300 uppercase tracking-[0.25em] mb-3">قد يطلب ترخيص</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>هواتف و بعض الإلكترونيات الحساسة</div>
+                            <div>أجهزة إرسال / استقبال</div>
+                            <div>مكملات غذائية و مواد شبه طبية</div>
+                            <div>منتجات فيها بطاريات كبيرة أو wireless modules</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/70 border border-emerald-500/20 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-emerald-300 uppercase tracking-[0.25em] mb-3">قبل ما تطلب</div>
+                        <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة أو اللي فيها كلمات مخفية</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
+                            <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">وثائق تنجم تنفع</div>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">فاتورة البائع</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">صورة الطلب</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">مواصفات المنتج</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">إثبات التتبع</span>
+                        </div>
+                    </div>
+                    <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
+                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">تنبيه مهم</div>
+                        <p class="text-[11px] text-slate-300 leading-relaxed font-bold">
+                            التقديرات هاذي تقريبية فقط. القرار النهائي يبقى عند الديوانة والبوسطة التونسية حسب نوع المنتج، القيمة المصرح بها، وطريقة الشحن.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Account -->
+        <div id="section-account" class="tab-content space-y-8 auto-align">
+            <div class="account-shell glass-card p-6 md:p-8 rounded-3xl md:rounded-[40px] shadow-2xl border-t-2 border-amber-400">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-400/30 shadow-[0_12px_35px_rgba(251,191,36,0.18)]">
+                        <i class="fas fa-user-circle text-4xl text-amber-400"></i>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black text-white">الحساب الشخصي</h2>
+                    <p class="text-xs text-slate-400 mt-1">واجهة أنظف وأوضح للحساب، البيانات السريعة، ولوحة الإدارة.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                    <div class="account-kpi">
+                        <div class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-black">Cloud ID</div>
+                        <div id="user-uid-display" class="text-xs md:text-sm font-black text-amber-300 break-all mt-2">...</div>
+                    </div>
+                    <div class="account-kpi">
+                        <div class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-black">Sync</div>
+                        <div id="sync-status-text" class="text-xs md:text-sm font-black text-emerald-300 mt-2">متصل بالسحابة</div>
+                    </div>
+                    <div class="account-kpi">
+                        <div class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-black">Summary</div>
+                        <div class="flex items-center gap-2 mt-2 text-xs font-black text-white">
+                            <span id="acc-stat-orders">0</span>
+                            <span class="text-slate-500">طلبات</span>
+                            <span class="text-slate-700">/</span>
+                            <span id="acc-stat-wish">0</span>
+                            <span class="text-slate-500">مفضلة</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <details class="account-panel" data-account-panel="overview" open>
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Overview</div>
+                                <p class="text-[11px] text-slate-500 font-bold">ملخص سريع للحساب والنشاط.</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="account-summary-pill text-emerald-300">READY</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="account-subcard">
+                                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Cloud Identity</div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <code id="user-uid-display-clone" class="text-xs font-black text-amber-300 break-all">يتم التحميل...</code>
+                                        <button onclick="copyUID()" class="text-slate-500 hover:text-white transition-colors shrink-0">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="account-subcard">
+                                    <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Usage</div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rounded-2xl bg-black/20 border border-white/5 p-4 text-center">
+                                            <div class="text-lg font-black text-white" id="acc-stat-fetches">0</div>
+                                            <div class="text-[9px] text-emerald-300 font-black uppercase mt-1">Fetches</div>
+                                        </div>
+                                        <div class="rounded-2xl bg-black/20 border border-white/5 p-4 text-center">
+                                            <div class="text-lg font-black text-white" id="acc-stat-quotes">0</div>
+                                            <div class="text-[9px] text-amber-300 font-black uppercase mt-1">Quotes</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="account-panel" data-account-panel="preferences">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Contact & Preferences</div>
+                                <p class="text-[11px] text-slate-500 font-bold">بياناتك المحفوظة للطلبات والواتساب.</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="account-prefs-status" class="account-summary-pill text-slate-300">غير محفوظة</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+                            <div class="account-subcard">
+                                <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Client Data</div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <input id="account-phone" type="tel" placeholder="رقم الهاتف" class="w-full bg-black/40 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    <input id="account-city" type="text" placeholder="المدينة" class="w-full bg-black/40 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                </div>
+                                <textarea id="account-address" rows="3" placeholder="العنوان أو نقطة الاستلام" class="w-full mt-3 bg-black/40 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400"></textarea>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                    <select id="account-contact-method" class="w-full bg-black/40 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="call">Appel</option>
+                                        <option value="message">SMS</option>
+                                    </select>
+                                    <button id="account-save-prefs" type="button" class="w-full bg-amber-400 text-black font-black rounded-xl py-3 text-xs hover:bg-amber-500 transition-colors shadow-lg">حفظ البيانات</button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="account-panel" data-account-panel="admin">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Admin Studio</div>
+                                <p class="text-[11px] text-slate-500 font-bold">لوحة مختصرة للإدارة، البروموات، والطلبات.</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="admin-unlock-status" class="account-summary-pill text-red-300">Locked</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body space-y-4">
+                            <div class="account-subcard">
+                                <div class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Access</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <input id="admin-pin" type="password" placeholder="PIN admin" class="w-full bg-black/40 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    <button id="admin-unlock-btn" type="button" class="w-full bg-slate-800 border border-slate-700 text-white font-black rounded-xl py-3 text-xs hover:bg-slate-700 transition-colors">فتح اللوحة</button>
+                                    <button id="admin-lock-btn" type="button" class="w-full bg-red-500/10 border border-red-500/30 text-red-200 font-black rounded-xl py-3 text-xs hover:bg-red-500/20 transition-colors">إغلاق</button>
+                                </div>
+                            </div>
+
+                            <div id="runtime-admin-panel" class="hidden space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="account-subcard space-y-3">
+                                        <div class="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em]">Promo Code</div>
+                                        <input id="admin-promo-code" type="text" placeholder="CODE10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <select id="admin-promo-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                                <option value="percent">%</option>
+                                                <option value="fixed">TND</option>
+                                            </select>
+                                            <input id="admin-promo-value" type="number" placeholder="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input id="admin-promo-limit" type="number" placeholder="Usage limit" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                            <input id="admin-promo-expiry" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                        </div>
+                                        <button id="admin-promo-save" type="button" class="w-full bg-amber-400 text-black font-black rounded-xl py-3 text-xs hover:bg-amber-500 transition-colors">حفظ البرومو</button>
+                                    </div>
+
+                                    <div class="account-subcard space-y-3">
+                                        <div class="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Order Status</div>
+                                        <input id="admin-order-ref" type="text" placeholder="AX-12345678" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                        <select id="admin-order-status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                            <option value="pending">قيد المراجعة</option>
+                                            <option value="processing">تم الشراء</option>
+                                            <option value="shipped">في الطريق</option>
+                                            <option value="delivered">تم التسليم</option>
+                                        </select>
+                                        <input id="admin-order-tracking" type="text" placeholder="Tracking / note" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                        <button id="admin-order-update" type="button" class="w-full bg-blue-600 text-white font-black rounded-xl py-3 text-xs hover:bg-blue-500 transition-colors">تحديث الطلب</button>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="account-subcard">
+                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Promos</div>
+                                        <div id="runtime-admin-promos" class="space-y-2"></div>
+                                    </div>
+                                    <div class="account-subcard">
+                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Orders</div>
+                                        <div id="runtime-admin-orders" class="space-y-2"></div>
+                                    </div>
+                                </div>
+
+                                <div class="account-subcard">
+                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Admin Activity</div>
+                                    <div id="runtime-admin-activity" class="space-y-2">
+                                        <div class="text-[10px] text-slate-500 italic">No activity yet.</div>
+                                    </div>
+                                </div>
+
+                                <div class="account-subcard">
+                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Analytics</div>
+                                    <div id="runtime-admin-analytics" class="space-y-3">
+                                        <div class="text-[10px] text-slate-500 italic">Analytics loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-account-legacy" class="hidden space-y-8 auto-align" aria-hidden="true">
+            <div class="account-shell glass-card p-6 md:p-8 rounded-3xl md:rounded-[40px] shadow-2xl border-t-2 border-amber-400">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-amber-400/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-400/30">
+                        <i class="fas fa-user-circle text-4xl text-amber-400"></i>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-black text-white" data-i18n="acc_title">حسابي الشخصي</h2>
+                    <p class="text-xs text-slate-400 mt-1" data-i18n="acc_subtitle">تتم مزامنة بياناتك سحابياً وبأمان.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <details class="account-panel" data-account-panel="overview" open>
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Overview & Sync</div>
+                                <p class="text-[11px] text-slate-500 font-bold">Cloud ID، sync status، وأرقام الحساب الأساسية</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-emerald-300">READY</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body space-y-4">
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5">
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1" data-i18n="acc_id_lbl">معرف الحساب (Cloud ID)</label>
+                        <div class="flex items-center justify-between gap-3">
+                            <code id="user-uid-display" class="text-xs font-bold text-amber-400 break-all">يتم التحميل...</code>
+                            <button onclick="copyUID()" class="text-slate-500 hover:text-white transition-colors shrink-0"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
+                        <div>
+                            <h4 class="text-xs font-black text-white" data-i18n="acc_sync_status">حالة المزامنة</h4>
+                            <p id="sync-status-text" class="text-[10px] text-green-400 font-bold" data-i18n="acc_sync_ok">متصل وبالسحابة ✅</p>
+                        </div>
+                        <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-4">
+                        <div class="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-orders">0</div>
+                            <div class="text-[9px] text-blue-400 font-bold uppercase mt-1" data-i18n="nav_hist">طلباتي</div>
+                        </div>
+                        <div class="bg-pink-500/10 p-4 rounded-2xl border border-pink-500/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-wish">0</div>
+                            <div class="text-[9px] text-pink-400 font-bold uppercase mt-1" data-i18n="nav_wish">المفضلة</div>
+                        </div>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="account-panel" data-account-panel="preferences">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Contact & Preferences</div>
+                                <p class="text-[11px] text-slate-500 font-bold">بيانات الحريف وطريقة التواصل المحفوظة</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="account-prefs-status" class="text-[10px] font-black text-slate-400">غير محفوظة</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">بياناتك السريعة</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">نخزنوهم محليًا باش الطلبات اليدوية وواتساب يوليوا أسرع</p>
+                            </div>
+                            <span class="text-[9px] font-black text-amber-300">CLIENT DATA</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input id="account-phone" type="tel" placeholder="رقم الهاتف" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                            <input id="account-city" type="text" placeholder="المدينة" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                        </div>
+                        <textarea id="account-address" rows="3" placeholder="العنوان أو نقطة الاستلام" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400"></textarea>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <select id="account-contact-method" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="call">Appel</option>
+                                <option value="message">SMS</option>
+                            </select>
+                            <button id="account-save-prefs" type="button" class="w-full bg-amber-400 text-black font-black rounded-xl py-3 text-xs hover:bg-amber-500 transition-colors shadow-lg">حفظ البيانات</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-fetches">0</div>
+                            <div class="text-[9px] text-emerald-400 font-bold uppercase mt-1">Fetches</div>
+                        </div>
+                        <div class="bg-amber-400/10 p-4 rounded-2xl border border-amber-400/20 text-center">
+                            <div class="text-xl font-black text-white" id="acc-stat-quotes">0</div>
+                            <div class="text-[9px] text-amber-400 font-bold uppercase mt-1">Manual Quotes</div>
+                        </div>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="hidden account-panel" data-account-panel="tools">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Client Tools</div>
+                                <p class="text-[11px] text-slate-500 font-bold">profile، packs، alerts، rewards</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-blue-300">TOOLS</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">Customer Profile</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">tags ديناميكية + loyalty points حسب النشاط والطلبات</p>
+                            </div>
+                            <span id="runtime-customer-tier" class="text-[9px] px-3 py-1 rounded-full bg-amber-400/10 text-amber-300 font-black">BRONZE</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-loyalty-points" class="text-xl font-black text-white">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Loyalty Points</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-customer-tag-count" class="text-xl font-black text-white">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Tags</div>
+                            </div>
+                        </div>
+                        <div id="runtime-customer-tags" class="flex flex-wrap gap-2"></div>
+                    </div>
+
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">Saved Packs</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">خزّن carts متاعك كـ packs جاهزة وعاود استعملهم في ثواني</p>
+                            </div>
+                            <span id="runtime-pack-count" class="text-[9px] font-black text-emerald-300">0 packs</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+                            <input id="runtime-pack-name" type="text" placeholder="اسم الـ pack: Gadgets Avril" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400">
+                            <button id="runtime-save-pack" type="button" class="w-full md:w-auto bg-emerald-500 text-white font-black rounded-xl px-5 py-3 text-xs hover:bg-emerald-400 transition-colors shadow-lg">Save Current Cart</button>
+                        </div>
+                        <div id="runtime-saved-packs" class="space-y-3">
+                            <div class="text-[10px] text-slate-500 italic">No saved packs yet.</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">Price-Drop Alerts</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">المنتجات اللي تراقبهم باش نعلموك إذا السعر أو الشحن هبط</p>
+                            </div>
+                            <span id="runtime-alert-count" class="text-[9px] font-black text-amber-300">0 watches</span>
+                        </div>
+                        <div id="runtime-alert-watchlist" class="space-y-3">
+                            <div class="text-[10px] text-slate-500 italic">No alerts yet.</div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">Referral & Rewards</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">code خاص بيك + credits + bonus عند استعمال invitation code</p>
+                            </div>
+                            <span id="runtime-referral-tier" class="text-[9px] font-black text-emerald-300">Starter</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-referral-code" class="text-lg font-black text-white" dir="ltr">ALEX-0000</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">My Code</div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
+                                <div id="runtime-referral-credits" class="text-lg font-black text-amber-300">0</div>
+                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Credits</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3">
+                            <input id="runtime-referral-input" type="text" placeholder="Apply referral code" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400 ltr-input" dir="ltr">
+                            <button id="runtime-referral-apply" type="button" class="w-full md:w-auto bg-emerald-500 text-white font-black rounded-xl px-5 py-3 text-xs hover:bg-emerald-400 transition-colors">Apply</button>
+                            <button id="runtime-referral-copy" type="button" class="w-full md:w-auto bg-slate-800 border border-slate-700 text-white font-black rounded-xl px-5 py-3 text-xs hover:bg-slate-700 transition-colors">Copy</button>
+                        </div>
+                        <div id="runtime-referral-note" class="text-[10px] text-slate-400 font-bold leading-relaxed">Share your code to grow your rewards balance.</div>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="hidden account-panel" data-account-panel="notifications">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Notification Center</div>
+                                <p class="text-[11px] text-slate-500 font-bold">آخر التحديثات متاع الطلبات، البروموات، والنشاط العام</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black text-amber-300">LIVE</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">Notification Center</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">آخر التحديثات متاع الطلبات، البروموات، والنشاط العام</p>
+                            </div>
+                            <span class="text-[9px] font-black text-amber-300">LIVE</span>
+                        </div>
+                        <div id="runtime-notifications" class="space-y-2">
+                            <div class="text-[10px] text-slate-500 italic">Loading notifications...</div>
+                        </div>
+                    </div>
+                        </div>
+                    </details>
+
+                    <details class="account-panel" data-account-panel="admin">
+                        <summary class="account-panel-summary">
+                            <div class="space-y-1">
+                                <div class="text-sm font-black text-white">Admin Studio</div>
+                                <p class="text-[11px] text-slate-500 font-bold">المساحة الإدارية تبقى مغلقة حتى تتفتح بالـ PIN</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="admin-unlock-status" class="text-[10px] font-black text-red-300">Locked</span>
+                                <i class="fas fa-chevron-down account-chevron text-slate-500"></i>
+                            </div>
+                        </summary>
+                        <div class="account-panel-body">
+
+                    <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/5 space-y-4">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="text-xs font-black text-white">لوحة الإدارة السريعة</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">إدارة promo codes وstatuses متاع الطلبات من نفس الواجهة</p>
+                            </div>
+                            <span class="text-[9px] font-black text-amber-300">ADMIN</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <input id="admin-pin" type="password" placeholder="PIN admin" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                            <button id="admin-unlock-btn" type="button" class="w-full bg-slate-800 border border-slate-700 text-white font-black rounded-xl py-3 text-xs hover:bg-slate-700 transition-colors">فتح اللوحة</button>
+                            <button id="admin-lock-btn" type="button" class="w-full bg-red-500/10 border border-red-500/30 text-red-200 font-black rounded-xl py-3 text-xs hover:bg-red-500/20 transition-colors">إغلاق</button>
+                        </div>
+                        <div id="runtime-admin-panel" class="hidden space-y-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                    <div class="text-[10px] font-black text-amber-400">إضافة promo code</div>
+                                    <input id="admin-promo-code" type="text" placeholder="CODE10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <select id="admin-promo-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                            <option value="percent">%</option>
+                                            <option value="fixed">TND</option>
+                                        </select>
+                                        <input id="admin-promo-value" type="number" placeholder="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <input id="admin-promo-limit" type="number" placeholder="Usage limit" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                        <input id="admin-promo-expiry" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    </div>
+                                    <button id="admin-promo-save" type="button" class="w-full bg-amber-400 text-black font-black rounded-xl py-3 text-xs hover:bg-amber-500 transition-colors">حفظ البرومو</button>
+                                </div>
+                                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                    <div class="text-[10px] font-black text-blue-300">تحديث حالة طلب</div>
+                                    <input id="admin-order-ref" type="text" placeholder="AX-12345678" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
+                                    <select id="admin-order-status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                        <option value="pending">قيد المراجعة</option>
+                                        <option value="processing">تم الشراء</option>
+                                        <option value="shipped">في الطريق</option>
+                                        <option value="delivered">تم التسليم</option>
+                                    </select>
+                                    <input id="admin-order-tracking" type="text" placeholder="Tracking / note" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
+                                    <button id="admin-order-update" type="button" class="w-full bg-blue-600 text-white font-black rounded-xl py-3 text-xs hover:bg-blue-500 transition-colors">تحديث الطلب</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                    <div class="text-[10px] font-black text-white">Promo codes الحالية</div>
+                                    <div id="runtime-admin-promos" class="space-y-2"></div>
+                                </div>
+                                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                    <div class="text-[10px] font-black text-white">آخر الطلبات القابلة للتحديث</div>
+                                    <div id="runtime-admin-orders" class="space-y-2"></div>
+                                </div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                <div class="text-[10px] font-black text-white">Admin Activity Log</div>
+                                <div id="runtime-admin-activity" class="space-y-2">
+                                    <div class="text-[10px] text-slate-500 italic">No activity yet.</div>
+                                </div>
+                            </div>
+                            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                                <div class="text-[10px] font-black text-white">Admin Analytics Dashboard</div>
+                                <div id="runtime-admin-analytics" class="space-y-3">
+                                    <div class="text-[10px] text-slate-500 italic">Analytics loading...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+                    <!-- PRO FEATURE: Level & Rank System (VIP Card Design) -->
+                    <div id="vip-card-container" class="vip-level-shell p-5 md:p-6 mt-6 transition-all duration-500">
+                        <div id="vip-glow" class="absolute -top-10 -right-10 w-32 h-32 md:-top-20 md:-right-20 md:w-40 md:h-40 rounded-full blur-[40px] md:blur-[50px] opacity-20 transition-all duration-1000"></div>
+
+                        <div class="vip-level-grid">
+                            <div class="min-w-0">
+                                <div class="vip-meta-row">
+                                    <span class="vip-tier-chip">
+                                        <span data-i18n="lvl_title">مستوى الحساب</span>
+                                    </span>
+                                    <span id="user-level-number" class="vip-tier-chip">Lvl 1</span>
+                                </div>
+
+                                <div class="flex items-end justify-between gap-3 flex-wrap">
+                                    <div class="min-w-0">
+                                        <h3 id="user-level-name" class="text-2xl md:text-3xl font-black text-white tracking-tight uppercase transition-colors duration-500">BRONZE</h3>
+                                        <p id="vip-perk-text" class="text-[10px] md:text-xs text-slate-400 mt-2 font-bold transition-colors duration-500">جمع النقاط لفتح مزايا VIP</p>
+                                    </div>
+                                    <div class="vip-xp-pill shrink-0" dir="ltr">
+                                        <span id="user-xp-current" class="text-lg md:text-xl font-black text-white">0</span>
+                                        <span id="user-xp-next" class="text-[10px] md:text-xs text-slate-500 font-bold">/ 500 XP</span>
+                                    </div>
+                                </div>
+
+                                <div class="vip-progress-shell">
+                                    <div class="vip-progress-top">
+                                        <span class="vip-progress-note">XP PROGRESS</span>
+                                        <span id="vip-progress-caption" class="text-[10px] md:text-xs font-black text-slate-400">LEVEL JOURNEY</span>
+                                    </div>
+                                    <div class="w-full h-3.5 md:h-4 bg-black/60 rounded-full overflow-hidden border border-white/5 shadow-inner relative">
+                                        <div id="user-level-progress" class="h-full rounded-full transition-all duration-1000 w-0 relative overflow-hidden bg-slate-500">
+                                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-[200%] animate-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="vip-side-mark">
+                                <div id="vip-icon-wrapper" class="relative w-16 h-16 md:w-20 md:h-20 mx-auto flex items-center justify-center rounded-full bg-black/50 border-2 border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)] transition-all duration-500">
+                                    <div id="vip-icon-glow" class="absolute inset-0 rounded-full animate-ping opacity-20"></div>
+                                    <i id="vip-icon" class="fas fa-medal text-2xl md:text-3xl text-slate-400 transition-colors duration-500"></i>
+                                </div>
+                                <div class="vip-side-mark-label">ACCOUNT TIER</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 p-4 bg-amber-400/5 border border-amber-400/10 rounded-2xl">
+                        <p class="text-[10px] text-slate-400 leading-relaxed text-center italic" data-i18n="acc_note">
+                            * هذا الحساب مرتبط بجهازك حالياً. يمكنك استرجاع بياناتك في أي وقت باستخدام المعرف الخاص بك.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Proof Notification -->
+        <div id="social-proof" class="fixed bottom-24 rtl:right-5 ltr:left-5 bg-slate-900/95 backdrop-blur-md border border-amber-400/20 p-3 rounded-2xl shadow-[0_10px_40px_rgba(251,191,36,0.15)] z-[150] flex items-center gap-3 transition-all duration-500 translate-y-20 opacity-0 pointer-events-none auto-align">
+            <div class="bg-green-500/20 text-green-400 w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-inner">
+                <i class="fas fa-shopping-bag text-xs"></i>
+            </div>
+            <div>
+                <p class="text-[10px] text-slate-300 font-bold mb-0.5" id="sp-name">أحمد من سوسة</p>
+                <p class="text-[9px] text-amber-400 font-black" id="sp-action">شرا Smartwatch ⌚</p>
+                <p class="text-[8px] text-slate-500 mt-0.5" id="sp-time">منذ 5 دقائق</p>
+            </div>
+        </div>
+
+    </main>
+
+    <div class="sticky-mobile-bar">
+        <div class="glass-card rounded-3xl border border-white/10 px-3 py-3 flex items-center justify-between gap-2 shadow-[0_12px_35px_rgba(0,0,0,0.4)]">
+            <button onclick="switchTab('calc')" class="flex-1 py-3 rounded-2xl bg-amber-400 text-black text-[10px] font-black">الحاسبة</button>
+            <a href="https://wa.me/21627498276" target="_blank" rel="noopener noreferrer" class="flex-1 py-3 rounded-2xl bg-green-500 text-white text-[10px] font-black text-center">واتساب</a>
+            <button onclick="switchTab('cart')" class="flex-1 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white text-[10px] font-black">السلة</button>
+        </div>
+    </div>
+
+    <footer class="p-8 border-t border-white/5 glass-card mt-auto">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="text-center md:text-right auto-align">
+                <h4 class="font-black text-amber-400 mb-2 uppercase">Alexpress Tunisie</h4>
+                <p class="text-[9px] text-slate-500 max-w-xs leading-relaxed uppercase" data-i18n="footer_desc">وسيطكم الأول والمضمون للتسوق من الصين في تونس بأقل التكاليف.</p>
+            </div>
+            
+            <div class="flex gap-4">
+                <a href="https://wa.me/21627498276" target="_blank" class="social-icon-btn w-10 h-10 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center"><i class="fab fa-whatsapp"></i></a>
+                <a href="https://www.facebook.com/alexpresstunisie" target="_blank" class="social-icon-btn w-10 h-10 bg-blue-500/10 text-blue-500 rounded-full flex items-center justify-center"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://www.instagram.com/alexpress.tunisie" target="_blank" class="social-icon-btn w-10 h-10 bg-pink-500/10 text-pink-500 rounded-full flex items-center justify-center"><i class="fab fa-instagram"></i></a>
+                <a href="https://www.tiktok.com/@alexpress.tunisie" target="_blank" class="social-icon-btn w-10 h-10 bg-black/20 text-white rounded-full flex items-center justify-center"><i class="fab fa-tiktok"></i></a>
+            </div>
+
+            <div class="text-center md:text-left rtl:text-left ltr:text-right">
+                <p class="text-[8px] text-slate-600 font-black tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. جميع الحقوق محفوظة.</p>
+                <div class="text-[10px] font-bold flex items-center justify-center md:justify-start gap-2 flex-wrap">
+                    <span class="footer-love">
+                        معمول بحب
+                        <span class="footer-love-heart">❤</span>
+                    </span>
+                    <a href="https://www.facebook.com/MR.Besssem" target="_blank" class="text-amber-400 hover:text-white transition-colors">BESSEM BAATOUR</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<script>
+    // --- MULTILANGUAGE ENGINE (i18n) ---
+    const i18n = {
+        ar: {
+            "nav_guide": "الدليل", "nav_calc": "الحاسبة", "nav_cart": "السلة", "nav_wish": "المفضلة", "nav_track": "التتبع", "nav_check": "الأمان", "nav_hist": "طلباتي", "nav_acc": "الحساب",
+            "hero_title_1": "كيفاش تشري", "hero_title_2": "من AliExpress؟", "hero_desc": "دليلك الكامل باش قضيتك توصلك لباب دارك في تونس مريغلة، بكل أمان وشفافية.", "hero_btn": "ابدا احسب قضيتك من هنا",
+            "trust_1": "أمان كامل", "trust_2": "شحن سريع", "trust_3": "دعم 24/7", "trust_4": "خدمة مضمونة",
+            "step1_title": "لوّج في AliExpress", "step1_desc": "حل تطبيق AliExpress واختار السلعة اللي حاجتك بيها.",
+            "step2_title": "انسخ الرابط", "step2_desc": "اضغط على زر المشاركة واعمل نسخ للرابط.",
+            "step3_title": "احسب وزيد للسلة", "step3_desc": "حط الرابط والسعر بالدولار في الحاسبة.",
+            "step4_title": "أرسل الطلب", "step4_desc": "ثبت واختار الطريقة اللي تحب تبعثلنا بيها الطلب.",
+            "pay_title": "طرق الدفع المتاحة",
+            "faq_title": "أسئلة شائعة", "faq_q1": "قداش وقت باش توصل السلعة؟", "faq_a1": "تاخذ عادةً بين 15 و 45 يوم عمل حسب نوع الشحن المختار.", "faq_q2": "كيفاش نخلص بالدينار؟", "faq_a2": "تخلصنا عبر D17 أو Mandat بـ TND واحنا نخلصوا للمزود بالعملة الصعبة.", "faq_q3": "فما ضمان (Garantie)؟", "faq_a3": "نضمنولك وصول المنتج أو استرجاع أموالك إذا صار مشكل من طرفنا.", "faq_q4": "قداش نخلص في البوسطة؟", "faq_a4": "تدفع معلوم بسيط (بين 4 و 15د) للموظف عند استلام طردك.",
+            "transp_title": "شفافية كاملة في الأسعار", "transp_desc": "في Alexpress Tunisie، ما فماش أسوام مخبية. السعر اللي يظهرلك هو اللي تخلصو.", "transp_1": "سعر السلعة في AliExpress + الشحن الدولي", "transp_2": "عمولة الخدمة ومصاريف البنك", "transp_3": "معلوم البريد عند الاستلام (إن وُجد)", "transp_btn": "امشي للحاسبة وجرب وحدك",
+            "calc_rate": "سعر الصرف اليوم:", "calc_guide_btn": "أول مرة تشري؟ اقرا الدليل", "calc_title": "الحاسبة الذكية", "banned_err": "عذراً، هذا المنتج ممنوع استيراده في تونس.",
+            "lbl_link": "رابط AliExpress", "plc_link": "https://aliexpress.com/item/...", "lbl_name": "اسم المنتج", "plc_name": "مثال: Cable USB Type C", "btn_format": "ترتيب الاسم", "lbl_spec": "المواصفات (لون، مقاس...)", "plc_spec": "مثال Bleu 1.5m", "lbl_img": "صورة المنتج (Capture)", "lbl_price": "السعر ($)", "lbl_ship": "الشحن ($)", "btn_add_cart": "إضافة للسلة",
+            "wish_title": "قائمة الأمنيات ❤️", "wish_desc": "المنتجات اللي خبيتها باش تفكر فيها بعدين.", "wish_empty": "قائمتك فارغة..", "wish_move_cart": "حط في السلة 🛒",
+            "hist_title": "طلباتي السابقة 📜", "hist_desc": "أرشيف الطلبات اللي بعثتهملنا من قبل.", "hist_empty": "مازلت ما عملت حتى طلبية..", "hist_items": "منتجات",
+            "acc_title": "حسابي الشخصي", "acc_subtitle": "تتم مزامنة بياناتك سحابياً وبأمان.", "acc_id_lbl": "معرف الحساب (Cloud ID)", "acc_sync_status": "حالة المزامنة", "acc_sync_ok": "متصل وبالسحابة ✅", "acc_note": "* هذا الحساب مرتبط بجهازك حالياً. يمكنك استرجاع بياناتك في أي وقت باستخدام المعرف الخاص بك.",
+            "lvl_title": "مستوى الحساب", "lvl_bronze": "برونزي", "lvl_silver": "فضي", "lvl_gold": "ذهبي", "lvl_plat": "بلاتيني", "lvl_dia": "ماسي",
+            "perk_bronze": "مرحباً بك! اجمع النقاط لترتقي 🚀", "perk_silver": "متسوق نشط! استمر هكذا 🌟", "perk_gold": "زبون مميز! معاملة ذهبية ✨", "perk_plat": "VIP! أولوية وتجهيز سريع 💎", "perk_dia": "أسطورة! أعلى مستوى في التطبيق 🏆",
+            "track_title": "تتبع الطرود 📦", "track_desc": "أدخل رقم التتبع الخاص بك لرؤية حالة شحنتك.", "track_post_note": "كي يوصل الكولي لتونس تنجم تتبعو في سيت متاع البوسطة:", "btn_track_post": "تتبع عبر Poste.tn الرسمي",
+            "cart_title": "سلة المشتريات", "cart_empty": "السلة فارغة.. ابدأ بالحساب!", "lbl_promo": "عندك كود برومو؟ 🎟️", "plc_promo": "أدخل الكود هنا...", "btn_apply_promo": "تفعيل", "discount_badge": "تخفيض مفعل!", "cart_total_lbl": "المبلغ الجملي:", "lbl_pay_method": "اختار وسيلة الدفع اللي تساعدك:", "btn_send": "إرسال",
+            "cart_spec": "مواصفات", "cart_img": "صورة مرفقة", "cart_prod_link": "رابط المنتج", "pay_d17": "📱 تطبيق D17", "pay_flouci": "💸 App Flouci", "pay_poste": "📮 حوالة بريدية (Poste)", "pay_vir": "🏦 تحويل بنكي (Virement)",
+            "saf_title": "الأمان والديوانة ⚠️", "saf_desc1": "أهم المواد الممنوعة أو التي تتطلب ترخيصاً من الديوانة التونسية:", "saf_desc2": "نحن نقوم بدراسة كل طلب على حدة. إذا كان المنتج يتطلب ترخيصاً، سنقوم بإعلامك قبل تأكيد الطلب.", "saf_calc_title": "حاسبة الديوانة التقريبية (Poste) 🇹🇳", "saf_calc_desc": "اختار نوع المنتج باش نعطيوك فكرة قداش تنجم تخلص عند الاستلام في البوسطة التونسية.",
+            "saf_btn_clothes": "👕 ملابس وأحذية", "saf_btn_elec": "🎧 إلكترونيات", "saf_btn_acc": "⌚ إكسسوارات", "saf_btn_other": "📦 أخرى", "cust_est": "تقدير الديوانة (البوسطة):", "cust_note": "*هذا مجرد تقدير تقريبي، الديوانة هي التي تحدد السعر النهائي عند الاستلام.",
+            "cust_clothes": "بين 4 و 20 دينار (حسب الوزن)", "cust_elec": "بين 10 و 50 دينار (حسب القيمة)", "cust_acc": "بين 4 و 10 دينار", "cust_other": "بين 4 و 15 دينار",
+            "ban_drone": "درون / طائرات سير", "ban_phone": "هواتف جوالة", "ban_spy": "كاميرات تجسس", "ban_gps": "أجهزة تتبع GPS", "ban_vape": "سجائر إلكترونية", "ban_tv": "ريسيفرات / Box TV", "ban_radio": "أجهزة لاسلكية", "ban_weapon": "أسلحة / صيد", "ban_med": "مكملات غذائية",
+            "stat_ban100": "ممنوع 100%", "stat_cert": "ترخيص CERT", "stat_ban": "ممنوع", "stat_lic": "ترخيص",
+            "footer_desc": "وسيطكم الأول والمضمون للتسوق من الصين في تونس بأقل التكاليف.",
+            "toast_theme_light": "تم تفعيل الوضع الفاتح ☀️", "toast_theme_dark": "تم تفعيل الوضع الداكن 🌙", "toast_install": "للتثبيت: اضغط على 'Add to Home Screen' من إعدادات المتصفح📱", "toast_promo_ok": "مبروك! تم تفعيل كود الخصم 🥳", "toast_promo_err": "⚠️ الكود غالط أو انتهت صلوحيته", "toast_name_req": "⚠️ اكتب اسم المنتج قبل ما ترتبو!", "toast_name_fmt": "تم ترتيب الاسم بنجاح! ✨", "toast_link_req": "⚠️ الرجاء إدخال رابط صحيح من موقع AliExpress.", "toast_price_req": "⚠️ خويا دخل السعر متاع المنتج!", "toast_cart_add": "تمت الإضافة للسلة بنجاح! 🛒", "toast_wish_add": "تم الحفظ في قائمة الأمنيات ❤️", "toast_wish_cart": "حطيناه في السلة! 🛒", "confirm_remove": "تحب تنحي المنتج هذا من السلة؟", "toast_copy": "تم نسخ المعرف! 📋",
+            "chart_prod": "المنتج", "chart_com": "العمولة", "chart_post": "البوسطة",
+            
+            // New I18n for Order Status
+            "status_pending": "قيد المراجعة ⏳", "status_proc": "تم الشراء 🛒", "status_ship": "في الطريق ✈️", "status_deliv": "تم التسليم ✅",
+            "view_details": "عرض تفاصيل الطلب", "qty": "الكمية:", "specs": "مواصفات:", "pay_method_used": "طريقة الدفع:", "prod_link": "رابط المنتج", "old_order": "طلب قديم (لا توجد تفاصيل متاحة)"
+        },
+        fr: {
+            "nav_guide": "Guide", "nav_calc": "Calculatrice", "nav_cart": "Panier", "nav_wish": "Favoris", "nav_track": "Suivi", "nav_check": "Sécurité", "nav_hist": "Commandes", "nav_acc": "Compte",
+            "hero_title_1": "Comment acheter", "hero_title_2": "sur AliExpress ?", "hero_desc": "Votre guide complet pour recevoir vos commandes chez vous en Tunisie, en toute sécurité et transparence.", "hero_btn": "Commandez à calculer ici",
+            "trust_1": "Sécurité totale", "trust_2": "Expédition rapide", "trust_3": "Support 24/7", "trust_4": "Service garanti",
+            "step1_title": "Cherchez sur AliExpress", "step1_desc": "Ouvrez l'application AliExpress et choisissez le produit.",
+            "step2_title": "Copiez le lien", "step2_desc": "Cliquez sur le bouton de partage et copiez le lien.",
+            "step3_title": "Calculez et ajoutez", "step3_desc": "Mettez le lien et le prix en dollars dans la calculatrice.",
+            "step4_title": "Envoyez la commande", "step4_desc": "Vérifiez et choisissez la méthode d'envoi de la commande.",
+            "pay_title": "Méthodes de paiement disponibles",
+            "faq_title": "Questions fréquentes", "faq_q1": "Combien de temps pour la livraison ?", "faq_a1": "Généralement entre 15 et 45 jours ouvrables selon la méthode d'expédition.", "faq_q2": "Comment payer en Dinars ?", "faq_a2": "Payez via D17 ou Mandat en TND et nous payons le fournisseur en devises.", "faq_q3": "Y a-t-il une garantie ?", "faq_a3": "Nous garantissons l'arrivée du produit ou votre remboursement en cas de problème de notre part.", "faq_q4": "Combien payer à la Poste ?", "faq_a4": "Vous payez une petite taxe (entre 4 et 15 TND) à l'agent lors de la réception du colis.",
+            "transp_title": "Transparence totale des prix", "transp_desc": "Chez Alexpress Tunisie, pas de frais cachés. Le prix affiché est celui que vous payez.", "transp_1": "Prix de l'article sur AliExpress + Expédition internationale", "transp_2": "Frais de service et bancaires", "transp_3": "Frais postaux à la réception (le cas échéant)", "transp_btn": "Allez à la calculatrice et essayez",
+            "calc_rate": "Taux de change d'aujourd'hui :", "calc_guide_btn": "Première fois ? Lisez le guide", "calc_title": "Calculatrice Intelligente", "banned_err": "Désolé, l'importation de ce produit est interdite en Tunisie.",
+            "lbl_link": "Lien AliExpress", "plc_link": "https://aliexpress.com/item/...", "lbl_name": "Nom du produit", "plc_name": "Ex: Câble USB Type C", "btn_format": "Formater le nom", "lbl_spec": "Spécifications (couleur, taille...)", "plc_spec": "Ex: Bleu 1.5m", "lbl_img": "Image du produit (Capture)", "lbl_price": "Prix ($)", "lbl_ship": "Expédition ($)", "btn_add_cart": "Ajouter au panier",
+            "wish_title": "Liste de souhaits ❤️", "wish_desc": "Les produits que vous avez gardés pour y réfléchir plus tard.", "wish_empty": "Votre liste est vide..", "wish_move_cart": "Mettre dans le panier 🛒",
+            "hist_title": "Mes commandes précédentes 📜", "hist_desc": "Archive des commandes que vous nous avez envoyées auparavant.", "hist_empty": "Vous n'avez pas encore passé de commande..", "hist_items": "produits",
+            "acc_title": "Mon Compte", "acc_subtitle": "Vos données sont synchronisées en toute sécurité dans le cloud.", "acc_id_lbl": "ID du Compte (Cloud ID)", "acc_sync_status": "Statut de synchronisation", "acc_sync_ok": "Connecté au Cloud ✅", "acc_note": "* Ce compte est actuellement lié à votre appareil. Vous pouvez récupérer vos données à tout moment via votre ID.",
+            "lvl_title": "Niveau du compte", "lvl_bronze": "Bronze", "lvl_silver": "Argent", "lvl_gold": "Or", "lvl_plat": "Platine", "lvl_dia": "Diamant",
+            "perk_bronze": "Bienvenue ! Cumulez des XP 🚀", "perk_silver": "Acheteur actif ! Continuez 🌟", "perk_gold": "Client Privilège ! Traitement VIP ✨", "perk_plat": "VIP ! Priorité absolue 💎", "perk_dia": "Légende ! Le plus haut niveau 🏆",
+            "track_title": "Suivi des Colis 📦", "track_desc": "Entrez votre numéro de suivi pour voir l'état de votre expédition.", "track_post_note": "Une fois le colis arrivé en Tunisie, vous pouvez le suivre sur le site de la Poste :", "btn_track_post": "Suivre via Poste.tn officiel",
+            "cart_title": "Panier", "cart_empty": "Le panier est vide.. Commencez par calculer !", "lbl_promo": "Avez-vous un code promo ? 🎟️", "plc_promo": "Entrez le code ici...", "btn_apply_promo": "Activer", "discount_badge": "Réduction activée !", "cart_total_lbl": "Montant total :", "lbl_pay_method": "Choisissez le moyen de paiement :", "btn_send": "Envoyer",
+            "cart_spec": "Spécifications :", "cart_img": "Image jointe", "cart_prod_link": "Lien du produit", "pay_d17": "📱 Application D17", "pay_flouci": "💸 App Flouci", "pay_poste": "📮 Mandat postal (Poste)", "pay_vir": "🏦 Virement bancaire",
+            "saf_title": "Sécurité et Douane ⚠️", "saf_desc1": "Principaux articles interdits ou nécessitant une autorisation de la douane tunisienne :", "saf_desc2": "Nous étudions chaque commande individuellement. Si le produit nécessite une autorisation, nous vous informerons avant de confirmer la commande.", "saf_calc_title": "Calculatrice Douanière Approx. (Poste) 🇹🇳", "saf_calc_desc": "Choisissez le type de produit pour avoir une idée de ce que vous pourriez payer à la réception (Poste tunisienne).",
+            "saf_btn_clothes": "👕 Vêtements et chaussures", "saf_btn_elec": "🎧 Électronique", "saf_btn_acc": "⌚ Accessoires", "saf_btn_other": "📦 Autres", "cust_est": "Estimation Douane (Poste) :", "cust_note": "*Ceci est une estimation approximative, la douane détermine le prix final à la réception.",
+            "cust_clothes": "Entre 4 et 20 TND (selon le poids)", "cust_elec": "Entre 10 et 50 TND (selon la valeur)", "cust_acc": "Entre 4 et 10 TND", "cust_other": "Entre 4 et 15 TND",
+            "ban_drone": "Drones", "ban_phone": "Smartphones", "ban_spy": "Caméras espion", "ban_gps": "Traceurs GPS", "ban_vape": "Cigarettes électroniques", "ban_tv": "Récepteurs / Box TV", "ban_radio": "Appareils sans fil", "ban_weapon": "Armes / Chasse", "ban_med": "Compléments alimentaires",
+            "stat_ban100": "100% Interdit", "stat_cert": "Autorisation CERT", "stat_ban": "Interdit", "stat_lic": "Autorisation requise",
+            "footer_desc": "Votre premier intermédiaire garanti pour faire des achats en Chine vers la Tunisie à moindre coût.",
+            "toast_theme_light": "Le mode clair a été activé ☀️", "toast_theme_dark": "Le mode sombre a été activé 🌙", "toast_install": "Pour installer : Appuyez sur 'Ajouter à l'écran d'accueil' 📱", "toast_promo_ok": "Félicitations ! Réduction activée 🥳", "toast_promo_err": "⚠️ Le code est incorrect ou a expiré", "toast_name_req": "⚠️ Tapez le nom du produit avant de le formater !", "toast_name_fmt": "Le nom a été formaté avec succès ! ✨", "toast_link_req": "⚠️ Veuillez entrer un lien AliExpress valide.", "toast_price_req": "⚠️ Veuillez entrer le prix du produit !", "toast_cart_add": "Ajouté au panier avec succès ! 🛒", "toast_wish_add": "Sauvegardé dans la liste de souhaits ❤️", "toast_wish_cart": "Nous l'avons mis dans le panier ! 🛒", "confirm_remove": "Voulez-vous retirer ce produit du panier ?", "toast_copy": "Identifiant copié ! 📋",
+            "chart_prod": "Produit", "chart_com": "Commission", "chart_post": "La Poste",
+            
+            "status_pending": "En cours ⏳", "status_proc": "Acheté 🛒", "status_ship": "En route ✈️", "status_deliv": "Livré ✅",
+            "view_details": "Voir les détails", "qty": "Qté :", "specs": "Spécifications :", "pay_method_used": "Méthode de paiement :", "prod_link": "Lien du produit", "old_order": "Ancienne commande (Pas de détails disponibles)"
+        },
+        en: {
+            "nav_guide": "Guide", "nav_calc": "Calculator", "nav_cart": "Cart", "nav_wish": "Wishlist", "nav_track": "Tracking", "nav_check": "Safety", "nav_hist": "Orders", "nav_acc": "Account",
+            "hero_title_1": "How to buy from", "hero_title_2": "AliExpress?", "hero_desc": "Your complete guide to getting your items delivered to your door in Tunisia safely and transparently.", "hero_btn": "Start calculating here",
+            "trust_1": "Full Security", "trust_2": "Fast Shipping", "trust_3": "24/7 Support", "trust_4": "Guaranteed Service",
+            "step1_title": "Search on AliExpress", "step1_desc": "Open the AliExpress app and select the item you want.",
+            "step2_title": "Copy the link", "step2_desc": "Click the share button and copy the link.",
+            "step3_title": "Calculate and add", "step3_desc": "Put the link and the price in dollars in the calculator.",
+            "step4_title": "Send the order", "step4_desc": "Review and choose how you want to send us the order.",
+            "pay_title": "Available Payment Methods",
+            "faq_title": "Frequently Asked Questions", "faq_q1": "How long will the item take to arrive?", "faq_a1": "It usually takes between 15 and 45 business days depending on the chosen shipping method.", "faq_q2": "How do I pay in Dinars?", "faq_a2": "You pay us via D17 or Mandat in TND and we pay the supplier in foreign currency.", "faq_q3": "Is there a guarantee?", "faq_a3": "We guarantee the arrival of the product or your money back if a problem occurs on our end.", "faq_q4": "How much do I pay at the Post Office?", "faq_a4": "You pay a small fee (between 4 and 15 TND) to the employee upon receiving your package.",
+            "transp_title": "Full Price Transparency", "transp_desc": "At Alexpress Tunisie, there are no hidden prices. The price you see is what you pay.", "transp_1": "Item price on AliExpress + International shipping", "transp_2": "Service and bank fees", "transp_3": "Postal fee upon receipt (if any)", "transp_btn": "Go to the calculator and try it yourself",
+            "calc_rate": "Today's exchange rate:", "calc_guide_btn": "First time buying? Read the guide", "calc_title": "Smart Calculator", "banned_err": "Sorry, importing this product is prohibited in Tunisia.",
+            "lbl_link": "AliExpress Link", "plc_link": "https://aliexpress.com/item/...", "lbl_name": "Product Name", "plc_name": "Example: USB Type C Cable", "btn_format": "Format Name", "lbl_spec": "Specifications (color, size...)", "plc_spec": "Example: Blue 1.5m", "lbl_img": "Product Image (Screenshot)", "lbl_price": "Price ($)", "lbl_ship": "Shipping ($)", "btn_add_cart": "Add to Cart",
+            "wish_title": "Wishlist ❤️", "wish_desc": "Products you've saved to think about later.", "wish_empty": "Your list is empty..", "wish_move_cart": "Move to Cart 🛒",
+            "hist_title": "Previous Orders 📜", "hist_desc": "Archive of the orders you've sent us before.", "hist_empty": "You haven't made any orders yet..", "hist_items": "items",
+            "acc_title": "My Account", "acc_subtitle": "Your data is synced securely in the cloud.", "acc_id_lbl": "Account ID (Cloud ID)", "acc_sync_status": "Sync Status", "acc_sync_ok": "Connected to Cloud ✅", "acc_note": "* This account is currently linked to your device. You can retrieve your data at any time using your ID.",
+            "lvl_title": "Account Level", "lvl_bronze": "Bronze", "lvl_silver": "Silver", "lvl_gold": "Gold", "lvl_plat": "Platinum", "lvl_dia": "Diamond",
+            "perk_bronze": "Welcome! Earn XP to level up 🚀", "perk_silver": "Active shopper! Keep it up 🌟", "perk_gold": "Premium Client! Golden perks ✨", "perk_plat": "VIP! Priority processing 💎", "perk_dia": "Legend! The highest tier 🏆",
+            "track_title": "Package Tracking 📦", "track_desc": "Enter your tracking number to see the status of your shipment.", "track_post_note": "When the package arrives in Tunisia, you can track it on the Post Office website:", "btn_track_post": "Track via official Poste.tn",
+            "cart_title": "Shopping Cart", "cart_empty": "The cart is empty.. Start with the calculator!", "lbl_promo": "Do you have a promo code? 🎟️", "plc_promo": "Enter the code here...", "btn_apply_promo": "Apply", "discount_badge": "Discount applied!", "cart_total_lbl": "Total amount:", "lbl_pay_method": "Choose the payment method that suits you:", "btn_send": "Send",
+            "cart_spec": "Specifications:", "cart_img": "Attached image", "cart_prod_link": "Product link", "pay_d17": "📱 D17 App", "pay_flouci": "💸 Flouci App", "pay_poste": "📮 Postal Order (Poste)", "pay_vir": "🏦 Bank Transfer",
+            "saf_title": "Security and Customs ⚠️", "saf_desc1": "The most important prohibited items or those requiring a license from Tunisian Customs:", "saf_desc2": "We review each order separately. If the product requires a license, we will inform you before confirming the order.", "saf_calc_title": "Approximate Customs Calculator (Poste) 🇹🇳", "saf_calc_desc": "Choose the product type to give you an idea of how much you might pay upon receipt at the Tunisian Post Office.",
+            "saf_btn_clothes": "👕 Clothes & Shoes", "saf_btn_elec": "🎧 Electronics", "saf_btn_acc": "⌚ Accessories", "saf_btn_other": "📦 Other", "cust_est": "Customs Estimate (Poste):", "cust_note": "*This is just a rough estimate, customs determines the final price upon receipt.",
+            "cust_clothes": "Between 4 and 20 TND (depends on weight)", "cust_elec": "Between 10 and 50 TND (depends on value)", "cust_acc": "Between 4 and 10 TND", "cust_other": "Between 4 and 15 TND",
+            "ban_drone": "Drones", "ban_phone": "Mobile Phones", "ban_spy": "Spy Cameras", "ban_gps": "Traceurs GPS", "ban_vape": "Electronic Cigarettes", "ban_tv": "Receivers / TV Boxes", "ban_radio": "Wireless Devices", "ban_weapon": "Weapons / Hunting", "ban_med": "Dietary Supplements",
+            "stat_ban100": "100% Prohibited", "stat_cert": "CERT License", "stat_ban": "Prohibited", "stat_lic": "License Required",
+            "footer_desc": "Your first and guaranteed broker for shopping from China in Tunisia at the lowest costs.",
+            "toast_theme_light": "Light mode has been activated ☀️", "toast_theme_dark": "Dark mode has been activated 🌙", "toast_install": "To install: Tap 'Add to Home Screen' from browser settings 📱", "toast_promo_ok": "Congratulations! Discount code activated 🥳", "toast_promo_err": "⚠️ The code is incorrect or expired", "toast_name_req": "⚠️ Type the product name before formatting it!", "toast_name_fmt": "Name successfully formatted! ✨", "toast_link_req": "⚠️ Please enter a valid link from the AliExpress website.", "toast_price_req": "⚠️ Please enter the product price!", "toast_cart_add": "Successfully added to cart! 🛒", "toast_wish_add": "Saved to wishlist ❤️", "toast_wish_cart": "We moved it to the cart! 🛒", "confirm_remove": "Do you want to remove this product from the cart?", "toast_copy": "ID copied successfully! 📋",
+            "chart_prod": "Product", "chart_com": "Commission", "chart_post": "Post Office",
+            
+            "status_pending": "Pending ⏳", "status_proc": "Purchased 🛒", "status_ship": "Shipped ✈️", "status_deliv": "Delivered ✅",
+            "view_details": "View Order Details", "qty": "Qty:", "specs": "Specs:", "pay_method_used": "Payment Method:", "prod_link": "Product Link", "old_order": "Old Order (No details available)"
+        }
+    };
+
+    function t(key) {
+        const lang = localStorage.getItem('alexpress_lang') || 'ar';
+        return i18n[lang][key] || i18n['ar'][key] || key;
+    }
+
+    function changeLanguage(lang) {
+        localStorage.setItem('alexpress_lang', lang);
+        
+        // Setup Direction & Auto Alignments for Tailwind
+        const isRtl = lang === 'ar';
+        document.documentElement.lang = isRtl ? 'ar' : lang;
+        document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+
+        document.querySelectorAll('.auto-align').forEach(el => {
+            if(isRtl) {
+                el.classList.remove('text-left'); el.classList.add('text-right');
+            } else {
+                el.classList.remove('text-right'); el.classList.add('text-left');
+            }
+        });
+
+        // Translate specific elements
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (i18n[lang] && i18n[lang][key]) el.innerHTML = i18n[lang][key];
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (i18n[lang] && i18n[lang][key]) el.placeholder = i18n[lang][key];
+        });
+
+        // Sync Select Dropdown
+        const langSelect = document.getElementById('lang-switch');
+        if(langSelect && langSelect.value !== lang) langSelect.value = lang;
+
+        // Re-render Dynamic Content
+        renderBannedList();
+        renderCart();
+        renderWishlist();
+        renderHistory();
+        renderLevelSystem(); // Re-render Level System to translate tier
+        if(transparencyChart) {
+            transparencyChart.data.labels = [t('chart_prod'), t('chart_com'), t('chart_post')];
+            transparencyChart.update();
+        }
+    }
+    // ------------------------------------
+
+    // --- Firebase Logic & Account System ---
+    let db, auth, userId, appId;
+    let isCloudSyncing = false;
+    window.availablePromos = []; // Global for promos
+
+    async function initFirebase() {
+        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
+        
+        // 🔴 Configuration Firebase officielle
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXZSGeNQeEeYpG-kkYy0PMbVagyey2cFQ",
+            authDomain: "alexpresstunisie.firebaseapp.com",
+            projectId: "alexpresstunisie",
+            storageBucket: "alexpresstunisie.firebasestorage.app",
+            messagingSenderId: "134226998594",
+            appId: "1:134226998594:web:fa123c253f25daa644c4db",
+            measurementId: "G-8H02HL5D8T"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        appId = firebaseConfig.projectId; 
+
+        // Promo Codes Listener - MOVED HERE AFTER db INIT
+        onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'promos'), (snapshot) => {
+            if (snapshot.exists()) {
+                window.availablePromos = snapshot.data().codes || [];
+            }
+        });
+
+        // Auth (Login)
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("Erreur Auth:", error);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('user-uid-display').textContent = userId;
+                const uidCloneEl = document.getElementById('user-uid-display-clone');
+                if (uidCloneEl) uidCloneEl.textContent = userId;
+                loadCloudData(); // Fetch initial data from cloud
+            }
+        });
+    }
+
+    // Sync Local to Cloud
+    async function syncToCloud() {
+        if (!userId || isCloudSyncing) return;
+        const { doc, setDoc } = window.firebaseCore;
+        isCloudSyncing = true;
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'), {
+                cart: cart,
+                wishlist: wishlist,
+                history: orderHistory,
+                lastSync: Date.now()
+            }, { merge: true });
+        } catch (e) {
+            console.error("Cloud Sync Error", e);
+        } finally {
+            isCloudSyncing = false;
+        }
+    }
+
+    // Load from Cloud (On Start)
+    async function loadCloudData() {
+        const { doc, getDoc } = window.firebaseCore;
+        try {
+            const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'));
+            if (docSnap.exists()) {
+                const cloudData = docSnap.data();
+                if (cloudData.cart) cart = cloudData.cart;
+                if (cloudData.wishlist) wishlist = cloudData.wishlist;
+                if (cloudData.history) orderHistory = cloudData.history;
+                
+                renderCart();
+                renderWishlist();
+                renderHistory();
+                updateBadges();
+                updateAccountStats();
+            }
+        } catch (e) {
+            console.error("Error loading cloud data", e);
+        }
+    }
+
+    // --- PRO FEATURE: Level & XP System Logic ---
+    const levelThresholds = [
+        { level: 1, nameKey: 'lvl_bronze', maxXP: 500, icon: 'fa-medal', color: 'text-orange-400', glow: 'bg-orange-500', border: 'border-orange-500/50', bar: 'bg-gradient-to-r from-orange-600 to-amber-400', msgKey: 'perk_bronze' },
+        { level: 2, nameKey: 'lvl_silver', maxXP: 2000, icon: 'fa-shield-alt', color: 'text-slate-300', glow: 'bg-slate-300', border: 'border-slate-300/50', bar: 'bg-gradient-to-r from-slate-400 to-slate-200', msgKey: 'perk_silver' },
+        { level: 3, nameKey: 'lvl_gold', maxXP: 5000, icon: 'fa-crown', color: 'text-yellow-400', glow: 'bg-yellow-400', border: 'border-yellow-400/50', bar: 'bg-gradient-to-r from-yellow-600 to-yellow-300', msgKey: 'perk_gold' },
+        { level: 4, nameKey: 'lvl_plat', maxXP: 10000, icon: 'fa-gem', color: 'text-cyan-400', glow: 'bg-cyan-400', border: 'border-cyan-400/50', bar: 'bg-gradient-to-r from-cyan-600 to-blue-300', msgKey: 'perk_plat' },
+        { level: 5, nameKey: 'lvl_dia', maxXP: Infinity, icon: 'fa-trophy', color: 'text-purple-400', glow: 'bg-purple-500', border: 'border-purple-500/50', bar: 'bg-gradient-to-r from-purple-600 to-pink-400', msgKey: 'perk_dia' }
+    ];
+
+    function calculateTotalXP() {
+        return orderHistory.reduce((sum, order) => sum + order.total, 0);
+    }
+
+    function renderLevelSystem() {
+        const xp = Math.floor(calculateTotalXP());
+        let currentTier = levelThresholds[0];
+        let prevMaxXP = 0;
+
+        for (let i = 0; i < levelThresholds.length; i++) {
+            if (xp < levelThresholds[i].maxXP) {
+                currentTier = levelThresholds[i];
+                if(i > 0) prevMaxXP = levelThresholds[i-1].maxXP;
+                break;
+            }
+            if (i === levelThresholds.length - 1) {
+                currentTier = levelThresholds[i];
+                prevMaxXP = levelThresholds[i-1].maxXP;
+            }
+        }
+
+        const container = document.getElementById('vip-card-container');
+        const glow = document.getElementById('vip-glow');
+        const iconWrapper = document.getElementById('vip-icon-wrapper');
+        const iconGlow = document.getElementById('vip-icon-glow');
+        const icon = document.getElementById('vip-icon');
+        const levelName = document.getElementById('user-level-name');
+        const levelNumber = document.getElementById('user-level-number');
+        const progress = document.getElementById('user-level-progress');
+        const xpCurrent = document.getElementById('user-xp-current');
+        const xpNext = document.getElementById('user-xp-next');
+        const perkText = document.getElementById('vip-perk-text');
+        const progressCaption = document.getElementById('vip-progress-caption');
+
+        if(levelName && progress) {
+            levelName.textContent = t(currentTier.nameKey);
+            levelName.className = `text-2xl md:text-3xl font-black tracking-tight uppercase transition-colors duration-500 ${currentTier.color}`;
+            levelNumber.textContent = `Lvl ${currentTier.level}`;
+            
+            icon.className = `fas ${currentTier.icon} text-2xl md:text-3xl transition-colors duration-500 ${currentTier.color}`;
+            iconWrapper.className = `relative w-16 h-16 md:w-20 md:h-20 mx-auto flex items-center justify-center rounded-full bg-black/50 border-2 transition-all duration-500 shadow-[0_0_15px_rgba(0,0,0,0.5)] ${currentTier.border}`;
+            iconGlow.className = `absolute inset-0 rounded-full animate-ping opacity-20 ${currentTier.glow}`;
+            glow.className = `absolute -top-10 -right-10 w-32 h-32 md:-top-20 md:-right-20 md:w-40 md:h-40 rounded-full blur-[40px] md:blur-[50px] opacity-20 transition-all duration-1000 ${currentTier.glow}`;
+            container.className = `vip-level-shell p-5 md:p-6 mt-6 transition-all duration-500 ${currentTier.border}`;
+
+            perkText.textContent = t(currentTier.msgKey);
+            perkText.className = `text-[10px] md:text-xs mt-2 font-bold transition-colors duration-500 ${currentTier.color}`;
+
+            let progressPercent = 100;
+            if(currentTier.maxXP !== Infinity) {
+                const xpInCurrentLevel = xp - prevMaxXP;
+                const xpNeededForNext = currentTier.maxXP - prevMaxXP;
+                progressPercent = Math.min(100, Math.max(0, (xpInCurrentLevel / xpNeededForNext) * 100));
+                xpNext.textContent = `/ ${currentTier.maxXP} XP`;
+                if (progressCaption) progressCaption.textContent = `NEXT: Lvl ${Math.min(levelThresholds.length, currentTier.level + 1)}`;
+            } else {
+                xpNext.textContent = `MAX`;
+                if (progressCaption) progressCaption.textContent = `MAX TIER`;
+            }
+            
+            xpCurrent.textContent = `${xp}`;
+            progress.style.width = `${progressPercent}%`;
+            progress.className = `h-full rounded-full transition-all duration-1000 relative overflow-hidden ${currentTier.bar}`;
+            
+            progress.innerHTML = `<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-[200%] animate-shimmer"></div>`;
+        }
+    }
+
+    function updateAccountStats() {
+        document.getElementById('acc-stat-orders').textContent = orderHistory.length;
+        document.getElementById('acc-stat-wish').textContent = wishlist.length;
+        renderLevelSystem(); // Refresh Level UI whenever stats update
+    }
+
+    function copyUID() {
+        const uid = document.getElementById('user-uid-display')?.textContent || '';
+        const el = document.createElement('textarea');
+        el.value = uid;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        showToast(t('toast_copy'));
+    }
+
+    // --- Security Measures ---
+    document.addEventListener('contextmenu', event => event.preventDefault()); 
+    document.onkeydown = function(e) {
+        if(e.keyCode == 123) return false; 
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 73) return false; 
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 74) return false; 
+        if(e.ctrlKey && e.keyCode == 85) return false; 
+    };
+
+    // --- PRO FEATURE: Light/Dark Mode Toggle ---
+    function toggleTheme() {
+        document.body.classList.toggle('light-mode');
+        const isLight = document.body.classList.contains('light-mode');
+        localStorage.setItem('alexpress_theme', isLight ? 'light' : 'dark');
+        document.getElementById('theme-icon').className = isLight ? 'fas fa-moon' : 'fas fa-sun';
+        showToast(isLight ? t('toast_theme_light') : t('toast_theme_dark'));
+    }
+
+    // --- PRO FEATURE: PWA Manifest & Install Simulation ---
+    const manifest = {
+        "name": "Alexpress Tunisie", "short_name": "Alexpress", "start_url": ".", "display": "standalone",
+        "background_color": "#080a0c", "theme_color": "#fbbf24",
+        "icons": [{"src": "https://i.ibb.co/PzhWh2ML/New-Project-18.png", "sizes": "192x192", "type": "image/png"}]
+    };
+    document.getElementById('manifest-placeholder').setAttribute('href', 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest)));
+    
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('install-btn').classList.remove('hidden');
+    });
+
+    function installApp() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') document.getElementById('install-btn').classList.add('hidden');
+                deferredPrompt = null;
+            });
+        } else {
+            showToast(t('toast_install'));
+        }
+    }
+
+    // --- Global Data ---
+    let cart = [];
+    let wishlist = [];
+    let orderHistory = [];
+    let currentDiscount = 0; 
+    let discountType = ''; 
+    const rates = { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 };
+
+    // --- NEW SECURITY MEASURES (XSS & SPAM PROTECTION) ---
+    let isActionLocked = false;
+    function lockAction(ms = 1000) {
+        isActionLocked = true;
+        setTimeout(() => isActionLocked = false, ms);
+    }
+
+    function sanitizeInput(str) {
+        if (!str) return "";
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', "/": '&#x2F;' };
+        const reg = /[&<>"'/]/ig;
+        return String(str).replace(reg, (match) => (map[match]));
+    }
+
+    // --- ENCRYPTION FOR LOCAL STORAGE (Anti-Tamper) ---
+    function encryptData(data) {
+        try {
+            return btoa(unescape(encodeURIComponent(JSON.stringify(data)))).split('').reverse().join('');
+        } catch (e) { return ""; }
+    }
+
+    function decryptData(encodedStr) {
+        if (!encodedStr) return null;
+        try {
+            if (encodedStr.startsWith('[') || encodedStr.startsWith('{')) return JSON.parse(encodedStr);
+            return JSON.parse(decodeURIComponent(escape(atob(encodedStr.split('').reverse().join('')))));
+        } catch (e) { return null; }
+    }
+
+    // --- NEW PRO FEATURE: Social Proof Notifications ---
+    const spData = {
+        ar: { names: ["أحمد من سوسة", "مريم من تونس", "خليل من صفاقس"], actions: ["شرا Smartwatch ⌚", "شرات Ecouteurs 🎧", "شرا SSD 1TB 💻"], times: ["منذ دقيقتين", "منذ 5 دقائق", "منذ لحظات"] },
+        fr: { names: ["Ahmed de Sousse", "Mariem de Tunis", "Khalil de Sfax"], actions: ["a acheté Smartwatch ⌚", "a acheté Ecouteurs 🎧", "a acheté SSD 1TB 💻"], times: ["Il y a 2 minutes", "Il y a 5 min", "À l'instant"] },
+        en: { names: ["Ahmed from Sousse", "Mariem from Tunis", "Khalil from Sfax"], actions: ["bought Smartwatch ⌚", "bought Earbuds 🎧", "bought SSD 1TB 💻"], times: ["2 mins ago", "5 mins ago", "Just now"] }
+    };
+
+    function triggerSocialProof() {
+        const sp = document.getElementById('social-proof');
+        if(!sp) return;
+        const lang = localStorage.getItem('alexpress_lang') || 'ar';
+        const spL = spData[lang];
+        
+        document.getElementById('sp-name').textContent = spL.names[Math.floor(Math.random() * spL.names.length)];
+        document.getElementById('sp-action').textContent = spL.actions[Math.floor(Math.random() * spL.actions.length)];
+        document.getElementById('sp-time').textContent = spL.times[Math.floor(Math.random() * spL.times.length)];
+        
+        sp.classList.remove('translate-y-20', 'opacity-0');
+        setTimeout(() => { sp.classList.add('translate-y-20', 'opacity-0'); }, 5000);
+    }
+
+    // --- Data Persistence ---
+    function saveData() {
+        localStorage.setItem('alexpress_cart', encryptData(cart));
+        localStorage.setItem('alexpress_wishlist', encryptData(wishlist));
+        localStorage.setItem('alexpress_history', encryptData(orderHistory));
+        updateAccountStats();
+        syncToCloud(); 
+    }
+
+    function loadData() {
+        const savedLang = localStorage.getItem('alexpress_lang') || 'ar';
+        changeLanguage(savedLang);
+
+        if(localStorage.getItem('alexpress_theme') === 'light') {
+            document.body.classList.add('light-mode');
+            document.getElementById('theme-icon').className = 'fas fa-moon';
+        }
+        try {
+            const savedCart = localStorage.getItem('alexpress_cart');
+            const savedWish = localStorage.getItem('alexpress_wishlist');
+            const savedHist = localStorage.getItem('alexpress_history');
+            
+            if (savedCart) cart = decryptData(savedCart) || [];
+            if (savedWish) wishlist = decryptData(savedWish) || [];
+            if (savedHist) orderHistory = decryptData(savedHist) || [];
+        } catch (e) { console.error("Error loading data", e); }
+        
+        updateBadges();
+        renderCart();
+        renderWishlist();
+        renderHistory();
+        updateAccountStats();
+    }
+
+    // --- PRO FEATURE: Promo Code Logic (FIXED SCOPE) ---
+    function applyPromo() {
+        const codeInput = document.getElementById('promo-code');
+        const code = codeInput.value.trim().toUpperCase();
+        const msg = document.getElementById('promo-message');
+        const badge = document.getElementById('discount-badge');
+        
+        if (code === "") return;
+
+        const found = (window.availablePromos || []).find(p => p.code === code);
+
+        if (found) {
+            currentDiscount = found.value; 
+            discountType = found.type;     
+            msg.innerHTML = t('toast_promo_ok');
+            msg.className = "text-[9px] font-bold mt-2 text-green-400";
+            badge.classList.remove('hidden');
+            showToast(t('toast_promo_ok'));
+        } else {
+            currentDiscount = 0;
+            discountType = '';
+            msg.innerHTML = t('toast_promo_err');
+            msg.className = "text-[9px] font-bold mt-2 text-red-400";
+            badge.classList.add('hidden');
+            showToast(t('toast_promo_err'));
+        }
+        msg.classList.remove('hidden');
+        renderCart(); // This will handle all calculations and UI updates
+    }
+
+    // --- UI Helpers ---
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = "fixed bottom-24 rtl:right-4 ltr:left-4 bg-amber-400 text-black px-6 py-3 rounded-2xl font-black shadow-2xl z-[200] animate-bounce text-sm";
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3500);
+    }
+
+    function updateBadges() {
+        const badgeCart = document.getElementById('cart-badge');
+        const badgeWish = document.getElementById('wishlist-badge');
+        const floatBtn = document.getElementById('floating-cart-btn');
+        const floatBadge = document.getElementById('floating-cart-badge');
+
+        if (cart.length > 0) { 
+            badgeCart.textContent = cart.length; badgeCart.classList.remove('hidden'); 
+            floatBadge.textContent = cart.length; floatBadge.classList.remove('hidden');
+            floatBtn.classList.remove('hidden');
+        } else { 
+            badgeCart.classList.add('hidden'); 
+            floatBtn.classList.add('hidden');
+        }
+
+        if (wishlist.length > 0) {
+            badgeWish.textContent = wishlist.length; badgeWish.classList.remove('hidden');
+        } else {
+            badgeWish.classList.add('hidden');
+        }
+    }
+
+    // --- App Core Logic ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active-tab', 'text-amber-400', 'text-pink-400', 'text-blue-400'));
+        
+        const target = document.getElementById(`section-${tabId}`);
+        if(target) target.classList.add('active');
+        
+        const tabBtn = document.getElementById(`tab-${tabId}`);
+        if(tabBtn) {
+            tabBtn.classList.add('active-tab');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (tabId === 'guide') initCharts();
+    }
+
+    function calculateTND() {
+        const p = parseFloat(document.getElementById('usd-price').value) || 0;
+        const s = parseFloat(document.getElementById('usd-ship').value) || 0;
+        const totalUSD = p + s;
+        let rate = rates.base;
+        if (totalUSD > 0 && totalUSD < 10) rate = rates.low;
+        else if (totalUSD < 50) rate = rates.mid;
+        else if (totalUSD < 150) rate = rates.high;
+        const totalTND = totalUSD * rate;
+        document.getElementById('tnd-result').textContent = totalTND.toFixed(3) + " TND";
+        document.getElementById('rate-badge').textContent = totalUSD > 0 ? `Rate: ${rate.toFixed(3)}` : "--";
+        
+        const liveRateDisplay = document.getElementById('live-rate-display');
+        if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ≈ ${rate.toFixed(3)} TND`;
+        
+        return { totalTND, totalUSD };
+    }
+
+    function formatTitleJS() {
+        const nameInput = document.getElementById('calc-name');
+        let val = nameInput.value;
+        if(!val || val.trim() === "") { showToast(t('toast_name_req')); return; }
+        val = val.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, '').replace(/\s+/g, ' ').trim();
+        val = val.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        nameInput.value = val;
+        nameInput.classList.add('border-blue-500', 'bg-blue-900/20');
+        setTimeout(() => nameInput.classList.remove('border-blue-500', 'bg-blue-900/20'), 1500);
+        showToast(t('toast_name_fmt'));
+    }
+
+    function estimateCustoms(type, btnElement) {
+        document.querySelectorAll('.customs-btn').forEach(btn => btn.classList.remove('bg-blue-600/20', 'border-blue-400'));
+        btnElement.classList.add('bg-blue-600/20', 'border-blue-400');
+        const resultDiv = document.getElementById('customs-result');
+        let estimate = "", icon = "";
+        if(type === 'clothes') { estimate = t('cust_clothes'); icon = "👕"; }
+        else if(type === 'electronics') { estimate = t('cust_elec'); icon = "🔌"; }
+        else if(type === 'accessories') { estimate = t('cust_acc'); icon = "💍"; }
+        else { estimate = t('cust_other'); icon = "📦"; }
+        
+        resultDiv.innerHTML = `<span class="text-2xl block mb-2">${icon}</span> ${t('cust_est')} <br><span class="text-lg text-[inherit] font-black mt-1 mb-2 inline-block">${estimate}</span><br><span class="text-[9px] text-slate-400 font-normal inline-block">${t('cust_note')}</span>`;
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('animate-pulse');
+        setTimeout(() => resultDiv.classList.remove('animate-pulse'), 400);
+    }
+
+    function _getFormData() {
+        if (isActionLocked) return null; // Security: Block spam clicks
+
+        let name = document.getElementById('calc-name').value || "Unnamed Product";
+        let linkRaw = document.getElementById('calc-link').value || "";
+        let note = document.getElementById('calc-note').value || "";
+        const usdPrice = parseFloat(document.getElementById('usd-price').value) || 0;
+        const imgInput = document.getElementById('calc-image');
+        const hasImage = imgInput.files.length > 0;
+
+        // Security: Sanitize all text inputs to prevent XSS injection
+        name = sanitizeInput(name.trim());
+        note = sanitizeInput(note.trim());
+        let link = sanitizeInput(linkRaw.trim());
+
+        if (!link || !link.toLowerCase().includes('aliexpress')) { showToast(t('toast_link_req')); return null; }
+        if (usdPrice <= 0) { showToast(t('toast_price_req')); return null; }
+        
+        // Security: Force valid protocols to prevent javascript: href attacks
+        if (!link.startsWith('http://') && !link.startsWith('https://')) {
+            link = 'https://' + link;
+        }
+
+        const calc = calculateTND();
+        lockAction(500); // Lock interaction for 0.5 seconds
+        return { id: Date.now(), name, link: link, note, usd: calc.totalUSD, tnd: calc.totalTND, qty: 1, hasImage };
+    }
+
+    function addItemToCart() {
+        const item = _getFormData();
+        if (!item) return;
+        cart.push(item);
+        updateBadges(); saveData(); renderCart();
+        
+        document.getElementById('calc-name').value = ''; document.getElementById('calc-link').value = '';
+        document.getElementById('calc-note').value = ''; document.getElementById('usd-price').value = '';
+        document.getElementById('usd-ship').value = ''; document.getElementById('calc-image').value = '';
+        document.getElementById('tnd-result').textContent = "0.000 TND";
+        showToast(t('toast_cart_add'));
+    }
+
+    function addItemToWishlist() {
+        const item = _getFormData();
+        if (!item) return;
+        wishlist.push(item);
+        updateBadges(); saveData(); renderWishlist();
+        showToast(t('toast_wish_add'));
+    }
+
+    function renderWishlist() {
+        const list = document.getElementById('wishlist-items-list');
+        if (wishlist.length === 0) {
+            list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('wish_empty')}</div>`;
+            return;
+        }
+        list.innerHTML = wishlist.map(item => `
+            <div class="bg-slate-900/30 p-4 rounded-2xl border border-pink-500/20 flex flex-col gap-3 relative auto-align">
+                <div class="text-xs font-black text-white">${item.name}</div>
+                <div class="text-[10px] text-slate-400" dir="ltr">${item.usd.toFixed(2)} USD &rarr; ${item.tnd.toFixed(3)} TND</div>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="moveToCartFromWishlist(${item.id})" class="bg-amber-400 text-black px-3 py-1.5 rounded-lg text-[9px] font-bold shadow-sm hover:bg-amber-500">${t('wish_move_cart')}</button>
+                    <button onclick="removeWishlist(${item.id})" class="text-slate-500 hover:text-red-500 px-2"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>`).join('');
+    }
+
+    function moveToCartFromWishlist(id) {
+        const itemIndex = wishlist.findIndex(i => i.id === id);
+        if (itemIndex > -1) {
+            cart.push(wishlist[itemIndex]);
+            wishlist.splice(itemIndex, 1);
+            updateBadges(); saveData(); renderWishlist(); renderCart();
+            showToast(t('toast_wish_cart'));
+        }
+    }
+    
+    function removeWishlist(id) { wishlist = wishlist.filter(i => i.id !== id); updateBadges(); saveData(); renderWishlist(); }
+
+    function renderCart() {
+        const list = document.getElementById('cart-items-list');
+        const footer = document.getElementById('cart-footer');
+        const totalDisplay = document.getElementById('cart-total-display');
+        
+        if (cart.length === 0) {
+            list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('cart_empty')}</div>`;
+            footer.classList.add('hidden');
+            return;
+        }
+        
+        footer.classList.remove('hidden');
+        let subtotal = 0;
+        
+        list.innerHTML = cart.map(item => {
+            const itemSum = item.tnd * item.qty;
+            subtotal += itemSum;
+            return `
+                <div class="bg-slate-900/50 p-5 rounded-2xl border border-white/5 flex flex-col gap-4 relative overflow-hidden group auto-align">
+                    <div class="flex flex-col gap-1 w-full">
+                        <div class="text-xs font-black text-white uppercase">${item.name}</div>
+                        <div class="text-[10px] text-slate-500 font-bold mb-1" dir="ltr">${item.usd.toFixed(2)} USD &rarr; ${item.tnd.toFixed(3)} TND</div>
+                        ${item.note ? `<div class="text-[9px] bg-white/5 p-2 rounded-lg text-amber-400 italic">${t('cart_spec')} ${item.note}</div>` : ''}
+                        ${item.hasImage ? `<div class="text-[9px] text-green-400 font-bold mt-1"><i class="fas fa-image mr-1"></i> ${t('cart_img')}</div>` : ''}
+                        ${item.link && item.link !== 'https://' ? `<a href="${item.link}" target="_blank" class="text-[9px] text-blue-400 font-black underline mt-1 hover:text-white transition-colors"><i class="fas fa-link mr-1"></i> ${t('cart_prod_link')}</a>` : ''}
+                    </div>
+                    <div class="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
+                        <div class="flex items-center bg-black/50 rounded-xl px-2 py-1 gap-4 border border-white/5" dir="ltr">
+                            <button onclick="changeQty(${item.id}, -1)" class="text-amber-400 font-black text-xs hover:text-white transition-colors">-</button>
+                            <span class="text-[10px] font-black w-4 text-center text-white">${item.qty}</span>
+                            <button onclick="changeQty(${item.id}, 1)" class="text-amber-400 font-black text-xs hover:text-white transition-colors">+</button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-sm font-black text-white" dir="ltr">${itemSum.toFixed(3)} TND</div>
+                            <button onclick="removeItem(${item.id})" class="text-slate-700 hover:text-red-500 transition-colors p-1"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+        
+        let finalTotal = subtotal;
+        if (discountType === 'percent') {
+            finalTotal = subtotal - (subtotal * (currentDiscount / 100));
+        } else if (discountType === 'fixed') {
+            finalTotal = Math.max(0, subtotal - currentDiscount);
+        }
+
+        if(discountType !== '') {
+            totalDisplay.innerHTML = `<span class="line-through text-slate-500 text-lg mr-2">${subtotal.toFixed(3)}</span> <span class="text-green-400">${finalTotal.toFixed(3)} TND</span>`;
+        } else {
+            totalDisplay.textContent = finalTotal.toFixed(3) + " TND";
+        }
+    }
+
+    function changeQty(id, delta) { 
+        const item = cart.find(i => i.id === id); 
+        if (item) { item.qty = Math.max(1, item.qty + delta); renderCart(); saveData(); } 
+    }
+    
+    function removeItem(id) { 
+        cart = cart.filter(i => i.id !== id); 
+        updateBadges(); 
+        renderCart(); 
+        saveData(); 
+        showToast("تم الحذف 🗑️");
+    }
+    
+    function sendOrder(channel) {
+        if (cart.length === 0 || isActionLocked) return; 
+        lockAction(2500); 
+
+        const paymentMethod = document.getElementById('payment-method').options[document.getElementById('payment-method').selectedIndex].text;
+        let subtotal = 0;
+        let message = "🚀 *COMMANDE Alexpress Tunisie*\n\n";
+        
+        cart.forEach((item, index) => { 
+            const sum = item.tnd * item.qty; 
+            subtotal += sum; 
+            message += `📦 *Produit ${index + 1}:* ${item.name}\n🔹 Qte: ${item.qty}\n🔹 Note: ${item.note || 'Pas de note'}\n🔹 Image: ${item.hasImage ? 'Oui (Capture fournie)' : 'Non'}\n🔹 Lien: ${item.link || 'Pas de lien'}\n💰 Prix: ${sum.toFixed(3)} TND\n───────────\n`; 
+        });
+        
+        let finalTotal = subtotal;
+        if (discountType === 'percent') {
+            finalTotal = subtotal - (subtotal * (currentDiscount / 100));
+            message += `🎟️ *Promo:* -${currentDiscount}%\n`;
+        } else if (discountType === 'fixed') {
+            finalTotal = Math.max(0, subtotal - currentDiscount);
+            message += `🎟️ *Promo:* -${currentDiscount} TND\n`;
+        }
+
+        message += `\n💵 *TOTAL:* ${finalTotal.toFixed(3)} TND\n💳 *Paiement:* ${paymentMethod}`;
+        
+        // Save to History
+        orderHistory.unshift({ 
+            id: Date.now(),
+            date: new Date().toLocaleString('ar-TN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' }), 
+            total: finalTotal, 
+            itemsCount: cart.length,
+            items: JSON.parse(JSON.stringify(cart)), 
+            status: 'pending', 
+            paymentMethod: paymentMethod
+        });
+
+        if(orderHistory.length > 20) orderHistory.pop(); 
+        saveData(); renderHistory();
+
+        const encoded = encodeURIComponent(message);
+        window.open(channel === 'whatsapp' ? `https://wa.me/21627498276?text=${encoded}` : (channel === 'messenger' ? `https://m.me/alexpresstunisie?text=${encoded}` : `https://ig.me/m/alexpress.tunisie?text=${encoded}`), '_blank');
+        
+        cart = []; updateBadges(); renderCart(); saveData();
+        document.getElementById('promo-code').value = ''; 
+        currentDiscount = 0; discountType = '';
+        document.getElementById('promo-message').classList.add('hidden');
+        document.getElementById('discount-badge').classList.add('hidden');
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-items-list');
+        if (orderHistory.length === 0) {
+            list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('hist_empty')}</div>`;
+            return;
+        }
+
+        list.innerHTML = orderHistory.map(order => {
+            const status = order.status || 'pending';
+            let statusHTML = ''; let statusColor = '';
+            if(status === 'pending') { statusHTML = t('status_pending'); statusColor = 'text-amber-400 bg-amber-400/10 border-amber-400/20'; }
+            else if(status === 'processing') { statusHTML = t('status_proc'); statusColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; }
+            else if(status === 'shipped') { statusHTML = t('status_ship'); statusColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; }
+            else if(status === 'delivered') { statusHTML = t('status_deliv'); statusColor = 'text-green-400 bg-green-400/10 border-green-400/20'; }
+
+            const itemsListHTML = (order.items && order.items.length > 0) ? order.items.map(item => `
+                <div class="bg-black/30 p-3 rounded-lg mt-2 border border-white/5">
+                    <div class="text-[11px] font-bold text-white mb-1 break-words">${item.name}</div>
+                    <div class="flex flex-wrap gap-2 text-[9px]">
+                        <span class="text-amber-400">${t('qty')} ${item.qty}</span>
+                        ${item.note ? `<span class="text-slate-300">${t('specs')} ${item.note}</span>` : ''}
+                    </div>
+                </div>
+            `).join('') : `<div class="p-3 text-[9px] text-slate-500 text-center italic">${t('old_order')}</div>`;
+
+            return `
+            <div class="bg-slate-900/60 rounded-2xl border border-white/5 overflow-hidden group/history auto-align">
+                <div class="p-4 flex justify-between items-start border-b border-white/5">
+                    <div>
+                        <div class="text-[10px] text-slate-400 mb-2"><i class="far fa-calendar-alt mr-1"></i> ${order.date || 'N/A'}</div>
+                        <span class="text-[9px] px-2 py-1 rounded-md border ${statusColor} font-bold tracking-wide">${statusHTML}</span>
+                    </div>
+                    <div class="text-left rtl:text-left ltr:text-right">
+                        <div class="text-sm font-black text-blue-400" dir="ltr">${(order.total || 0).toFixed(3)} TND</div>
+                        <div class="text-[9px] text-slate-500 mt-1">${order.itemsCount || 0} ${t('hist_items')}</div>
+                    </div>
+                </div>
+                <details class="group/details">
                     <summary class="p-3 text-[10px] font-bold text-slate-400 cursor-pointer hover:bg-white/5 transition-colors flex justify-between items-center outline-none select-none">
-                        <span>شوف التفاصيل</span>
+                        <span>${t('view_details')}</span>
                         <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform"></i>
                     </summary>
                     <div class="p-3 pt-0 space-y-2 pb-4">
-                        ${itemsHtml || `<div class="text-[10px] text-slate-500">لا توجد تفاصيل عناصر.</div>`}
-                        ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> الدفع: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
-                        <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
+                        ${itemsListHTML}
+                        ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> ${t('pay_method_used')} <strong class="text-white">${order.paymentMethod}</strong></div>` : ''}
                     </div>
                 </details>
-            </div>
-        `;
-    }
-
-    function patchRenderHistory() {
-        if (!dom.historyList) return;
-
-        window.renderHistory = function patchedRenderHistory() {
-            if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
-                dom.historyList.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">لا يوجد سجل طلبات حتى الآن</div>`;
-                return;
-            }
-
-            dom.historyList.innerHTML = orderHistory.map(renderHistoryCard).join("");
-            renderTrackingHint();
-            renderAccountStats();
-            renderAdminOrders();
-            renderRepeatOrders();
-        };
-    }
-
-    function renderTrackingHint() {
-        if (!dom.trackResult || typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) return;
-        const latest = orderHistory.slice(0, 3);
-        const hintHtml = latest.map((order) => `
-            <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-3">
-                <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
-                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.")}</div>
-            </div>
-        `).join("");
-
-        let host = document.getElementById("runtime-track-orders");
-        if (!host) {
-            dom.trackResult.insertAdjacentHTML("afterbegin", `<div id="runtime-track-orders" class="mt-6 space-y-3"></div>`);
-            host = document.getElementById("runtime-track-orders");
-        }
-        if (!host) return;
-
-        host.innerHTML = `
-            <div class="space-y-3">
-                <div class="text-[10px] font-black text-slate-400">آخر الطلبات المسجلة عندك:</div>
-                ${hintHtml}
             </div>`;
+        }).join('');
     }
 
-    function patchHistoryFilters() {
-        if (typeof window.renderHistory !== "function" || window.renderHistory.__historyFilterWrapped) return;
-        const originalRenderHistory = window.renderHistory;
-        const wrapped = function patchedHistoryWithFilters() {
-            originalRenderHistory();
-            if (!dom.historyList || typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
-                renderNotifications();
-                return;
-            }
+    const bannedKeywords = [
+        { nameKey: 'ban_drone', statusKey: 'stat_ban100', icon: '🚁', color: 'text-red-500' },
+        { nameKey: 'ban_phone', statusKey: 'stat_cert', icon: '📱', color: 'text-amber-500' },
+        { nameKey: 'ban_spy', statusKey: 'stat_ban100', icon: '📷', color: 'text-red-500' },
+        { nameKey: 'ban_gps', statusKey: 'stat_ban', icon: '📍', color: 'text-red-500' },
+        { nameKey: 'ban_vape', statusKey: 'stat_ban100', icon: '💨', color: 'text-red-500' },
+        { nameKey: 'ban_tv', statusKey: 'stat_cert', icon: '📡', color: 'text-amber-500' },
+        { nameKey: 'ban_radio', statusKey: 'stat_lic', icon: '📻', color: 'text-amber-500' },
+        { nameKey: 'ban_weapon', statusKey: 'stat_ban100', icon: '⚔️', color: 'text-red-500' },
+        { nameKey: 'ban_med', statusKey: 'stat_ban', icon: '💊', color: 'text-red-500' }
+    ];
 
-            const search = String(dom.historySearch?.value || "").trim().toLowerCase();
-            const status = String(dom.historyStatus?.value || "all").trim().toLowerCase();
-            if (!search && status === "all") {
-                renderNotifications();
-                return;
-            }
-
-            const filtered = orderHistory.filter((order) => {
-                const haystack = [
-                    order.orderRef,
-                    order.status,
-                    order.paymentMethod,
-                    ...(Array.isArray(order.items) ? order.items.map((item) => item.name) : [])
-                ].join(" ").toLowerCase();
-                const statusOk = status === "all" || String(order.status || "pending").toLowerCase() === status;
-                const searchOk = !search || haystack.includes(search);
-                return statusOk && searchOk;
-            });
-
-            dom.historyList.innerHTML = filtered.length
-                ? filtered.map(renderHistoryCard).join("")
-                : `<div class="text-center py-12 text-slate-600 text-xs italic">No matching orders found.</div>`;
-            renderNotifications();
-        };
-        wrapped.__historyFilterWrapped = true;
-        window.renderHistory = wrapped;
+    function renderBannedList() {
+        const container = document.getElementById('banned-list');
+        if(!container) return;
+        container.innerHTML = bannedKeywords.map(item => `
+            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between group auto-align">
+                 <div class="flex flex-col">
+                    <span class="font-bold text-[11px] text-slate-400 mb-1">${t(item.nameKey)}</span>
+                    <span class="text-[8px] font-black ${item.color} uppercase tracking-tighter">${t(item.statusKey)}</span>
+                 </div>
+                 <span class="text-2xl opacity-80 group-hover:opacity-100 transition-opacity">${item.icon}</span>
+            </div>
+        `).join('');
     }
 
-    function patchCollectionActions() {
-        const wrappers = [
-            "addItemToCart",
-            "addItemToWishlist",
-            "removeItem",
-            "removeWishlist",
-            "moveToCartFromWishlist",
-            "changeQty"
-        ];
-
-        wrappers.forEach((name) => {
-            if (typeof window[name] !== "function" || window[name].__runtimeWrapped) return;
-            const originalFn = window[name];
-            const wrapped = function patchedCollectionAction(...args) {
-                const result = originalFn.apply(this, args);
-                window.setTimeout(() => {
-                    renderAccountStats();
-                    renderCartInsights();
-                    renderBundleDeals();
-                    renderSavedPacks();
-                }, 0);
-                return result;
-            };
-            wrapped.__runtimeWrapped = true;
-            window[name] = wrapped;
+    let transparencyChart = null;
+    function initCharts() {
+        const ctx = document.getElementById('transparencyChart'); if (!ctx || transparencyChart) return;
+        Chart.defaults.font.family = "'Cairo', sans-serif";
+        transparencyChart = new Chart(ctx, { 
+            type: 'doughnut', 
+            data: { labels: [t('chart_prod'), t('chart_com'), t('chart_post')], datasets: [{ data: [80, 10, 10], backgroundColor: ['#fbbf24', '#3b82f6', '#334155'], borderWidth: 0 }] }, 
+            options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } } 
         });
     }
 
-    function bindEvents() {
-        dom.scrapeBtn?.addEventListener("click", scrapeProduct);
-        dom.createAlertBtn?.addEventListener("click", createPriceAlertFromCurrentProduct);
-        dom.shareReferralBtn?.addEventListener("click", () => copyReferral(true));
-        dom.manualQuoteBtn?.addEventListener("click", sendManualQuote);
-        dom.quickOrderBtn?.addEventListener("click", quickOrderFromForm);
-        dom.clearLinksBtn?.addEventListener("click", clearRecentLinks);
-        dom.imageClearBtn?.addEventListener("click", clearImagePreview);
-        dom.accountSavePrefs?.addEventListener("click", saveAccountPrefs);
-        dom.referralApply?.addEventListener("click", applyReferralCode);
-        dom.referralCopy?.addEventListener("click", () => copyReferral(false));
-        dom.downloadQuoteBtn?.addEventListener("click", downloadQuoteDocument);
-        dom.exportCsvBtn?.addEventListener("click", exportOrdersCsv);
-        dom.savePackBtn?.addEventListener("click", saveCurrentPack);
-        dom.voiceRecordBtn?.addEventListener("click", startVoiceRecording);
-        dom.voiceStopBtn?.addEventListener("click", stopVoiceRecording);
-        dom.trackSearchBtn?.addEventListener("click", searchTrackedOrderRemote);
-        dom.trackRef?.addEventListener("keydown", (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                searchTrackedOrderRemote();
-            }
-        });
-        dom.historySearch?.addEventListener("input", () => {
-            if (typeof window.renderHistory === "function") window.renderHistory();
-        });
-        dom.historyStatus?.addEventListener("change", () => {
-            if (typeof window.renderHistory === "function") window.renderHistory();
-        });
-        dom.adminUnlockBtn?.addEventListener("click", unlockAdminRemote);
-        dom.adminLockBtn?.addEventListener("click", lockAdminRemote);
-        dom.adminPromoSave?.addEventListener("click", saveAdminPromoRemote);
-        dom.adminOrderUpdate?.addEventListener("click", updateAdminOrderRemote);
-        dom.calcLink?.addEventListener("keydown", (event) => {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                scrapeProduct();
-            }
-        });
-        dom.calcImage?.addEventListener("change", (event) => {
-            const file = event.target?.files?.[0];
-            if (!file) {
-                renderImagePreview("");
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = () => renderImagePreview(String(reader.result || ""));
-            reader.readAsDataURL(file);
-        });
-        dom.voiceUpload?.addEventListener("change", (event) => {
-            const file = event.target?.files?.[0];
-            if (!file) return;
-            setVoiceNoteFromBlob(file, `Uploaded voice note: ${file.name}`);
-        });
-        dom.recentLinks?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-recent-index]");
-            if (!trigger) return;
-            useRecentLink(Number(trigger.getAttribute("data-recent-index")));
-        });
-        dom.variantGroups?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-variant-group][data-variant-value]");
-            if (!trigger) return;
-            applyVariantSelection(trigger.getAttribute("data-variant-group"), trigger.getAttribute("data-variant-value"));
-        });
-        dom.budgetInput?.addEventListener("input", () => {
-            saveBudgetPrefs({
-                budget: dom.budgetInput?.value || "",
-                buffer: dom.budgetBuffer?.value || "10"
-            });
-            renderPricing();
-        });
-        dom.budgetBuffer?.addEventListener("change", () => {
-            saveBudgetPrefs({
-                budget: dom.budgetInput?.value || "",
-                buffer: dom.budgetBuffer?.value || "10"
-            });
-            renderPricing();
-        });
-        dom.savedPacks?.addEventListener("click", (event) => {
-            const loadTrigger = event.target.closest("[data-pack-load]");
-            if (loadTrigger) {
-                loadSavedPack(loadTrigger.getAttribute("data-pack-load"));
-                return;
-            }
-            const deleteTrigger = event.target.closest("[data-pack-delete]");
-            if (deleteTrigger) {
-                deleteSavedPack(deleteTrigger.getAttribute("data-pack-delete"));
-            }
-        });
-        dom.alertWatchlist?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-remove-alert]");
-            if (!trigger) return;
-            removePriceAlert(trigger.getAttribute("data-remove-alert"));
-        });
-        dom.repeatOrders?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-repeat-order]");
-            if (!trigger) return;
-            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
-        });
-        dom.historyList?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-repeat-order]");
-            if (!trigger) return;
-            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
-        });
-        dom.adminPromos?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-remove-promo]");
-            if (!trigger) return;
-            removeAdminPromoRemote(Number(trigger.getAttribute("data-remove-promo")));
-        });
-        dom.adminOrders?.addEventListener("click", (event) => {
-            const trigger = event.target.closest("[data-fill-order]");
-            if (!trigger) return;
-            fillAdminOrder(trigger.getAttribute("data-fill-order"));
-        });
-        dom.usdPrice?.addEventListener("input", renderPricing);
-        dom.usdShip?.addEventListener("input", renderPricing);
-        dom.resellerPrice?.addEventListener("input", renderResellerMode);
-        dom.resellerQty?.addEventListener("input", renderResellerMode);
-        dom.calcName?.addEventListener("input", () => {
-            if (state.currentProduct && dom.previewTitle && dom.calcName.value.trim()) {
-                dom.previewTitle.textContent = dom.calcName.value.trim();
-            }
-        });
-    }
-
-    function patchGlobals() {
-        window.calculateTND = renderPricing;
-        window.autoScrapeProduct = scrapeProduct;
-        window.changeLanguage = applyLanguage;
-        patchPromoLogic();
-        patchGetFormData();
-        patchRenderCart();
-        patchRenderHistory();
-        patchHistoryFilters();
-        patchSendOrder();
-    }
-
-    function boot() {
-        state.recentLinks = readJsonStorage(RECENT_LINKS_KEY, []);
-        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
-            phone: "",
-            city: "",
-            address: "",
-            contactMethod: "whatsapp"
-        });
-        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
-            budget: "",
-            buffer: "10"
-        });
-        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
-        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
-        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
-            code: buildReferralCode(),
-            credits: 0,
-            appliedCodes: [],
-            usedOwnCode: false
-        });
-        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
-        state.adminToken = getStoredAdminToken();
-        state.adminUnlocked = Boolean(state.adminToken);
-        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
-        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
-        repairTabLayout();
-        patchGlobals();
-        patchCollectionActions();
-        patchTabSwitching();
-        bindEvents();
-        applyCalculatorUiCleanup();
-        applyAccountUiCleanup();
-        initAccountPanels();
-        applyLanguage(window.localStorage.getItem("alexpress_lang") || "ar");
-        renderRecentLinks();
-        loadAccountPrefsIntoForm();
-        renderSavedPacks();
-        renderPriceAlerts();
-        renderReferralCard();
-        renderVoiceNote();
-        renderAccountStats();
-        renderAdminPromos();
-        renderAdminOrders();
-        renderActivityLog();
-        renderNotifications();
-        loadLiveRate();
-        renderPricing();
-        renderResellerMode();
-        renderCartInsights();
-        renderBundleDeals();
-        if (typeof window.renderHistory === "function") window.renderHistory();
-        renderTrackingHint();
-        refreshPublicPromos();
-        if (state.adminToken) {
-            refreshAdminState().catch(() => {
-                state.adminUnlocked = false;
-                state.adminToken = "";
-                setStoredAdminToken("");
-                lockAdminRemote();
-            });
-        }
-        window.setInterval(loadLiveRate, RATE_REFRESH_MS);
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", boot, { once: true });
-    } else {
-        boot();
-    }
-})();
+    window.onload = () => { 
+        initCharts(); 
+        calculateTND(); 
+        loadData(); 
+        initFirebase(); 
+        setTimeout(triggerSocialProof, 5000); 
+        setInterval(triggerSocialProof, 25000); 
+    };
+</script>
+<script src="assets/script.js?v=20260404-6"></script>
+</body>
+</html>
