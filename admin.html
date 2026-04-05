@@ -1,232 +1,341 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Studio | Alexpress Tunisie</title>
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#0b1220">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --panel: rgba(15, 23, 42, 0.82);
-            --panel-border: rgba(255, 255, 255, 0.08);
-            --ink: #e2e8f0;
+            --bg-1: #050816;
+            --bg-2: #0b1220;
+            --panel: rgba(10, 18, 32, 0.82);
+            --panel-soft: rgba(14, 23, 40, 0.76);
+            --panel-border: rgba(148, 163, 184, 0.16);
+            --text: #e5eefb;
             --muted: #94a3b8;
-            --accent: #fbbf24;
-            --blue: #60a5fa;
-            --emerald: #34d399;
-            --rose: #fb7185;
+            --accent: #f59e0b;
+            --accent-2: #38bdf8;
+            --success: #34d399;
+            --danger: #fb7185;
         }
-        * { box-sizing: border-box; }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
-            font-family: "Cairo", sans-serif;
-            color: var(--ink);
-            background:
-                radial-gradient(circle at top right, rgba(251, 191, 36, 0.10), transparent 24%),
-                radial-gradient(circle at top left, rgba(96, 165, 250, 0.10), transparent 20%),
-                linear-gradient(180deg, #030712 0%, #08111f 45%, #09121d 100%);
             min-height: 100vh;
+            color: var(--text);
+            font-family: "Cairo", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 26%),
+                radial-gradient(circle at top right, rgba(245, 158, 11, 0.14), transparent 24%),
+                radial-gradient(circle at bottom center, rgba(52, 211, 153, 0.08), transparent 28%),
+                linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 52%, #07101d 100%);
         }
+
         body::before {
             content: "";
             position: fixed;
             inset: 0;
             pointer-events: none;
             background-image:
-                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+                linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
             background-size: 28px 28px;
-            opacity: 0.18;
-            mask-image: radial-gradient(circle at center, rgba(0,0,0,0.8), transparent 90%);
+            opacity: 0.22;
+            mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.9), transparent 88%);
         }
+
         .studio-shell {
-            width: min(1400px, calc(100vw - 24px));
-            margin: 18px auto;
+            width: min(1480px, calc(100vw - 24px));
+            margin: 18px auto 40px;
             position: relative;
             z-index: 1;
         }
+
         .glass {
-            background: var(--panel);
+            background: linear-gradient(180deg, var(--panel), var(--panel-soft));
             border: 1px solid var(--panel-border);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
             backdrop-filter: blur(18px);
         }
+
+        .hero-card,
         .section-card {
-            border-radius: 26px;
-            padding: 20px;
+            border-radius: 28px;
+            padding: 22px;
         }
+
         .hero-card {
-            border-radius: 30px;
-            padding: 24px;
             background:
-                radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 28%),
-                radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 24%),
-                linear-gradient(160deg, rgba(15, 23, 42, 0.94), rgba(9, 15, 28, 0.90));
+                radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.16), transparent 20%),
+                linear-gradient(145deg, rgba(6, 13, 26, 0.96), rgba(9, 16, 31, 0.88));
         }
-        .panel-title {
+
+        .eyebrow {
+            font-family: "Space Grotesk", sans-serif;
             font-size: 12px;
-            letter-spacing: 0.22em;
+            letter-spacing: 0.26em;
             text-transform: uppercase;
-            color: var(--muted);
-            font-weight: 900;
+            color: #9fb6d2;
+            font-weight: 700;
         }
-        .kpi-card {
-            border-radius: 22px;
-            padding: 18px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-            border: 1px solid rgba(255,255,255,0.06);
-        }
-        .kpi-value {
-            font-size: clamp(1.6rem, 2vw, 2.3rem);
-            font-weight: 900;
-            line-height: 1;
+
+        .hero-title {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: clamp(2rem, 3vw, 4.2rem);
+            line-height: 0.98;
             color: white;
+            margin: 12px 0 0;
         }
-        .chip {
+
+        .hero-copy {
+            max-width: 900px;
+            font-size: 15px;
+            color: #bed0e7;
+            line-height: 1.9;
+            margin-top: 14px;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .chip,
+        .status-pill {
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            padding: 9px 14px;
             border-radius: 999px;
-            padding: 8px 12px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.05);
-            font-size: 11px;
-            font-weight: 900;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 12px;
+            font-weight: 800;
         }
+
         .status-pill {
-            border-radius: 999px;
-            padding: 6px 10px;
-            font-size: 10px;
-            font-weight: 900;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.05);
+            font-family: "Space Grotesk", sans-serif;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
+
+        .panel-title {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 11px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .kpi-card {
+            border-radius: 24px;
+            padding: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .kpi-value {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: clamp(1.7rem, 2vw, 2.5rem);
+            line-height: 1;
+            font-weight: 700;
+            color: white;
+            margin-top: 14px;
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
         .field,
         .select,
         .textarea {
             width: 100%;
             border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(4, 9, 19, 0.82);
             color: white;
-            padding: 12px 14px;
+            padding: 13px 14px;
             outline: none;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
+
+        .textarea {
+            resize: vertical;
+            min-height: 92px;
+        }
+
         .field:focus,
         .select:focus,
         .textarea:focus {
-            border-color: rgba(251, 191, 36, 0.55);
-            box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.08);
+            border-color: rgba(245, 158, 11, 0.55);
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.09);
             transform: translateY(-1px);
         }
+
+        .label {
+            display: block;
+            margin-bottom: 8px;
+            color: #d6e1f0;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
         .btn {
             border: 0;
             border-radius: 16px;
             padding: 12px 16px;
-            font-weight: 900;
             cursor: pointer;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
             transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
         }
+
         .btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
         }
+
         .btn-primary {
             background: linear-gradient(135deg, #fbbf24, #f59e0b);
             color: #111827;
         }
+
         .btn-secondary {
-            background: rgba(96, 165, 250, 0.14);
-            color: #bfdbfe;
-            border: 1px solid rgba(96, 165, 250, 0.24);
+            background: rgba(56, 189, 248, 0.12);
+            color: #bfe8ff;
+            border: 1px solid rgba(56, 189, 248, 0.24);
         }
+
         .btn-ghost {
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             color: white;
-            border: 1px solid rgba(255,255,255,0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
+
         .btn-danger {
             background: rgba(251, 113, 133, 0.12);
-            color: #fecdd3;
-            border: 1px solid rgba(251, 113, 133, 0.26);
+            color: #ffd2da;
+            border: 1px solid rgba(251, 113, 133, 0.22);
         }
-        .table-wrap {
-            overflow: auto;
-            border-radius: 22px;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: rgba(2, 6, 23, 0.48);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 900px;
-        }
-        th, td {
-            text-align: right;
-            padding: 14px 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            vertical-align: top;
-        }
-        th {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.18em;
-            color: var(--muted);
-            font-weight: 900;
-            background: rgba(255,255,255,0.03);
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-        tr:hover td {
-            background: rgba(255,255,255,0.025);
-        }
-        .mini-list {
-            display: grid;
-            gap: 10px;
-        }
+
+        .metric-tile,
         .mini-item {
-            padding: 12px 14px;
-            border-radius: 18px;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
         }
+
+        .mini-list,
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .stat-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
         .chart-box {
-            height: 280px;
+            height: 300px;
             position: relative;
         }
+
+        .table-wrap {
+            overflow: auto;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(4, 9, 19, 0.56);
+        }
+
+        table {
+            width: 100%;
+            min-width: 980px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 14px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            vertical-align: top;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.04);
+            color: #95a9c2;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 800;
+            z-index: 1;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.026);
+        }
+
         .empty-state {
             padding: 28px;
             text-align: center;
+            border-radius: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.02);
             color: var(--muted);
             font-weight: 700;
-            border: 1px dashed rgba(255,255,255,0.1);
-            border-radius: 20px;
-            background: rgba(255,255,255,0.02);
         }
+
         .login-panel {
-            max-width: 440px;
-            margin: 56px auto 0;
+            max-width: 520px;
+            margin: 54px auto 0;
         }
+
         .hidden {
             display: none !important;
         }
+
+        @media (max-width: 1100px) {
+            .stat-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 900px) {
             .studio-shell {
-                width: min(100vw - 16px, 1400px);
+                width: min(100vw - 16px, 1480px);
             }
-            .section-card,
-            .hero-card {
+
+            .hero-card,
+            .section-card {
                 padding: 16px;
+            }
+
+            .hero-title {
+                line-height: 1.06;
             }
         }
     </style>
@@ -234,43 +343,46 @@
 <body>
     <div class="studio-shell">
         <section class="hero-card glass">
-            <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div class="space-y-4">
-                    <div class="chip">🛠️ Admin Studio</div>
-                    <div>
-                        <h1 class="text-3xl md:text-5xl font-black text-white leading-tight">لوحة إدارة مستقلة وواضحة</h1>
-                        <p class="text-sm md:text-base text-slate-300 max-w-3xl mt-3">
-                            من هنا تنجم تراقب الطلبات، البروموات، التحليلات، وتعدّل الحالات والتتبع من صفحة وحدها.
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="chip">📦 Orders</span>
-                        <span class="chip">📈 Charts</span>
-                        <span class="chip">🎟️ Promos</span>
-                        <span class="chip">🔄 Live refresh</span>
+            <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                    <div class="eyebrow">Admin Studio</div>
+                    <h1 class="hero-title">Control rates, promos, channels, and orders from one place.</h1>
+                    <p class="hero-copy">
+                        This dashboard now lets you tune calculator rate tiers, add a service fee, update support channels,
+                        manage promo codes, and follow order activity with a cleaner layout and live previews.
+                    </p>
+                    <div class="chip-row">
+                        <span id="settings-active-base-rate" class="chip">Base 3.800</span>
+                        <span id="settings-service-fee-chip" class="chip">Service fee 0.000 TND</span>
+                        <span id="settings-refresh-chip" class="chip">Auto refresh off</span>
+                        <span id="settings-last-saved" class="chip">Not synced yet</span>
                     </div>
                 </div>
-                <div class="flex flex-col items-start lg:items-end gap-3">
-                    <div id="admin-session-pill" class="status-pill">🔒 Locked</div>
-                    <div class="flex gap-2">
-                        <a href="/" class="btn btn-ghost">رجوع للموقع</a>
-                        <button id="admin-refresh-btn" class="btn btn-secondary hidden">تحديث</button>
-                        <button id="admin-logout-btn" class="btn btn-danger hidden">تسجيل خروج</button>
+
+                <div class="flex flex-col items-start xl:items-end gap-3">
+                    <div id="admin-session-pill" class="status-pill">Locked</div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="/" class="btn btn-ghost">Back to Store</a>
+                        <button id="admin-refresh-btn" class="btn btn-secondary hidden">Refresh Data</button>
+                        <button id="admin-logout-btn" class="btn btn-danger hidden">Logout</button>
                     </div>
                 </div>
             </div>
         </section>
 
         <section id="admin-login-panel" class="login-panel section-card glass">
-            <div class="space-y-4">
+            <div class="stack">
                 <div>
-                    <div class="panel-title">Admin Access</div>
-                    <h2 class="text-2xl font-black text-white mt-2">ادخل PIN الإدارة</h2>
-                    <p class="text-sm text-slate-400 mt-2">صفحة الإدارة محمية. بعد الدخول، تلقى analytics والطلبات والبروموات في نفس الصفحة.</p>
+                    <div class="panel-title">Secure Access</div>
+                    <h2 class="text-3xl font-black text-white mt-3">Unlock the admin dashboard</h2>
+                    <p class="subtle mt-3">
+                        Enter the admin PIN to open analytics, edit calculator settings, manage promos, and update order statuses.
+                    </p>
                 </div>
-                <div class="space-y-3">
-                    <input id="admin-pin-input" type="password" inputmode="numeric" class="field" placeholder="PIN">
-                    <button id="admin-login-btn" class="btn btn-primary w-full">فتح Admin Studio</button>
+
+                <div class="stack">
+                    <input id="admin-pin-input" type="password" inputmode="numeric" class="field" placeholder="Admin PIN">
+                    <button id="admin-login-btn" class="btn btn-primary w-full">Open Admin Studio</button>
                     <div id="admin-login-message" class="text-sm font-bold text-slate-400"></div>
                 </div>
             </div>
@@ -280,46 +392,195 @@
             <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                 <div class="kpi-card glass">
                     <div class="panel-title">Revenue</div>
-                    <div id="kpi-revenue" class="kpi-value mt-3">0.000</div>
-                    <div class="text-xs text-slate-400 mt-2">إجمالي المداخيل بالدينار</div>
+                    <div id="kpi-revenue" class="kpi-value">0.000 TND</div>
+                    <div class="subtle mt-2">Total order value collected from the saved admin store.</div>
                 </div>
                 <div class="kpi-card glass">
                     <div class="panel-title">Orders</div>
-                    <div id="kpi-orders" class="kpi-value mt-3">0</div>
-                    <div class="text-xs text-slate-400 mt-2">عدد الطلبات الكلي</div>
+                    <div id="kpi-orders" class="kpi-value">0</div>
+                    <div class="subtle mt-2">All orders currently tracked by the admin panel.</div>
                 </div>
                 <div class="kpi-card glass">
                     <div class="panel-title">Pending</div>
-                    <div id="kpi-pending" class="kpi-value mt-3">0</div>
-                    <div class="text-xs text-slate-400 mt-2">طلبات مازالت مفتوحة</div>
+                    <div id="kpi-pending" class="kpi-value">0</div>
+                    <div class="subtle mt-2">Orders still waiting for work or confirmation.</div>
                 </div>
                 <div class="kpi-card glass">
                     <div class="panel-title">Delivered</div>
-                    <div id="kpi-delivered" class="kpi-value mt-3">0</div>
-                    <div class="text-xs text-slate-400 mt-2">طلبات تم تسليمها</div>
+                    <div id="kpi-delivered" class="kpi-value">0</div>
+                    <div class="subtle mt-2">Completed deliveries already marked as done.</div>
                 </div>
                 <div class="kpi-card glass">
                     <div class="panel-title">Risk</div>
-                    <div id="kpi-risk" class="kpi-value mt-3">0</div>
-                    <div class="text-xs text-slate-400 mt-2">طلبات فيها تنبيه ديوانة</div>
+                    <div id="kpi-risk" class="kpi-value">0</div>
+                    <div class="subtle mt-2">Orders flagged by restrictions or customs risk.</div>
                 </div>
             </section>
 
             <section class="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-4">
                 <div class="section-card glass">
+                    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+                        <div>
+                            <div class="panel-title">Calculator Control</div>
+                            <h3 class="text-2xl font-black text-white mt-2">Rate tiers and pricing rules</h3>
+                            <p class="subtle mt-2">Change the calculator rates used on the storefront without editing code.</p>
+                        </div>
+                        <div class="chip-row mt-0">
+                            <span class="chip">Live storefront sync</span>
+                            <span class="chip">Preview before save</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="mini-item">
+                            <div class="panel-title">Thresholds</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                                <div>
+                                    <label class="label" for="settings-threshold-low">Low tier max USD</label>
+                                    <input id="settings-threshold-low" class="field" type="number" min="0" step="1" placeholder="10">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-threshold-mid">Mid tier max USD</label>
+                                    <input id="settings-threshold-mid" class="field" type="number" min="0" step="1" placeholder="50">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-threshold-high">High tier max USD</label>
+                                    <input id="settings-threshold-high" class="field" type="number" min="0" step="1" placeholder="150">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mini-item">
+                            <div class="panel-title">Rates</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                                <div>
+                                    <label class="label" for="settings-rate-low">Low tier rate</label>
+                                    <input id="settings-rate-low" class="field" type="number" min="0" step="0.001" placeholder="4.500">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-mid">Mid tier rate</label>
+                                    <input id="settings-rate-mid" class="field" type="number" min="0" step="0.001" placeholder="4.300">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-high">High tier rate</label>
+                                    <input id="settings-rate-high" class="field" type="number" min="0" step="0.001" placeholder="4.100">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-base">Base rate</label>
+                                    <input id="settings-rate-base" class="field" type="number" min="0" step="0.001" placeholder="3.800">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-4">
+                        <div class="mini-item">
+                            <div class="panel-title">Fees</div>
+                            <label class="label mt-4" for="settings-service-fee">Flat service fee in TND</label>
+                            <input id="settings-service-fee" class="field" type="number" min="0" step="0.001" placeholder="0.000">
+                            <p class="subtle mt-3">This amount is added once to each calculator result and cart item total.</p>
+                        </div>
+
+                        <div class="mini-item">
+                            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                <div>
+                                    <div class="panel-title">Live Preview</div>
+                                    <h4 class="text-lg font-black text-white mt-2">See the calculator output before saving</h4>
+                                </div>
+                                <div class="w-full lg:w-56">
+                                    <label class="label" for="settings-preview-usd">Sample total USD</label>
+                                    <input id="settings-preview-usd" class="field" type="number" min="0" step="0.1" value="35">
+                                </div>
+                            </div>
+                            <div class="stat-grid mt-4">
+                                <div class="metric-tile">
+                                    <div class="panel-title">Applied Rate</div>
+                                    <div id="settings-preview-rate" class="text-2xl font-black text-white mt-2">4.300 TND</div>
+                                    <div class="subtle mt-2">Per 1 USD at the chosen preview amount.</div>
+                                </div>
+                                <div class="metric-tile">
+                                    <div class="panel-title">Service Fee</div>
+                                    <div id="settings-preview-service" class="text-2xl font-black text-amber-300 mt-2">0.000 TND</div>
+                                    <div class="subtle mt-2">Flat fee added once after currency conversion.</div>
+                                </div>
+                                <div class="metric-tile">
+                                    <div class="panel-title">Total Output</div>
+                                    <div id="settings-preview-total" class="text-2xl font-black text-emerald-300 mt-2">0.000 TND</div>
+                                    <div class="subtle mt-2">What the customer calculator will display.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mt-5">
+                        <button id="settings-save-btn" class="btn btn-primary">Save Settings</button>
+                        <button id="settings-reset-btn" class="btn btn-ghost">Reset Form</button>
+                    </div>
+                    <div id="settings-message" class="text-sm font-bold text-slate-400 mt-4"></div>
+                </div>
+
+                <div class="space-y-4">
+                    <section class="section-card glass">
+                        <div class="panel-title">Storefront Channels</div>
+                        <h3 class="text-xl font-black text-white mt-2">Support links used by checkout</h3>
+                        <p class="subtle mt-2">These values are used when customers send an order through WhatsApp, Messenger, or Instagram.</p>
+
+                        <div class="stack mt-4">
+                            <div>
+                                <label class="label" for="settings-whatsapp">WhatsApp number</label>
+                                <input id="settings-whatsapp" class="field" placeholder="21627498276">
+                            </div>
+                            <div>
+                                <label class="label" for="settings-messenger">Messenger handle</label>
+                                <input id="settings-messenger" class="field" placeholder="alexpresstunisie">
+                            </div>
+                            <div>
+                                <label class="label" for="settings-instagram">Instagram handle</label>
+                                <input id="settings-instagram" class="field" placeholder="alexpress.tunisie">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="section-card glass">
+                        <div class="panel-title">Admin Experience</div>
+                        <h3 class="text-xl font-black text-white mt-2">Operator settings</h3>
+                        <p class="subtle mt-2">Keep the page fresh automatically while you are monitoring new orders.</p>
+
+                        <div class="stack mt-4">
+                            <div>
+                                <label class="label" for="settings-auto-refresh">Auto refresh every X seconds</label>
+                                <input id="settings-auto-refresh" class="field" type="number" min="0" step="1" placeholder="0">
+                                <p class="subtle mt-2">Use <strong>0</strong> to disable automatic refresh.</p>
+                            </div>
+
+                            <div class="mini-item">
+                                <div class="panel-title">What changed</div>
+                                <div class="subtle mt-3">
+                                    Better layout, editable calculator tiers, storefront channel settings, live calculator preview,
+                                    auto refresh control, and a more polished management surface.
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+                <div class="section-card glass">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <div class="panel-title">Orders Overview</div>
-                            <h3 class="text-xl font-black text-white mt-2">رسم حالات الطلبات</h3>
+                            <h3 class="text-xl font-black text-white mt-2">Order status distribution</h3>
                         </div>
                     </div>
                     <div class="chart-box">
                         <canvas id="orders-status-chart"></canvas>
                     </div>
                 </div>
+
                 <div class="section-card glass">
                     <div class="panel-title">Top Products</div>
-                    <h3 class="text-xl font-black text-white mt-2 mb-4">أكثر المنتجات تداولاً</h3>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">Most ordered products</h3>
                     <div class="chart-box">
                         <canvas id="top-products-chart"></canvas>
                     </div>
@@ -331,7 +592,7 @@
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
                             <div class="panel-title">Promo Management</div>
-                            <h3 class="text-xl font-black text-white mt-2">إدارة البروموات</h3>
+                            <h3 class="text-xl font-black text-white mt-2">Create and edit promo codes</h3>
                         </div>
                         <div id="promos-count" class="status-pill">0 promos</div>
                     </div>
@@ -343,11 +604,11 @@
                             <option value="fixed">Fixed TND</option>
                         </select>
                         <input id="promo-value-input" class="field" type="number" min="0" step="0.1" placeholder="Value">
-                        <input id="promo-limit-input" class="field" type="number" min="0" step="1" placeholder="Limit">
+                        <input id="promo-limit-input" class="field" type="number" min="0" step="1" placeholder="Usage limit">
                         <input id="promo-expiry-input" class="field" type="datetime-local">
                         <div class="flex gap-2">
-                            <button id="promo-save-btn" class="btn btn-primary flex-1">حفظ البرومو</button>
-                            <button id="promo-clear-btn" class="btn btn-ghost">تنظيف</button>
+                            <button id="promo-save-btn" class="btn btn-primary flex-1">Save Promo</button>
+                            <button id="promo-clear-btn" class="btn btn-ghost">Clear</button>
                         </div>
                     </div>
                     <div id="promo-message" class="text-sm font-bold text-slate-400 mb-4"></div>
@@ -356,20 +617,22 @@
 
                 <div class="section-card glass">
                     <div class="panel-title">Insights</div>
-                    <h3 class="text-xl font-black text-white mt-2 mb-4">مؤشرات إضافية</h3>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">Quick intelligence</h3>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                         <div class="mini-item">
-                            <div class="text-xs text-slate-400 font-black">Repeat Customers</div>
-                            <div id="repeat-customers-list" class="mt-3 space-y-2"></div>
+                            <div class="panel-title">Repeat Customers</div>
+                            <div id="repeat-customers-list" class="stack mt-3"></div>
                         </div>
                         <div class="mini-item">
-                            <div class="text-xs text-slate-400 font-black">Top Promos</div>
-                            <div id="top-promos-list" class="mt-3 space-y-2"></div>
+                            <div class="panel-title">Top Promos</div>
+                            <div id="top-promos-list" class="stack mt-3"></div>
                         </div>
                     </div>
+
                     <div class="mini-item">
-                        <div class="text-xs text-slate-400 font-black">Admin Activity</div>
-                        <div id="admin-activity-log" class="mt-3 space-y-2"></div>
+                        <div class="panel-title">Admin Activity</div>
+                        <div id="admin-activity-log" class="stack mt-3"></div>
                     </div>
                 </div>
             </section>
@@ -378,22 +641,22 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-4">
                     <div>
                         <div class="panel-title">Orders</div>
-                        <h3 class="text-xl font-black text-white mt-2">الطلبات الكل</h3>
+                        <h3 class="text-xl font-black text-white mt-2">All tracked orders</h3>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[720px]">
-                        <input id="orders-search-input" class="field" placeholder="قلّب بالمرجع، الاسم، أو التليفون">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[760px]">
+                        <input id="orders-search-input" class="field" placeholder="Search ref, phone, city, or item">
                         <select id="orders-status-filter" class="select">
-                            <option value="all">كل الحالات</option>
+                            <option value="all">All statuses</option>
                             <option value="pending">Pending</option>
                             <option value="processing">Processing</option>
                             <option value="shipped">Shipped</option>
                             <option value="delivered">Delivered</option>
                         </select>
                         <select id="orders-sort-filter" class="select">
-                            <option value="newest">الأحدث أولاً</option>
-                            <option value="oldest">الأقدم أولاً</option>
-                            <option value="high-total">أعلى مبلغ</option>
-                            <option value="low-total">أقل مبلغ</option>
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="high-total">Highest total</option>
+                            <option value="low-total">Lowest total</option>
                         </select>
                     </div>
                 </div>
@@ -402,14 +665,14 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>مرجع</th>
-                                <th>التاريخ</th>
-                                <th>الحريف</th>
-                                <th>المنتجات</th>
-                                <th>الحالة</th>
-                                <th>الإجمالي</th>
-                                <th>التتبع</th>
-                                <th>تعديل</th>
+                                <th>Reference</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Status</th>
+                                <th>Total</th>
+                                <th>Tracking</th>
+                                <th>Update</th>
                             </tr>
                         </thead>
                         <tbody id="orders-table-body"></tbody>
