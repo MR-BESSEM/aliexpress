@@ -2474,6 +2474,7 @@ async function scrapeWithHttp(url) {
 async function fetchProduct(url) {
   const urlCandidates = getProductUrlCandidates(url);
   const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
+  const affiliateAuthAlertText = "الجلب التلقائي عبر Affiliate API متوقف مؤقتًا لأن إعدادات AliExpress الحالية مرفوضة. اعتمدنا fallback من الصفحة مباشرة، وإذا السعر ما ظهرش استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب إلى حين تبديل الـ App Key.";
   if (!canonicalUrl) {
     const error = new Error("رابط AliExpress غير صالح");
     error.status = 400;
@@ -2496,8 +2497,9 @@ async function fetchProduct(url) {
     apiError = error;
     log("warn", "AliExpress API product fetch failed", { productId, error: error.message });
   }
+  const affiliateAuthFailed = isAffiliateAppKeyInvalidError(apiError);
 
-  if (isAffiliateAppKeyInvalidError(apiError)) {
+  if (false && affiliateAuthFailed) {
     return buildUnavailableProductResponse({
       canonicalUrl,
       productId,
@@ -2536,6 +2538,14 @@ async function fetchProduct(url) {
   }
 
   if (!pageData && !apiData && !partialPageData) {
+    if (affiliateAuthFailed) {
+      return buildUnavailableProductResponse({
+        canonicalUrl,
+        productId,
+        source: "affiliate-auth-error",
+        alertText: affiliateAuthAlertText
+      });
+    }
     const error = lastPageError || new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
     error.status = 502;
     error.message = "ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا";
@@ -2608,6 +2618,10 @@ async function fetchProduct(url) {
   product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
+  if (affiliateAuthFailed) {
+    product.alerts.unshift({ level: "warning", text: affiliateAuthAlertText });
+    product.errorHint = affiliateAuthAlertText;
+  }
   product.trustScore = buildSellerTrustScore(product);
   product.customsAdvisor = buildCustomsAdvisor(product);
   product.deliveryTimeline = buildEstimatedTimeline(product);
