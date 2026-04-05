@@ -1567,6 +1567,7 @@ function previewValue(value, limit = 280) {
 }
 
 function buildAffiliateResponseDebugSummary(responseData) {
+  const errorResponse = responseData?.error_response || null;
   const methodResponse =
     responseData?.aliexpress_affiliate_productdetail_get_response ||
     responseData?.aliexpress_affiliate_product_detail_get_response ||
@@ -1592,6 +1593,12 @@ function buildAffiliateResponseDebugSummary(responseData) {
   return {
     dataType: Array.isArray(responseData) ? "array" : typeof responseData,
     topKeys: summarizeValueKeys(responseData),
+    errorResponseKeys: summarizeValueKeys(errorResponse),
+    errorCode: errorResponse?.code ?? null,
+    errorMsg: errorResponse?.msg ?? null,
+    errorSubCode: errorResponse?.sub_code ?? null,
+    errorSubMsg: errorResponse?.sub_msg ?? null,
+    errorPreview: errorResponse ? previewValue(errorResponse) : "",
     methodResponseKeys: summarizeValueKeys(methodResponse),
     respResultType: Array.isArray(rawRespResult) ? "array" : typeof rawRespResult,
     respResultPreview: rawRespResult == null ? "" : previewValue(rawRespResult),
@@ -1949,6 +1956,20 @@ async function fetchAliExpressAffiliateProduct(productId) {
         proxy: false
       });
 
+      if (response.data?.error_response) {
+        const apiError = response.data.error_response;
+        const message = apiError?.sub_msg || apiError?.msg || "AliExpress Affiliate API returned error_response";
+        const error = new Error(message);
+        error.nonRetryable = true;
+        error.apiError = {
+          code: apiError?.code ?? null,
+          msg: apiError?.msg ?? null,
+          subCode: apiError?.sub_code ?? null,
+          subMsg: apiError?.sub_msg ?? null
+        };
+        throw error;
+      }
+
       const methodResponse =
         response.data?.aliexpress_affiliate_productdetail_get_response ||
         response.data?.aliexpress_affiliate_product_detail_get_response ||
@@ -2039,6 +2060,7 @@ async function fetchAliExpressAffiliateProduct(productId) {
         productId,
         country: country || "none",
         error: error.message,
+        apiError: error?.apiError || null,
         responseStatus: error?.response?.status || null,
         responseDataPreview: error?.response?.data ? previewValue(error.response.data) : ""
       });
