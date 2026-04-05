@@ -244,6 +244,26 @@
             --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.30);
             --text-soft: #94a3b8;
         }
+        @keyframes auroraDrift {
+            0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+            50% { transform: translate3d(1.5%, -2%, 0) scale(1.06); opacity: 1; }
+            100% { transform: translate3d(-2%, 2%, 0) scale(1.02); opacity: 0.82; }
+        }
+        @keyframes gridShift {
+            0% { transform: translate3d(0, 0, 0); opacity: 0.18; }
+            50% { transform: translate3d(-18px, 10px, 0); opacity: 0.26; }
+            100% { transform: translate3d(10px, -14px, 0); opacity: 0.18; }
+        }
+        @keyframes orbFloat {
+            0% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(24px, -32px, 0) scale(1.08); }
+            100% { transform: translate3d(-18px, 18px, 0) scale(0.96); }
+        }
+        @keyframes beamSweep {
+            0% { transform: translate3d(-6%, -2%, 0) rotate(-9deg); opacity: 0.18; }
+            50% { transform: translate3d(5%, 2%, 0) rotate(-5deg); opacity: 0.28; }
+            100% { transform: translate3d(-4%, 4%, 0) rotate(-11deg); opacity: 0.16; }
+        }
         body {
             background:
                 radial-gradient(circle at top center, rgba(15, 23, 42, 0.9), transparent 35%),
@@ -261,6 +281,115 @@
             mask-image: radial-gradient(circle at center, rgba(0,0,0,0.45), transparent 82%);
             z-index: -1;
             opacity: 0.22;
+            animation: gridShift 26s ease-in-out infinite alternate;
+            will-change: transform, opacity;
+        }
+        body::before {
+            animation: auroraDrift 20s ease-in-out infinite alternate;
+            will-change: transform, opacity;
+        }
+        .site-backdrop {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .site-backdrop-orb,
+        .site-backdrop-beam,
+        .site-backdrop-noise {
+            position: absolute;
+            inset: auto;
+            will-change: transform, opacity;
+        }
+        .site-backdrop-orb {
+            border-radius: 9999px;
+            filter: blur(24px);
+            mix-blend-mode: screen;
+            opacity: 0.34;
+            animation: orbFloat 18s ease-in-out infinite alternate;
+        }
+        .site-backdrop-orb--amber {
+            top: 8%;
+            right: -6%;
+            width: 28rem;
+            height: 28rem;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.26) 0%, rgba(251, 191, 36, 0.08) 38%, transparent 70%);
+        }
+        .site-backdrop-orb--blue {
+            top: 26%;
+            left: -10%;
+            width: 24rem;
+            height: 24rem;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.20) 0%, rgba(14, 165, 233, 0.07) 42%, transparent 72%);
+            animation-duration: 22s;
+        }
+        .site-backdrop-orb--slate {
+            right: 18%;
+            bottom: -8%;
+            width: 22rem;
+            height: 22rem;
+            background: radial-gradient(circle, rgba(148, 163, 184, 0.10) 0%, rgba(30, 41, 59, 0.16) 45%, transparent 72%);
+            animation-duration: 24s;
+        }
+        .site-backdrop-beam {
+            top: -20%;
+            left: 18%;
+            width: 52rem;
+            height: 120%;
+            background: linear-gradient(180deg, rgba(251, 191, 36, 0.00), rgba(251, 191, 36, 0.07), rgba(59, 130, 246, 0.05), rgba(251, 191, 36, 0.00));
+            filter: blur(12px);
+            transform: rotate(-9deg);
+            transform-origin: top center;
+            animation: beamSweep 24s ease-in-out infinite alternate;
+        }
+        .site-backdrop-noise {
+            inset: 0;
+            opacity: 0.06;
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,0.20) 0 0.7px, transparent 1px),
+                radial-gradient(circle at 80% 30%, rgba(255,255,255,0.16) 0 0.7px, transparent 1px),
+                radial-gradient(circle at 30% 80%, rgba(255,255,255,0.14) 0 0.7px, transparent 1px);
+            background-size: 180px 180px, 240px 240px, 210px 210px;
+        }
+        .light-mode .site-backdrop-orb {
+            opacity: 0.22;
+            mix-blend-mode: multiply;
+        }
+        .light-mode .site-backdrop-beam {
+            opacity: 0.12;
+        }
+        .light-mode .site-backdrop-noise {
+            opacity: 0.03;
+        }
+        @media (max-width: 767px) {
+            .site-backdrop-orb--amber {
+                width: 18rem;
+                height: 18rem;
+                right: -18%;
+            }
+            .site-backdrop-orb--blue {
+                width: 16rem;
+                height: 16rem;
+                left: -18%;
+            }
+            .site-backdrop-orb--slate {
+                width: 15rem;
+                height: 15rem;
+                right: 8%;
+            }
+            .site-backdrop-beam {
+                left: -10%;
+                width: 34rem;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            body::before,
+            body::after,
+            .site-backdrop-orb,
+            .site-backdrop-beam {
+                animation: none !important;
+            }
         }
         main {
             max-width: 1140px !important;
@@ -343,6 +472,138 @@
         #section-check .glass-card,
         #section-track .glass-card {
             backdrop-filter: blur(20px);
+        }
+        #section-check .safety-hero {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(239, 68, 68, 0.14), transparent 30%),
+                radial-gradient(circle at top left, rgba(251, 191, 36, 0.10), transparent 26%),
+                linear-gradient(180deg, rgba(10, 16, 26, 0.94), rgba(10, 15, 24, 0.88));
+            border: 1px solid rgba(248, 113, 113, 0.14);
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.26);
+        }
+        #section-check .safety-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.03em;
+        }
+        #section-check .safety-pill strong {
+            color: #fff;
+        }
+        #section-check .safety-bucket {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.4rem;
+            padding: 1.15rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(10, 15, 23, 0.76));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+        }
+        #section-check .safety-bucket::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 40%, transparent 70%, rgba(255,255,255,0.02));
+        }
+        #section-check .safety-bucket-head {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 0.9rem;
+        }
+        #section-check .safety-bucket-icon {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #section-check .safety-bucket-title {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        #section-check .safety-bucket-copy {
+            font-size: 11px;
+            color: #cbd5e1;
+            font-weight: 700;
+            line-height: 1.7;
+        }
+        #section-check .safety-bucket-copy div {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+        }
+        #section-check .safety-bucket-copy div::before {
+            content: "•";
+            color: rgba(255,255,255,0.45);
+            margin-top: 0.05rem;
+        }
+        #section-check .safety-bucket--danger {
+            border-color: rgba(248, 113, 113, 0.18);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-icon {
+            background: rgba(239, 68, 68, 0.14);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-title {
+            color: #fca5a5;
+        }
+        #section-check .safety-bucket--warning {
+            border-color: rgba(251, 191, 36, 0.18);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-icon {
+            background: rgba(251, 191, 36, 0.14);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-title {
+            color: #fcd34d;
+        }
+        #section-check .safety-bucket--safe {
+            border-color: rgba(52, 211, 153, 0.18);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-icon {
+            background: rgba(16, 185, 129, 0.14);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-title {
+            color: #86efac;
+        }
+        #section-check .safety-doc-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 1.3rem;
+            padding: 1.15rem;
+        }
+        #section-check > .glass-card > h2[data-i18n="saf_title"],
+        #section-check > .glass-card > p[data-i18n="saf_desc1"] {
+            display: none;
+        }
+        #section-check .legacy-safety-grid {
+            display: none;
+        }
+        #section-check .safety-doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
         }
         #runtime-preview-card {
             background:
@@ -558,17 +819,14 @@
                 grid-template-columns: 1fr;
             }
         }
-        #runtime-variant-groups button.is-active {
-            background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(59, 130, 246, 0.16));
-            border-color: rgba(251, 191, 36, 0.45);
-            color: #fff;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
         #runtime-breakdown-card,
         #runtime-quote-compare-card,
         #runtime-cart-insights-card,
         #runtime-bundle-card {
             background: linear-gradient(180deg, rgba(8, 14, 24, 0.88), rgba(11, 18, 29, 0.82));
+        }
+        #runtime-cart-insights-card {
+            display: none !important;
         }
         #cart-footer .bg-slate-900\/40,
         #cart-footer .bg-slate-900\/80 {
@@ -769,7 +1027,15 @@
 </head>
 <body class="custom-scrollbar overflow-x-hidden transition-all duration-300">
 
-<div class="min-h-screen flex flex-col">
+<div class="site-backdrop" aria-hidden="true">
+    <div class="site-backdrop-beam"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--amber"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--blue"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--slate"></div>
+    <div class="site-backdrop-noise"></div>
+</div>
+
+<div class="min-h-screen flex flex-col relative z-10">
     <!-- Top Navigation -->
     <header class="sticky top-0 z-50 glass-card border-b border-white/5 py-3 px-3 md:px-6 flex flex-wrap items-center justify-between gap-y-3">
         <div class="flex items-center gap-2 shrink-0">
@@ -870,7 +1136,7 @@
                     <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
-                    <div id="runtime-metric-rate" class="text-xl font-black text-white">3.800</div>
+                    <div id="runtime-metric-rate" class="text-xl font-black text-white">4.500</div>
                     <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
                 </div>
             </div>
@@ -1074,7 +1340,6 @@
                                     <div class="flex flex-wrap gap-2 items-center">
                                         <span id="runtime-preview-source" class="runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20 uppercase">SCRAPE</span>
                                         <span id="runtime-preview-meta" class="runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Tunisia Ready</span>
-                                        <span id="runtime-preview-variant-summary" class="hidden runtime-preview-chip bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20">No option selected</span>
                                     </div>
                                     <h3 id="runtime-preview-title" class="text-lg md:text-[1.35rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
                                     <p id="runtime-preview-description" class="text-xs text-slate-300 leading-6 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
@@ -1134,16 +1399,6 @@
                             </div>
                         </div>
                         <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">إجلب منتج باش يبان تقييم الثقة متاعو.</div>
-                    </div>
-                    <div id="runtime-variants-card" class="hidden bg-fuchsia-500/5 p-4 rounded-2xl border border-fuchsia-500/20 space-y-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-black text-white">ملاحظة على الخيارات</div>
-                                <div class="text-[9px] text-slate-500 font-bold">إذا المنتج فيه لون أو مقاس أو طول، السعر ينجم يتبدل حسب الخيار</div>
-                            </div>
-                            <span class="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-300 text-[10px] font-black">خيارات</span>
-                        </div>
-                        <div id="runtime-variant-groups" class="space-y-3"></div>
                     </div>
                     <div id="runtime-recent-links-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-3">
                         <div class="flex items-center justify-between gap-3">
@@ -1553,6 +1808,18 @@
                 <h2 class="text-xl md:text-2xl font-black mb-6 text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
                 <p class="text-[10px] text-slate-400 mb-6 text-center" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصاً من الديوانة التونسية:</p>
                 
+                <div class="safety-hero rounded-[2rem] p-5 md:p-7 mb-8">
+                    <div class="relative z-10 space-y-4">
+                        <h2 class="text-xl md:text-2xl font-black text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
+                        <p class="text-[10px] text-slate-300 text-center max-w-2xl mx-auto leading-relaxed" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصًا من الديوانة التونسية.</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <span class="safety-pill">🚫 <strong>ممنوع</strong> منتجات تتحجز</span>
+                            <span class="safety-pill">📄 <strong>ترخيص</strong> بعض الفئات تحتاج مراجعة</span>
+                            <span class="safety-pill">✅ <strong>نصيحة</strong> تأكد قبل التأكيد</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="banned-list"></div>
 
                 <div class="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
@@ -1579,7 +1846,7 @@
                     <div id="customs-result" class="hidden mt-4 p-4 rounded-xl text-xs leading-relaxed bg-blue-500/10 border border-blue-500/30 text-blue-500 md:text-blue-300 relative z-10 text-center font-bold"></div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 legacy-safety-grid">
                     <div class="bg-slate-900/70 border border-red-500/20 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-red-300 uppercase tracking-[0.25em] mb-3">ممنوع 100%</div>
                         <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
@@ -1605,6 +1872,45 @@
                             <div>تجنب الإعلانات الغامضة أو اللي فيها كلمات مخفية</div>
                             <div>خلي الفاتورة والسعر ظاهرين</div>
                             <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="safety-bucket safety-bucket--danger auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">🚫</div>
+                            <div class="safety-bucket-title">ممنوع 100%</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>درون و GPS trackers</div>
+                            <div>Spy cameras و أجهزة تنصت</div>
+                            <div>Vapes و أسلحة و لوازم صيد</div>
+                            <div>TV boxes و أجهزة لاسلكية حساسة</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--warning auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">📄</div>
+                            <div class="safety-bucket-title">قد يطلب ترخيص</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>هواتف و إلكترونيات حساسة</div>
+                            <div>أجهزة إرسال / استقبال</div>
+                            <div>مكملات غذائية و مواد شبه طبية</div>
+                            <div>بطاريات كبيرة أو wireless modules</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--safe auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">✅</div>
+                            <div class="safety-bucket-title">قبل ما تطلب</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
+                            <div>إذا شكيت اطلب مراجعة يدوية</div>
                         </div>
                     </div>
                 </div>
@@ -2213,6 +2519,12 @@
             </div>
 
             <div class="text-center md:text-left rtl:text-left ltr:text-right">
+                <div class="mb-3">
+                    <a href="/admin" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20 hover:bg-amber-400 hover:text-black transition-all text-[10px] font-black shadow-sm">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Admin Login</span>
+                    </a>
+                </div>
                 <p class="text-[8px] text-slate-600 font-black tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. جميع الحقوق محفوظة.</p>
                 <div class="text-[10px] font-bold flex items-center justify-center md:justify-start gap-2 flex-wrap">
                     <span class="footer-love">
@@ -2452,17 +2764,39 @@
         const { doc, getDoc } = window.firebaseCore;
         try {
             const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'));
+            let shouldSyncLocalBackToCloud = false;
             if (docSnap.exists()) {
                 const cloudData = docSnap.data();
-                if (cloudData.cart) cart = cloudData.cart;
-                if (cloudData.wishlist) wishlist = cloudData.wishlist;
-                if (cloudData.history) orderHistory = cloudData.history;
+                const cloudCart = Array.isArray(cloudData.cart) ? recalculateStoredCollection(cloudData.cart) : null;
+                const cloudWishlist = Array.isArray(cloudData.wishlist) ? recalculateStoredCollection(cloudData.wishlist) : null;
+                const cloudHistory = Array.isArray(cloudData.history) ? cloudData.history : null;
+
+                if (cloudCart && cloudCart.length > 0) {
+                    cart = cloudCart;
+                } else if ((!cloudCart || cloudCart.length === 0) && Array.isArray(cart) && cart.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
+
+                if (cloudWishlist && cloudWishlist.length > 0) {
+                    wishlist = cloudWishlist;
+                } else if ((!cloudWishlist || cloudWishlist.length === 0) && Array.isArray(wishlist) && wishlist.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
+
+                if (cloudHistory && cloudHistory.length > 0) {
+                    orderHistory = cloudHistory;
+                } else if ((!cloudHistory || cloudHistory.length === 0) && Array.isArray(orderHistory) && orderHistory.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
                 
                 renderCart();
                 renderWishlist();
                 renderHistory();
                 updateBadges();
                 updateAccountStats();
+                if (shouldSyncLocalBackToCloud) syncToCloud();
+            } else if ((Array.isArray(cart) && cart.length > 0) || (Array.isArray(wishlist) && wishlist.length > 0) || (Array.isArray(orderHistory) && orderHistory.length > 0)) {
+                syncToCloud();
             }
         } catch (e) {
             console.error("Error loading cloud data", e);
@@ -2614,7 +2948,127 @@
     let orderHistory = [];
     let currentDiscount = 0; 
     let discountType = ''; 
-    const rates = { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 };
+    const defaultPublicSettings = {
+        calculator: {
+            thresholds: { low: 10, mid: 50, high: 150 },
+            rates: { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 },
+            serviceFeeTnd: 0
+        },
+        storefront: {
+            whatsappNumber: '21627498276',
+            messengerHandle: 'alexpresstunisie',
+            instagramHandle: 'alexpress.tunisie'
+        }
+    };
+    window.runtimeAdminSettings = JSON.parse(JSON.stringify(defaultPublicSettings));
+
+    function normalizeRuntimeSettings(raw = {}) {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const calculator = source.calculator && typeof source.calculator === 'object' ? source.calculator : {};
+        const thresholds = calculator.thresholds && typeof calculator.thresholds === 'object' ? calculator.thresholds : {};
+        const rates = calculator.rates && typeof calculator.rates === 'object' ? calculator.rates : {};
+        const storefront = source.storefront && typeof source.storefront === 'object' ? source.storefront : {};
+
+        const lowThreshold = Math.max(0, Number(thresholds.low || defaultPublicSettings.calculator.thresholds.low));
+        const midThreshold = Math.max(lowThreshold + 1, Number(thresholds.mid || defaultPublicSettings.calculator.thresholds.mid));
+        const highThreshold = Math.max(midThreshold + 1, Number(thresholds.high || defaultPublicSettings.calculator.thresholds.high));
+
+        return {
+            calculator: {
+                thresholds: {
+                    low: lowThreshold,
+                    mid: midThreshold,
+                    high: highThreshold
+                },
+                rates: {
+                    low: Math.max(0.001, Number(rates.low || defaultPublicSettings.calculator.rates.low)),
+                    mid: Math.max(0.001, Number(rates.mid || defaultPublicSettings.calculator.rates.mid)),
+                    high: Math.max(0.001, Number(rates.high || defaultPublicSettings.calculator.rates.high)),
+                    base: Math.max(0.001, Number(rates.base || defaultPublicSettings.calculator.rates.base))
+                },
+                serviceFeeTnd: Math.max(0, Number(calculator.serviceFeeTnd || defaultPublicSettings.calculator.serviceFeeTnd))
+            },
+            storefront: {
+                whatsappNumber: String(storefront.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber).trim().replace(/\D/g, '') || defaultPublicSettings.storefront.whatsappNumber,
+                messengerHandle: String(storefront.messengerHandle || defaultPublicSettings.storefront.messengerHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.messengerHandle,
+                instagramHandle: String(storefront.instagramHandle || defaultPublicSettings.storefront.instagramHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.instagramHandle
+            }
+        };
+    }
+
+    function getRuntimeSettings() {
+        return window.runtimeAdminSettings || defaultPublicSettings;
+    }
+
+    function getCalculatorSettings() {
+        return getRuntimeSettings().calculator || defaultPublicSettings.calculator;
+    }
+
+    function resolveUsdToTndRate(totalUSD) {
+        const settings = getCalculatorSettings();
+        let rate = Number(settings.rates.base || defaultPublicSettings.calculator.rates.base);
+        if (totalUSD > 0 && totalUSD < Number(settings.thresholds.low || defaultPublicSettings.calculator.thresholds.low)) rate = Number(settings.rates.low || rate);
+        else if (totalUSD < Number(settings.thresholds.mid || defaultPublicSettings.calculator.thresholds.mid)) rate = Number(settings.rates.mid || rate);
+        else if (totalUSD < Number(settings.thresholds.high || defaultPublicSettings.calculator.thresholds.high)) rate = Number(settings.rates.high || rate);
+        return rate;
+    }
+
+    function convertUsdTotalToTnd(totalUSD) {
+        const numericTotal = Math.max(0, Number(totalUSD || 0));
+        const settings = getCalculatorSettings();
+        const rate = resolveUsdToTndRate(numericTotal);
+        const convertedTnd = numericTotal * rate;
+        const serviceFeeTnd = Number(settings.serviceFeeTnd || 0);
+        return {
+            rate,
+            convertedTnd,
+            serviceFeeTnd,
+            totalTnd: convertedTnd + serviceFeeTnd
+        };
+    }
+
+    function recalculateStoredItem(item = {}) {
+        const usd = Number(item.usd || 0);
+        const calc = convertUsdTotalToTnd(usd);
+        return Object.assign({}, item, { usd, tnd: calc.totalTnd });
+    }
+
+    function recalculateStoredCollection(list = []) {
+        return Array.isArray(list) ? list.map(recalculateStoredItem) : [];
+    }
+
+    function updateCalculatorRuntimePanels(priceUsd, shippingUsd, calc) {
+        const rateBadge = document.getElementById('rate-badge');
+        const liveRateDisplay = document.getElementById('live-rate-display');
+        const runtimeMetricRate = document.getElementById('runtime-metric-rate');
+        const runtimeBreakdownProduct = document.getElementById('runtime-breakdown-product');
+        const runtimeBreakdownShipping = document.getElementById('runtime-breakdown-shipping');
+        const runtimeBreakdownService = document.getElementById('runtime-breakdown-service');
+        const runtimeBreakdownTotal = document.getElementById('runtime-breakdown-total');
+
+        if (rateBadge) {
+            rateBadge.textContent = (priceUsd + shippingUsd) > 0
+                ? `Rate ${calc.rate.toFixed(3)} | Fee ${calc.serviceFeeTnd.toFixed(3)}`
+                : '--';
+        }
+        if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ~ ${calc.rate.toFixed(3)} TND`;
+        if (runtimeMetricRate) runtimeMetricRate.textContent = calc.rate.toFixed(3);
+        if (runtimeBreakdownProduct) runtimeBreakdownProduct.textContent = `${(priceUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownShipping) runtimeBreakdownShipping.textContent = `${(shippingUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownService) runtimeBreakdownService.textContent = `${calc.serviceFeeTnd.toFixed(3)} TND`;
+        if (runtimeBreakdownTotal) runtimeBreakdownTotal.textContent = `${calc.totalTnd.toFixed(3)} TND`;
+    }
+
+    async function loadPublicSettings() {
+        try {
+            const response = await fetch('/api/settings');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.success === false) return;
+            window.runtimeAdminSettings = normalizeRuntimeSettings(data.settings || {});
+        } catch (e) {
+            console.error('Error loading public settings', e);
+        }
+    }
 
     // --- NEW SECURITY MEASURES (XSS & SPAM PROTECTION) ---
     let isActionLocked = false;
@@ -2688,8 +3142,8 @@
             const savedWish = localStorage.getItem('alexpress_wishlist');
             const savedHist = localStorage.getItem('alexpress_history');
             
-            if (savedCart) cart = decryptData(savedCart) || [];
-            if (savedWish) wishlist = decryptData(savedWish) || [];
+            if (savedCart) cart = recalculateStoredCollection(decryptData(savedCart) || []);
+            if (savedWish) wishlist = recalculateStoredCollection(decryptData(savedWish) || []);
             if (savedHist) orderHistory = decryptData(savedHist) || [];
         } catch (e) { console.error("Error loading data", e); }
         
@@ -2781,13 +3235,11 @@
         const p = parseFloat(document.getElementById('usd-price').value) || 0;
         const s = parseFloat(document.getElementById('usd-ship').value) || 0;
         const totalUSD = p + s;
-        let rate = rates.base;
-        if (totalUSD > 0 && totalUSD < 10) rate = rates.low;
-        else if (totalUSD < 50) rate = rates.mid;
-        else if (totalUSD < 150) rate = rates.high;
-        const totalTND = totalUSD * rate;
-        document.getElementById('tnd-result').textContent = totalTND.toFixed(3) + " TND";
-        document.getElementById('rate-badge').textContent = totalUSD > 0 ? `Rate: ${rate.toFixed(3)}` : "--";
+        const calc = convertUsdTotalToTnd(totalUSD);
+        const totalTND = calc.totalTnd;
+        const rate = calc.rate;
+        document.getElementById('tnd-result').textContent = calc.totalTnd.toFixed(3) + " TND";
+        updateCalculatorRuntimePanels(p, s, calc);
         
         const liveRateDisplay = document.getElementById('live-rate-display');
         if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ≈ ${rate.toFixed(3)} TND`;
@@ -2905,10 +3357,13 @@
         const list = document.getElementById('cart-items-list');
         const footer = document.getElementById('cart-footer');
         const totalDisplay = document.getElementById('cart-total-display');
+        const runtimeCartService = document.getElementById('runtime-cart-service');
+        const serviceFeePerItem = Number(getCalculatorSettings().serviceFeeTnd || 0);
         
         if (cart.length === 0) {
             list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('cart_empty')}</div>`;
             footer.classList.add('hidden');
+            if (runtimeCartService) runtimeCartService.textContent = "0.000 TND";
             return;
         }
         
@@ -2952,6 +3407,11 @@
             totalDisplay.innerHTML = `<span class="line-through text-slate-500 text-lg mr-2">${subtotal.toFixed(3)}</span> <span class="text-green-400">${finalTotal.toFixed(3)} TND</span>`;
         } else {
             totalDisplay.textContent = finalTotal.toFixed(3) + " TND";
+        }
+
+        if (runtimeCartService) {
+            const totalQty = cart.reduce((sum, item) => sum + Math.max(1, Number(item.qty || 1)), 0);
+            runtimeCartService.textContent = `${(totalQty * serviceFeePerItem).toFixed(3)} TND`;
         }
     }
 
@@ -3008,7 +3468,16 @@
         saveData(); renderHistory();
 
         const encoded = encodeURIComponent(message);
-        window.open(channel === 'whatsapp' ? `https://wa.me/21627498276?text=${encoded}` : (channel === 'messenger' ? `https://m.me/alexpresstunisie?text=${encoded}` : `https://ig.me/m/alexpress.tunisie?text=${encoded}`), '_blank');
+        const storefrontSettings = getRuntimeSettings().storefront || defaultPublicSettings.storefront;
+        const whatsappNumber = storefrontSettings.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber;
+        const messengerHandle = storefrontSettings.messengerHandle || defaultPublicSettings.storefront.messengerHandle;
+        const instagramHandle = storefrontSettings.instagramHandle || defaultPublicSettings.storefront.instagramHandle;
+        const targetUrl = channel === 'whatsapp'
+            ? `https://wa.me/${whatsappNumber}?text=${encoded}`
+            : (channel === 'messenger'
+                ? `https://m.me/${messengerHandle}?text=${encoded}`
+                : `https://ig.me/m/${instagramHandle}?text=${encoded}`);
+        window.open(targetUrl, '_blank');
         
         cart = []; updateBadges(); renderCart(); saveData();
         document.getElementById('promo-code').value = ''; 
@@ -3084,12 +3553,15 @@
         const container = document.getElementById('banned-list');
         if(!container) return;
         container.innerHTML = bannedKeywords.map(item => `
-            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between group auto-align">
-                 <div class="flex flex-col">
-                    <span class="font-bold text-[11px] text-slate-400 mb-1">${t(item.nameKey)}</span>
-                    <span class="text-[8px] font-black ${item.color} uppercase tracking-tighter">${t(item.statusKey)}</span>
+            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between gap-3 group auto-align">
+                 <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0 shadow-inner">${item.icon}</div>
+                    <div class="flex flex-col min-w-0">
+                        <span class="font-bold text-[11px] text-slate-200 mb-1 leading-snug">${t(item.nameKey)}</span>
+                        <span class="inline-flex w-max items-center gap-1 text-[8px] font-black ${item.color} uppercase tracking-tighter px-2 py-1 rounded-full bg-black/20 border border-white/5">${t(item.statusKey)}</span>
+                    </div>
                  </div>
-                 <span class="text-2xl opacity-80 group-hover:opacity-100 transition-opacity">${item.icon}</span>
+                 <span class="text-[10px] text-slate-500 font-black">⚠️</span>
             </div>
         `).join('');
     }
@@ -3105,8 +3577,9 @@
         });
     }
 
-    window.onload = () => { 
+    window.onload = async () => { 
         initCharts(); 
+        await loadPublicSettings();
         calculateTND(); 
         loadData(); 
         initFirebase(); 
@@ -3114,6 +3587,27 @@
         setInterval(triggerSocialProof, 25000); 
     };
 </script>
-<script src="assets/script.js?v=20260404-6"></script>
+<script>
+(() => {
+    const applyImmediateFixes = () => {
+        const accountAdminPanel = document.querySelector('#section-account details[data-account-panel="admin"]');
+        if (accountAdminPanel) {
+            accountAdminPanel.remove();
+        }
+
+        const footerLove = document.querySelector('.footer-love');
+        if (footerLove) {
+            footerLove.innerHTML = 'Created with <span class="footer-love-heart">&#10084;</span> By';
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyImmediateFixes, { once: true });
+    } else {
+        applyImmediateFixes();
+    }
+})();
+</script>
+<script src="assets/script.js?v=20260406-2"></script>
 </body>
 </html>
