@@ -2777,6 +2777,10 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(ROOT, "index.html"));
 });
 
+app.get(["/admin", "/admin.html"], (req, res) => {
+  res.sendFile(path.join(ROOT, "admin.html"));
+});
+
 app.get("/api/health", (req, res) => {
   const scrapeProxy = getScrapeProxyConfig();
   const affiliateMode = /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN;
