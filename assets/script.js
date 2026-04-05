@@ -407,7 +407,7 @@
     }
 
     function getAdminPin() {
-        return window.localStorage.getItem(ADMIN_PIN_KEY) || "2749";
+        return window.localStorage.getItem(ADMIN_PIN_KEY) || "1920";
     }
 
     function getAdminPromos() {
