@@ -3236,6 +3236,62 @@
         }
     }
 
+    function sanitizeStorageImage(image) {
+        if (typeof image !== 'string') return '';
+        const trimmed = image.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('data:')) return '';
+        return trimmed.length > 2048 ? trimmed.slice(0, 2048) : trimmed;
+    }
+
+    function sanitizeStoredItem(item = {}) {
+        const clone = Object.assign({}, item);
+        if ('image' in clone) clone.image = sanitizeStorageImage(clone.image);
+        return clone;
+    }
+
+    function sanitizeStoredCollection(list = []) {
+        return Array.isArray(list) ? list.map(sanitizeStoredItem) : [];
+    }
+
+    function buildPersistentSnapshot() {
+        return {
+            cart: sanitizeStoredCollection(cart),
+            wishlist: sanitizeStoredCollection(wishlist),
+            history: Array.isArray(orderHistory)
+                ? orderHistory.map((entry) => Object.assign({}, entry, {
+                    items: sanitizeStoredCollection(entry && Array.isArray(entry.items) ? entry.items : [])
+                }))
+                : []
+        };
+    }
+
+    function writeEmergencyState(snapshot) {
+        try { sessionStorage.setItem('alexpress_state_backup', JSON.stringify(snapshot)); } catch (e) {}
+        try { window.name = JSON.stringify({ __alexpressState: snapshot }); } catch (e) {}
+    }
+
+    function readEmergencyState() {
+        try {
+            const sessionRaw = sessionStorage.getItem('alexpress_state_backup');
+            if (sessionRaw) {
+                const sessionState = JSON.parse(sessionRaw);
+                if (sessionState && typeof sessionState === 'object') return sessionState;
+            }
+        } catch (e) {}
+
+        try {
+            const rawName = String(window.name || '').trim();
+            if (!rawName) return null;
+            const namedState = JSON.parse(rawName);
+            if (namedState && namedState.__alexpressState && typeof namedState.__alexpressState === 'object') {
+                return namedState.__alexpressState;
+            }
+        } catch (e) {}
+
+        return null;
+    }
+
     // --- NEW PRO FEATURE: Social Proof Notifications ---
     const spData = {
         ar: { names: ["أحمد من سوسة", "مريم من تونس", "خليل من صفاقس"], actions: ["شرا Smartwatch ⌚", "شرات Ecouteurs 🎧", "شرا SSD 1TB 💻"], times: ["منذ دقيقتين", "منذ 5 دقائق", "منذ لحظات"] },
@@ -3259,12 +3315,18 @@
 
     // --- Data Persistence ---
     function saveData() {
-        localStorage.setItem('alexpress_cart', encryptData(cart));
-        localStorage.setItem('alexpress_wishlist', encryptData(wishlist));
-        localStorage.setItem('alexpress_history', encryptData(orderHistory));
-        localStorage.setItem('alexpress_cart_backup', JSON.stringify(Array.isArray(cart) ? cart : []));
-        localStorage.setItem('alexpress_wishlist_backup', JSON.stringify(Array.isArray(wishlist) ? wishlist : []));
-        localStorage.setItem('alexpress_history_backup', JSON.stringify(Array.isArray(orderHistory) ? orderHistory : []));
+        const snapshot = buildPersistentSnapshot();
+        try {
+            localStorage.setItem('alexpress_cart', encryptData(snapshot.cart));
+            localStorage.setItem('alexpress_wishlist', encryptData(snapshot.wishlist));
+            localStorage.setItem('alexpress_history', encryptData(snapshot.history));
+            localStorage.setItem('alexpress_cart_backup', JSON.stringify(snapshot.cart));
+            localStorage.setItem('alexpress_wishlist_backup', JSON.stringify(snapshot.wishlist));
+            localStorage.setItem('alexpress_history_backup', JSON.stringify(snapshot.history));
+        } catch (e) {
+            console.error('Local save failed, using emergency state backup', e);
+        }
+        writeEmergencyState(snapshot);
         updateAccountStats();
         if (isCloudEnabled) syncToCloud(); 
     }
@@ -3283,6 +3345,15 @@
             wishlist = recalculateStoredCollection(readStorageCollection('alexpress_wishlist', 'alexpress_wishlist_backup'));
             orderHistory = readStorageCollection('alexpress_history', 'alexpress_history_backup');
         } catch (e) { console.error("Error loading data", e); }
+
+        if (cart.length === 0 && wishlist.length === 0 && orderHistory.length === 0) {
+            const emergencyState = readEmergencyState();
+            if (emergencyState) {
+                cart = recalculateStoredCollection(Array.isArray(emergencyState.cart) ? emergencyState.cart : []);
+                wishlist = recalculateStoredCollection(Array.isArray(emergencyState.wishlist) ? emergencyState.wishlist : []);
+                orderHistory = Array.isArray(emergencyState.history) ? emergencyState.history : [];
+            }
+        }
         
         updateBadges();
         renderCart();
@@ -3730,6 +3801,10 @@
         setTimeout(triggerSocialProof, 5000); 
         setInterval(triggerSocialProof, 25000); 
     };
+
+    window.addEventListener('beforeunload', () => {
+        try { saveData(); } catch (e) {}
+    });
 </script>
 <script>
 (() => {
@@ -3752,6 +3827,6 @@
     }
 })();
 </script>
-<script src="assets/script.js?v=20260406-3"></script>
+<script src="assets/script.js?v=20260406-4"></script>
 </body>
 </html>
