@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Studio | Alexpress Tunisie</title>
+    <title>لوحة الإدارة | Alexpress Tunisie</title>
     <meta name="theme-color" content="#0b1220">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -82,16 +82,15 @@
         }
 
         .eyebrow {
-            font-family: "Space Grotesk", sans-serif;
+            font-family: "Cairo", sans-serif;
             font-size: 12px;
-            letter-spacing: 0.26em;
-            text-transform: uppercase;
+            letter-spacing: 0.04em;
             color: #9fb6d2;
             font-weight: 700;
         }
 
         .hero-title {
-            font-family: "Space Grotesk", sans-serif;
+            font-family: "Cairo", sans-serif;
             font-size: clamp(2rem, 3vw, 4.2rem);
             line-height: 0.98;
             color: white;
@@ -127,16 +126,14 @@
         }
 
         .status-pill {
-            font-family: "Space Grotesk", sans-serif;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            font-family: "Cairo", sans-serif;
+            letter-spacing: 0.02em;
         }
 
         .panel-title {
-            font-family: "Space Grotesk", sans-serif;
+            font-family: "Cairo", sans-serif;
             font-size: 11px;
-            letter-spacing: 0.24em;
-            text-transform: uppercase;
+            letter-spacing: 0.04em;
             color: var(--muted);
             font-weight: 700;
         }
@@ -149,7 +146,7 @@
         }
 
         .kpi-value {
-            font-family: "Space Grotesk", sans-serif;
+            font-family: "Cairo", sans-serif;
             font-size: clamp(1.7rem, 2vw, 2.5rem);
             line-height: 1;
             font-weight: 700;
@@ -202,10 +199,10 @@
             border-radius: 16px;
             padding: 12px 16px;
             cursor: pointer;
-            font-family: "Space Grotesk", sans-serif;
+            font-family: "Cairo", sans-serif;
             font-size: 12px;
             font-weight: 700;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.01em;
             transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
         }
 
@@ -345,26 +342,26 @@
         <section class="hero-card glass">
             <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                    <div class="eyebrow">Admin Studio</div>
-                    <h1 class="hero-title">Control rates, promos, channels, and orders from one place.</h1>
+                    <div class="eyebrow">لوحة الإدارة</div>
+                    <h1 class="hero-title">تحكم في الأسعار والعروض والطلبات من مكان واحد.</h1>
                     <p class="hero-copy">
-                        This dashboard now lets you tune calculator rate tiers, add a service fee, update support channels,
-                        manage promo codes, and follow order activity with a cleaner layout and live previews.
+                        هذه الصفحة تسمح لك بتعديل مستويات أسعار الحاسبة، إضافة رسوم الخدمة، تحديث قنوات التواصل،
+                        إدارة أكواد التخفيض، ومتابعة الطلبات بواجهة أوضح ومعاينة مباشرة.
                     </p>
                     <div class="chip-row">
-                        <span id="settings-active-base-rate" class="chip">Base 3.800</span>
-                        <span id="settings-service-fee-chip" class="chip">Service fee 0.000 TND</span>
-                        <span id="settings-refresh-chip" class="chip">Auto refresh off</span>
-                        <span id="settings-last-saved" class="chip">Not synced yet</span>
+                        <span id="settings-active-base-rate" class="chip">السعر الأساسي 3.800</span>
+                        <span id="settings-service-fee-chip" class="chip">رسوم الخدمة 0.000 د.ت</span>
+                        <span id="settings-refresh-chip" class="chip">التحديث التلقائي متوقف</span>
+                        <span id="settings-last-saved" class="chip">لم تتم المزامنة بعد</span>
                     </div>
                 </div>
 
                 <div class="flex flex-col items-start xl:items-end gap-3">
-                    <div id="admin-session-pill" class="status-pill">Locked</div>
+                    <div id="admin-session-pill" class="status-pill">مغلق</div>
                     <div class="flex flex-wrap gap-2">
-                        <a href="/" class="btn btn-ghost">Back to Store</a>
-                        <button id="admin-refresh-btn" class="btn btn-secondary hidden">Refresh Data</button>
-                        <button id="admin-logout-btn" class="btn btn-danger hidden">Logout</button>
+                        <a href="/" class="btn btn-ghost">العودة إلى المتجر</a>
+                        <button id="admin-refresh-btn" class="btn btn-secondary hidden">تحديث البيانات</button>
+                        <button id="admin-logout-btn" class="btn btn-danger hidden">تسجيل الخروج</button>
                     </div>
                 </div>
             </div>
@@ -373,16 +370,16 @@
         <section id="admin-login-panel" class="login-panel section-card glass">
             <div class="stack">
                 <div>
-                    <div class="panel-title">Secure Access</div>
-                    <h2 class="text-3xl font-black text-white mt-3">Unlock the admin dashboard</h2>
+                    <div class="panel-title">دخول آمن</div>
+                    <h2 class="text-3xl font-black text-white mt-3">افتح لوحة الإدارة</h2>
                     <p class="subtle mt-3">
-                        Enter the admin PIN to open analytics, edit calculator settings, manage promos, and update order statuses.
+                        أدخل رمز الإدارة لعرض الإحصائيات، تعديل إعدادات الحاسبة، إدارة العروض، وتحديث حالات الطلبات.
                     </p>
                 </div>
 
                 <div class="stack">
-                    <input id="admin-pin-input" type="password" inputmode="numeric" class="field" placeholder="Admin PIN">
-                    <button id="admin-login-btn" class="btn btn-primary w-full">Open Admin Studio</button>
+                    <input id="admin-pin-input" type="password" inputmode="numeric" class="field" placeholder="رمز الإدارة">
+                    <button id="admin-login-btn" class="btn btn-primary w-full">دخول لوحة الإدارة</button>
                     <div id="admin-login-message" class="text-sm font-bold text-slate-400"></div>
                 </div>
             </div>
@@ -391,29 +388,29 @@
         <main id="admin-app" class="hidden mt-4 space-y-4">
             <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
                 <div class="kpi-card glass">
-                    <div class="panel-title">Revenue</div>
+                    <div class="panel-title">الإيرادات</div>
                     <div id="kpi-revenue" class="kpi-value">0.000 TND</div>
-                    <div class="subtle mt-2">Total order value collected from the saved admin store.</div>
+                    <div class="subtle mt-2">إجمالي قيمة الطلبات المسجلة في لوحة الإدارة.</div>
                 </div>
                 <div class="kpi-card glass">
-                    <div class="panel-title">Orders</div>
+                    <div class="panel-title">الطلبات</div>
                     <div id="kpi-orders" class="kpi-value">0</div>
-                    <div class="subtle mt-2">All orders currently tracked by the admin panel.</div>
+                    <div class="subtle mt-2">كل الطلبات التي تتم متابعتها حالياً من لوحة الإدارة.</div>
                 </div>
                 <div class="kpi-card glass">
-                    <div class="panel-title">Pending</div>
+                    <div class="panel-title">قيد الانتظار</div>
                     <div id="kpi-pending" class="kpi-value">0</div>
-                    <div class="subtle mt-2">Orders still waiting for work or confirmation.</div>
+                    <div class="subtle mt-2">طلبات ما زالت تنتظر المعالجة أو التأكيد.</div>
                 </div>
                 <div class="kpi-card glass">
-                    <div class="panel-title">Delivered</div>
+                    <div class="panel-title">تم التسليم</div>
                     <div id="kpi-delivered" class="kpi-value">0</div>
-                    <div class="subtle mt-2">Completed deliveries already marked as done.</div>
+                    <div class="subtle mt-2">طلبات مكتملة تم تعليمها على أنها منتهية.</div>
                 </div>
                 <div class="kpi-card glass">
-                    <div class="panel-title">Risk</div>
+                    <div class="panel-title">مخاطر</div>
                     <div id="kpi-risk" class="kpi-value">0</div>
-                    <div class="subtle mt-2">Orders flagged by restrictions or customs risk.</div>
+                    <div class="subtle mt-2">طلبات عليها تنبيه بسبب قيود أو مخاطر جمركية.</div>
                 </div>
             </section>
 
@@ -421,52 +418,52 @@
                 <div class="section-card glass">
                     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
                         <div>
-                            <div class="panel-title">Calculator Control</div>
-                            <h3 class="text-2xl font-black text-white mt-2">Rate tiers and pricing rules</h3>
-                            <p class="subtle mt-2">Change the calculator rates used on the storefront without editing code.</p>
+                            <div class="panel-title">التحكم في الحاسبة</div>
+                            <h3 class="text-2xl font-black text-white mt-2">مستويات الأسعار وقواعد التسعير</h3>
+                            <p class="subtle mt-2">غيّر أسعار الحاسبة المستخدمة في المتجر بدون تعديل الكود.</p>
                         </div>
                         <div class="chip-row mt-0">
-                            <span class="chip">Live storefront sync</span>
-                            <span class="chip">Preview before save</span>
+                            <span class="chip">مزامنة مباشرة مع المتجر</span>
+                            <span class="chip">معاينة قبل الحفظ</span>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div class="mini-item">
-                            <div class="panel-title">Thresholds</div>
+                            <div class="panel-title">الحدود</div>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                                 <div>
-                                    <label class="label" for="settings-threshold-low">Low tier max USD</label>
+                                    <label class="label" for="settings-threshold-low">الحد الأقصى للمستوى الأول بالدولار</label>
                                     <input id="settings-threshold-low" class="field" type="number" min="0" step="1" placeholder="10">
                                 </div>
                                 <div>
-                                    <label class="label" for="settings-threshold-mid">Mid tier max USD</label>
+                                    <label class="label" for="settings-threshold-mid">الحد الأقصى للمستوى الثاني بالدولار</label>
                                     <input id="settings-threshold-mid" class="field" type="number" min="0" step="1" placeholder="50">
                                 </div>
                                 <div>
-                                    <label class="label" for="settings-threshold-high">High tier max USD</label>
+                                    <label class="label" for="settings-threshold-high">الحد الأقصى للمستوى الثالث بالدولار</label>
                                     <input id="settings-threshold-high" class="field" type="number" min="0" step="1" placeholder="150">
                                 </div>
                             </div>
                         </div>
 
                         <div class="mini-item">
-                            <div class="panel-title">Rates</div>
+                            <div class="panel-title">الأسعار</div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                                 <div>
-                                    <label class="label" for="settings-rate-low">Low tier rate</label>
+                                    <label class="label" for="settings-rate-low">سعر المستوى الأول</label>
                                     <input id="settings-rate-low" class="field" type="number" min="0" step="0.001" placeholder="4.500">
                                 </div>
                                 <div>
-                                    <label class="label" for="settings-rate-mid">Mid tier rate</label>
+                                    <label class="label" for="settings-rate-mid">سعر المستوى الثاني</label>
                                     <input id="settings-rate-mid" class="field" type="number" min="0" step="0.001" placeholder="4.300">
                                 </div>
                                 <div>
-                                    <label class="label" for="settings-rate-high">High tier rate</label>
+                                    <label class="label" for="settings-rate-high">سعر المستوى الثالث</label>
                                     <input id="settings-rate-high" class="field" type="number" min="0" step="0.001" placeholder="4.100">
                                 </div>
                                 <div>
-                                    <label class="label" for="settings-rate-base">Base rate</label>
+                                    <label class="label" for="settings-rate-base">السعر الأساسي</label>
                                     <input id="settings-rate-base" class="field" type="number" min="0" step="0.001" placeholder="3.800">
                                 </div>
                             </div>
@@ -475,89 +472,89 @@
 
                     <div class="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-4">
                         <div class="mini-item">
-                            <div class="panel-title">Fees</div>
-                            <label class="label mt-4" for="settings-service-fee">Flat service fee in TND</label>
+                            <div class="panel-title">الرسوم</div>
+                            <label class="label mt-4" for="settings-service-fee">رسوم خدمة ثابتة بالدينار</label>
                             <input id="settings-service-fee" class="field" type="number" min="0" step="0.001" placeholder="0.000">
-                            <p class="subtle mt-3">This amount is added once to each calculator result and cart item total.</p>
+                            <p class="subtle mt-3">يتم إضافة هذا المبلغ مرة واحدة على كل نتيجة حاسبة وإجمالي السلة.</p>
                         </div>
 
                         <div class="mini-item">
                             <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                                 <div>
-                                    <div class="panel-title">Live Preview</div>
-                                    <h4 class="text-lg font-black text-white mt-2">See the calculator output before saving</h4>
+                                    <div class="panel-title">معاينة مباشرة</div>
+                                    <h4 class="text-lg font-black text-white mt-2">شاهد نتيجة الحاسبة قبل الحفظ</h4>
                                 </div>
                                 <div class="w-full lg:w-56">
-                                    <label class="label" for="settings-preview-usd">Sample total USD</label>
+                                    <label class="label" for="settings-preview-usd">مبلغ تجريبي بالدولار</label>
                                     <input id="settings-preview-usd" class="field" type="number" min="0" step="0.1" value="35">
                                 </div>
                             </div>
                             <div class="stat-grid mt-4">
                                 <div class="metric-tile">
-                                    <div class="panel-title">Applied Rate</div>
+                                    <div class="panel-title">السعر المطبق</div>
                                     <div id="settings-preview-rate" class="text-2xl font-black text-white mt-2">4.300 TND</div>
-                                    <div class="subtle mt-2">Per 1 USD at the chosen preview amount.</div>
+                                    <div class="subtle mt-2">لكل 1 دولار حسب المبلغ التجريبي المختار.</div>
                                 </div>
                                 <div class="metric-tile">
-                                    <div class="panel-title">Service Fee</div>
+                                    <div class="panel-title">رسوم الخدمة</div>
                                     <div id="settings-preview-service" class="text-2xl font-black text-amber-300 mt-2">0.000 TND</div>
-                                    <div class="subtle mt-2">Flat fee added once after currency conversion.</div>
+                                    <div class="subtle mt-2">رسوم ثابتة تضاف مرة واحدة بعد تحويل العملة.</div>
                                 </div>
                                 <div class="metric-tile">
-                                    <div class="panel-title">Total Output</div>
+                                    <div class="panel-title">الإجمالي النهائي</div>
                                     <div id="settings-preview-total" class="text-2xl font-black text-emerald-300 mt-2">0.000 TND</div>
-                                    <div class="subtle mt-2">What the customer calculator will display.</div>
+                                    <div class="subtle mt-2">هذا هو المبلغ الذي ستعرضه الحاسبة للعميل.</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="flex flex-wrap gap-3 mt-5">
-                        <button id="settings-save-btn" class="btn btn-primary">Save Settings</button>
-                        <button id="settings-reset-btn" class="btn btn-ghost">Reset Form</button>
+                        <button id="settings-save-btn" class="btn btn-primary">حفظ الإعدادات</button>
+                        <button id="settings-reset-btn" class="btn btn-ghost">إعادة تعيين النموذج</button>
                     </div>
                     <div id="settings-message" class="text-sm font-bold text-slate-400 mt-4"></div>
                 </div>
 
                 <div class="space-y-4">
                     <section class="section-card glass">
-                        <div class="panel-title">Storefront Channels</div>
-                        <h3 class="text-xl font-black text-white mt-2">Support links used by checkout</h3>
-                        <p class="subtle mt-2">These values are used when customers send an order through WhatsApp, Messenger, or Instagram.</p>
+                        <div class="panel-title">قنوات المتجر</div>
+                        <h3 class="text-xl font-black text-white mt-2">روابط التواصل المستخدمة في الطلب</h3>
+                        <p class="subtle mt-2">تُستخدم هذه القيم عندما يرسل العميل طلبه عبر واتساب أو ماسنجر أو إنستغرام.</p>
 
                         <div class="stack mt-4">
                             <div>
-                                <label class="label" for="settings-whatsapp">WhatsApp number</label>
+                                <label class="label" for="settings-whatsapp">رقم واتساب</label>
                                 <input id="settings-whatsapp" class="field" placeholder="21627498276">
                             </div>
                             <div>
-                                <label class="label" for="settings-messenger">Messenger handle</label>
+                                <label class="label" for="settings-messenger">اسم حساب ماسنجر</label>
                                 <input id="settings-messenger" class="field" placeholder="alexpresstunisie">
                             </div>
                             <div>
-                                <label class="label" for="settings-instagram">Instagram handle</label>
+                                <label class="label" for="settings-instagram">اسم حساب إنستغرام</label>
                                 <input id="settings-instagram" class="field" placeholder="alexpress.tunisie">
                             </div>
                         </div>
                     </section>
 
                     <section class="section-card glass">
-                        <div class="panel-title">Admin Experience</div>
-                        <h3 class="text-xl font-black text-white mt-2">Operator settings</h3>
-                        <p class="subtle mt-2">Keep the page fresh automatically while you are monitoring new orders.</p>
+                        <div class="panel-title">تجربة الإدارة</div>
+                        <h3 class="text-xl font-black text-white mt-2">إعدادات المشرف</h3>
+                        <p class="subtle mt-2">حدّث الصفحة تلقائياً أثناء متابعة الطلبات الجديدة.</p>
 
                         <div class="stack mt-4">
                             <div>
-                                <label class="label" for="settings-auto-refresh">Auto refresh every X seconds</label>
+                                <label class="label" for="settings-auto-refresh">التحديث التلقائي كل عدد من الثواني</label>
                                 <input id="settings-auto-refresh" class="field" type="number" min="0" step="1" placeholder="0">
-                                <p class="subtle mt-2">Use <strong>0</strong> to disable automatic refresh.</p>
+                                <p class="subtle mt-2">استخدم <strong>0</strong> لإيقاف التحديث التلقائي.</p>
                             </div>
 
                             <div class="mini-item">
-                                <div class="panel-title">What changed</div>
+                                <div class="panel-title">ما الجديد</div>
                                 <div class="subtle mt-3">
-                                    Better layout, editable calculator tiers, storefront channel settings, live calculator preview,
-                                    auto refresh control, and a more polished management surface.
+                                    واجهة أفضل، مستويات حاسبة قابلة للتعديل، إعدادات قنوات المتجر، معاينة مباشرة للحاسبة،
+                                    تحكم في التحديث التلقائي، وتجربة إدارة أكثر وضوحاً.
                                 </div>
                             </div>
                         </div>
@@ -569,8 +566,8 @@
                 <div class="section-card glass">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
-                            <div class="panel-title">Orders Overview</div>
-                            <h3 class="text-xl font-black text-white mt-2">Order status distribution</h3>
+                            <div class="panel-title">نظرة على الطلبات</div>
+                            <h3 class="text-xl font-black text-white mt-2">توزيع حالات الطلبات</h3>
                         </div>
                     </div>
                     <div class="chart-box">
@@ -579,8 +576,8 @@
                 </div>
 
                 <div class="section-card glass">
-                    <div class="panel-title">Top Products</div>
-                    <h3 class="text-xl font-black text-white mt-2 mb-4">Most ordered products</h3>
+                    <div class="panel-title">أكثر المنتجات</div>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">المنتجات الأكثر طلباً</h3>
                     <div class="chart-box">
                         <canvas id="top-products-chart"></canvas>
                     </div>
@@ -591,24 +588,24 @@
                 <div class="section-card glass">
                     <div class="flex items-center justify-between gap-3 mb-4">
                         <div>
-                            <div class="panel-title">Promo Management</div>
-                            <h3 class="text-xl font-black text-white mt-2">Create and edit promo codes</h3>
+                            <div class="panel-title">إدارة العروض</div>
+                            <h3 class="text-xl font-black text-white mt-2">إنشاء وتعديل أكواد التخفيض</h3>
                         </div>
-                        <div id="promos-count" class="status-pill">0 promos</div>
+                        <div id="promos-count" class="status-pill">0 عروض</div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                         <input id="promo-code-input" class="field" placeholder="CODE2026">
                         <select id="promo-type-input" class="select">
-                            <option value="percent">Percent %</option>
-                            <option value="fixed">Fixed TND</option>
+                            <option value="percent">نسبة مئوية %</option>
+                            <option value="fixed">قيمة ثابتة بالدينار</option>
                         </select>
-                        <input id="promo-value-input" class="field" type="number" min="0" step="0.1" placeholder="Value">
-                        <input id="promo-limit-input" class="field" type="number" min="0" step="1" placeholder="Usage limit">
+                        <input id="promo-value-input" class="field" type="number" min="0" step="0.1" placeholder="قيمة الخصم">
+                        <input id="promo-limit-input" class="field" type="number" min="0" step="1" placeholder="حد الاستخدام">
                         <input id="promo-expiry-input" class="field" type="datetime-local">
                         <div class="flex gap-2">
-                            <button id="promo-save-btn" class="btn btn-primary flex-1">Save Promo</button>
-                            <button id="promo-clear-btn" class="btn btn-ghost">Clear</button>
+                            <button id="promo-save-btn" class="btn btn-primary flex-1">حفظ العرض</button>
+                            <button id="promo-clear-btn" class="btn btn-ghost">مسح</button>
                         </div>
                     </div>
                     <div id="promo-message" class="text-sm font-bold text-slate-400 mb-4"></div>
@@ -616,22 +613,22 @@
                 </div>
 
                 <div class="section-card glass">
-                    <div class="panel-title">Insights</div>
-                    <h3 class="text-xl font-black text-white mt-2 mb-4">Quick intelligence</h3>
+                    <div class="panel-title">إحصائيات</div>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">ملخص سريع</h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                         <div class="mini-item">
-                            <div class="panel-title">Repeat Customers</div>
+                            <div class="panel-title">العملاء المتكررون</div>
                             <div id="repeat-customers-list" class="stack mt-3"></div>
                         </div>
                         <div class="mini-item">
-                            <div class="panel-title">Top Promos</div>
+                            <div class="panel-title">أفضل العروض</div>
                             <div id="top-promos-list" class="stack mt-3"></div>
                         </div>
                     </div>
 
                     <div class="mini-item">
-                        <div class="panel-title">Admin Activity</div>
+                        <div class="panel-title">نشاط الإدارة</div>
                         <div id="admin-activity-log" class="stack mt-3"></div>
                     </div>
                 </div>
@@ -640,23 +637,23 @@
             <section class="section-card glass">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-4">
                     <div>
-                        <div class="panel-title">Orders</div>
-                        <h3 class="text-xl font-black text-white mt-2">All tracked orders</h3>
+                        <div class="panel-title">الطلبات</div>
+                        <h3 class="text-xl font-black text-white mt-2">جميع الطلبات المتابعة</h3>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[760px]">
-                        <input id="orders-search-input" class="field" placeholder="Search ref, phone, city, or item">
+                        <input id="orders-search-input" class="field" placeholder="ابحث بالمرجع أو الهاتف أو المدينة أو المنتج">
                         <select id="orders-status-filter" class="select">
-                            <option value="all">All statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="shipped">Shipped</option>
-                            <option value="delivered">Delivered</option>
+                            <option value="all">كل الحالات</option>
+                            <option value="pending">قيد الانتظار</option>
+                            <option value="processing">قيد المعالجة</option>
+                            <option value="shipped">تم الشحن</option>
+                            <option value="delivered">تم التسليم</option>
                         </select>
                         <select id="orders-sort-filter" class="select">
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                            <option value="high-total">Highest total</option>
-                            <option value="low-total">Lowest total</option>
+                            <option value="newest">الأحدث أولاً</option>
+                            <option value="oldest">الأقدم أولاً</option>
+                            <option value="high-total">الأعلى إجمالياً</option>
+                            <option value="low-total">الأقل إجمالياً</option>
                         </select>
                     </div>
                 </div>
@@ -665,14 +662,14 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Reference</th>
-                                <th>Date</th>
-                                <th>Customer</th>
-                                <th>Items</th>
-                                <th>Status</th>
-                                <th>Total</th>
-                                <th>Tracking</th>
-                                <th>Update</th>
+                                <th>المرجع</th>
+                                <th>التاريخ</th>
+                                <th>العميل</th>
+                                <th>المنتجات</th>
+                                <th>الحالة</th>
+                                <th>الإجمالي</th>
+                                <th>التتبع</th>
+                                <th>التحديث</th>
                             </tr>
                         </thead>
                         <tbody id="orders-table-body"></tbody>
