@@ -1904,31 +1904,49 @@
 
         const text = copy[lang] || copy.ar;
         const setText = (selector, value) => {
-            const element = document.querySelector(selector);
-            if (element) element.textContent = value;
+            try {
+                const element = document.querySelector(selector);
+                if (element) element.textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector in applyAccountCopy", selector, error);
+            }
+        };
+
+        const getMany = (selector) => {
+            try {
+                return document.querySelectorAll(selector);
+            } catch (error) {
+                console.warn("Skipped invalid selector list in applyAccountCopy", selector, error);
+                return [];
+            }
         };
 
         setText("#section-account .text-center.mb-8 h2", text.title);
         setText("#section-account .text-center.mb-8 p", text.subtitle);
 
-        const kpiLabels = document.querySelectorAll("#section-account .grid.grid-cols-1.md\\:grid-cols-3.gap-3.mb-5 .text-\\[9px\\].uppercase.tracking-\\[0\\.25em\\].text-slate-500.font-black");
+        const kpiLabels = getMany("#section-account .grid.grid-cols-1.md\\:grid-cols-3.gap-3.mb-5 .text-\\[9px\\].uppercase.tracking-\\[0\\.25em\\].text-slate-500.font-black");
         if (kpiLabels[0]) kpiLabels[0].textContent = text.cloud;
         if (kpiLabels[1]) kpiLabels[1].textContent = text.sync;
         if (kpiLabels[2]) kpiLabels[2].textContent = text.summary;
 
-        const summaryLabels = document.querySelectorAll("#section-account .account-kpi .flex.items-center.gap-2.mt-2.text-xs.font-black.text-white .text-slate-500");
+        const summaryLabels = getMany("#section-account .account-kpi .flex.items-center.gap-2.mt-2.text-xs.font-black.text-white .text-slate-500");
         if (summaryLabels[0]) summaryLabels[0].textContent = text.orders;
         if (summaryLabels[1]) summaryLabels[1].textContent = text.wishlist;
 
-        const overviewLabels = document.querySelectorAll("#section-account details[data-account-panel='overview'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-2");
+        const overviewLabels = getMany("#section-account details[data-account-panel='overview'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-2");
         if (overviewLabels[0]) overviewLabels[0].textContent = text.cloudIdentity;
         if (overviewLabels[1]) overviewLabels[1].textContent = text.usage;
 
-        const usageLabels = document.querySelectorAll("#section-account details[data-account-panel='overview'] .rounded-2xl.bg-black\\/20.border.border-white\\/5.p-4.text-center .text-\\[9px\\].font-black.uppercase.mt-1");
+        const usageLabels = getMany("#section-account details[data-account-panel='overview'] .rounded-2xl.bg-black\\/20.border.border-white\\/5.p-4.text-center .text-\\[9px\\].font-black.uppercase.mt-1");
         if (usageLabels[0]) usageLabels[0].textContent = text.fetches;
         if (usageLabels[1]) usageLabels[1].textContent = text.quotes;
 
-        const clientDataLabel = document.querySelector("#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3");
+        let clientDataLabel = null;
+        try {
+            clientDataLabel = document.querySelector("#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3");
+        } catch (error) {
+            console.warn("Skipped invalid selector in applyAccountCopy", "#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3", error);
+        }
         if (clientDataLabel) clientDataLabel.textContent = text.clientData;
 
         if (dom.accountPhone) dom.accountPhone.placeholder = text.phone;
@@ -1946,12 +1964,20 @@
 
     function applyRuntimeTranslations(lang) {
         const setText = (selector, value) => {
-            const element = document.querySelector(selector);
-            if (element) element.textContent = value;
+            try {
+                const element = document.querySelector(selector);
+                if (element) element.textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector in applyRuntimeTranslations", selector, error);
+            }
         };
         const setMany = (selector, index, value) => {
-            const elements = document.querySelectorAll(selector);
-            if (elements[index]) elements[index].textContent = value;
+            try {
+                const elements = document.querySelectorAll(selector);
+                if (elements[index]) elements[index].textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector list in applyRuntimeTranslations", selector, error);
+            }
         };
 
         setMany("#runtime-preview-card .runtime-preview-stat-label", 0, rt("stat_shipping", lang));
