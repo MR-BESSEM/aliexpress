@@ -2694,9 +2694,22 @@
     // --- Firebase Logic & Account System ---
     let db, auth, userId, appId;
     let isCloudSyncing = false;
+    let isCloudEnabled = false;
     window.availablePromos = []; // Global for promos
 
+    function setCloudStatusLabel(value) {
+        const uidPrimary = document.getElementById('user-uid-display');
+        const uidClone = document.getElementById('user-uid-display-clone');
+        if (uidPrimary) uidPrimary.textContent = value;
+        if (uidClone) uidClone.textContent = value;
+    }
+
     async function initFirebase() {
+        if (!window.firebaseCore) {
+            setCloudStatusLabel('Cloud Offline');
+            return false;
+        }
+
         const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
         
         // 🔴 Configuration Firebase officielle
@@ -2713,7 +2726,8 @@
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-        appId = firebaseConfig.projectId; 
+        appId = firebaseConfig.projectId;
+        isCloudEnabled = true;
 
         try {
             await setPersistence(auth, browserLocalPersistence);
@@ -2735,23 +2749,27 @@
             }
         } catch (error) {
             console.error("Erreur Auth:", error);
+            isCloudEnabled = false;
+            setCloudStatusLabel('Cloud Offline');
+            return false;
         }
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
                 try { localStorage.setItem('alexpress_user_id', userId); } catch (e) {}
-                document.getElementById('user-uid-display').textContent = userId;
-                const uidCloneEl = document.getElementById('user-uid-display-clone');
-                if (uidCloneEl) uidCloneEl.textContent = userId;
+                setCloudStatusLabel(userId);
                 loadCloudData(); // Fetch initial data from cloud
+            } else {
+                setCloudStatusLabel('Cloud Offline');
             }
         });
+        return true;
     }
 
     // Sync Local to Cloud
     async function syncToCloud() {
-        if (!userId || isCloudSyncing) return;
+        if (!isCloudEnabled || !db || !appId || !userId || isCloudSyncing) return;
         const { doc, setDoc } = window.firebaseCore;
         isCloudSyncing = true;
         try {
@@ -2770,6 +2788,7 @@
 
     // Load from Cloud (On Start)
     async function loadCloudData() {
+        if (!isCloudEnabled || !db || !appId || !userId) return;
         const { doc, getDoc } = window.firebaseCore;
         try {
             const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'));
@@ -2809,6 +2828,8 @@
             }
         } catch (e) {
             console.error("Error loading cloud data", e);
+            isCloudEnabled = false;
+            setCloudStatusLabel('Cloud Offline');
         }
     }
 
@@ -3153,7 +3174,7 @@
         localStorage.setItem('alexpress_wishlist_backup', JSON.stringify(Array.isArray(wishlist) ? wishlist : []));
         localStorage.setItem('alexpress_history_backup', JSON.stringify(Array.isArray(orderHistory) ? orderHistory : []));
         updateAccountStats();
-        syncToCloud(); 
+        if (isCloudEnabled) syncToCloud(); 
     }
 
     function loadData() {
@@ -3605,7 +3626,13 @@
         await loadPublicSettings();
         calculateTND(); 
         loadData(); 
-        initFirebase(); 
+        try {
+            await initFirebase();
+        } catch (e) {
+            console.error('Firebase init failed', e);
+            isCloudEnabled = false;
+            setCloudStatusLabel('Cloud Offline');
+        }
         setTimeout(triggerSocialProof, 5000); 
         setInterval(triggerSocialProof, 25000); 
     };
