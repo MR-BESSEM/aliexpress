@@ -1469,11 +1469,11 @@
                         </div>
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
                             <span id="runtime-breakdown-service-label">عمولة الخدمة</span>
-                            <span id="runtime-breakdown-service" dir="ltr">مشمولة</span>
+                            <span id="runtime-breakdown-service" dir="ltr">0.000 TND</span>
                         </div>
                         <div class="pt-3 border-t border-white/5 flex items-center justify-between text-xs md:text-sm font-black text-amber-400">
                             <span>الإجمالي النهائي</span>
-                            <span id="runtime-breakdown-total" dir="ltr">0.000 TND</span>
+                            <span id="runtime-breakdown-total" dir="ltr">مشمولة</span>
                         </div>
                     </div>
                     <div id="runtime-insights-card" class="hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-3">
@@ -2695,22 +2695,95 @@
     let db, auth, userId, appId;
     let isCloudSyncing = false;
     let isCloudEnabled = false;
+    let cloudState = 'checking';
     window.availablePromos = []; // Global for promos
 
-    function setCloudStatusLabel(value) {
-        const uidPrimary = document.getElementById('user-uid-display');
-        const uidClone = document.getElementById('user-uid-display-clone');
-        if (uidPrimary) uidPrimary.textContent = value;
-        if (uidClone) uidClone.textContent = value;
+    function getCloudUiCopy() {
+        const lang = localStorage.getItem('alexpress_lang') || 'ar';
+        const copy = {
+            ar: {
+                checking: 'جاري التحقق...',
+                connected: 'متصل فعليًا',
+                syncing: 'جاري التزامن...',
+                local: 'محفوظ محليًا',
+                offline: 'السحابة غير متاحة',
+                cloudIdPending: 'جاري التحقق...',
+                cloudIdOffline: 'محلي فقط'
+            },
+            fr: {
+                checking: 'Verification...',
+                connected: 'Cloud actif',
+                syncing: 'Synchronisation...',
+                local: 'Sauvegarde locale',
+                offline: 'Cloud indisponible',
+                cloudIdPending: 'Verification...',
+                cloudIdOffline: 'Local seulement'
+            },
+            en: {
+                checking: 'Checking...',
+                connected: 'Cloud connected',
+                syncing: 'Syncing...',
+                local: 'Saved locally',
+                offline: 'Cloud offline',
+                cloudIdPending: 'Checking...',
+                cloudIdOffline: 'Local only'
+            }
+        };
+        return copy[lang] || copy.ar;
     }
+
+    function setCloudStatusLabel(value) {
+        document.querySelectorAll('#user-uid-display, #user-uid-display-clone').forEach((el) => {
+            el.textContent = value;
+        });
+    }
+
+    function setCloudSyncState(nextState) {
+        cloudState = nextState;
+        const copy = getCloudUiCopy();
+        const textMap = {
+            checking: copy.checking,
+            connected: copy.connected,
+            syncing: copy.syncing,
+            local: copy.local,
+            offline: copy.offline
+        };
+        const classMap = {
+            checking: 'text-amber-300',
+            connected: 'text-emerald-300',
+            syncing: 'text-blue-300',
+            local: 'text-slate-300',
+            offline: 'text-red-300'
+        };
+
+        document.querySelectorAll('#sync-status-text').forEach((el) => {
+            el.textContent = textMap[nextState] || copy.offline;
+            el.classList.remove('text-emerald-300', 'text-amber-300', 'text-blue-300', 'text-slate-300', 'text-red-300', 'text-green-400');
+            el.classList.add(classMap[nextState] || 'text-red-300');
+        });
+    }
+
+    function refreshCloudUiState() {
+        const copy = getCloudUiCopy();
+        if (userId) {
+            setCloudStatusLabel(userId);
+        } else {
+            setCloudStatusLabel(cloudState === 'checking' ? copy.cloudIdPending : copy.cloudIdOffline);
+        }
+        setCloudSyncState(cloudState);
+    }
+    window.refreshCloudUiState = refreshCloudUiState;
 
     async function initFirebase() {
         if (!window.firebaseCore) {
-            setCloudStatusLabel('Cloud Offline');
+            cloudState = 'offline';
+            refreshCloudUiState();
             return false;
         }
 
         const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
+        cloudState = 'checking';
+        refreshCloudUiState();
         
         // 🔴 Configuration Firebase officielle
         const firebaseConfig = {
@@ -2750,18 +2823,29 @@
         } catch (error) {
             console.error("Erreur Auth:", error);
             isCloudEnabled = false;
-            setCloudStatusLabel('Cloud Offline');
+            cloudState = 'offline';
+            refreshCloudUiState();
             return false;
         }
+
+        setTimeout(() => {
+            if (!userId) {
+                isCloudEnabled = false;
+                cloudState = 'offline';
+                refreshCloudUiState();
+            }
+        }, 6000);
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
                 try { localStorage.setItem('alexpress_user_id', userId); } catch (e) {}
-                setCloudStatusLabel(userId);
+                cloudState = 'connected';
+                refreshCloudUiState();
                 loadCloudData(); // Fetch initial data from cloud
             } else {
-                setCloudStatusLabel('Cloud Offline');
+                cloudState = 'offline';
+                refreshCloudUiState();
             }
         });
         return true;
@@ -2772,6 +2856,8 @@
         if (!isCloudEnabled || !db || !appId || !userId || isCloudSyncing) return;
         const { doc, setDoc } = window.firebaseCore;
         isCloudSyncing = true;
+        cloudState = 'syncing';
+        refreshCloudUiState();
         try {
             await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'), {
                 cart: cart,
@@ -2779,8 +2865,13 @@
                 history: orderHistory,
                 lastSync: Date.now()
             }, { merge: true });
+            cloudState = 'connected';
+            refreshCloudUiState();
         } catch (e) {
             console.error("Cloud Sync Error", e);
+            isCloudEnabled = false;
+            cloudState = 'local';
+            refreshCloudUiState();
         } finally {
             isCloudSyncing = false;
         }
@@ -2829,7 +2920,8 @@
         } catch (e) {
             console.error("Error loading cloud data", e);
             isCloudEnabled = false;
-            setCloudStatusLabel('Cloud Offline');
+            cloudState = 'local';
+            refreshCloudUiState();
         }
     }
 
@@ -3180,6 +3272,7 @@
     function loadData() {
         const savedLang = localStorage.getItem('alexpress_lang') || 'ar';
         changeLanguage(savedLang);
+        refreshCloudUiState();
 
         if(localStorage.getItem('alexpress_theme') === 'light') {
             document.body.classList.add('light-mode');
@@ -3631,7 +3724,8 @@
         } catch (e) {
             console.error('Firebase init failed', e);
             isCloudEnabled = false;
-            setCloudStatusLabel('Cloud Offline');
+            cloudState = 'offline';
+            refreshCloudUiState();
         }
         setTimeout(triggerSocialProof, 5000); 
         setInterval(triggerSocialProof, 25000); 
@@ -3658,6 +3752,6 @@
     }
 })();
 </script>
-<script src="assets/script.js?v=20260406-2"></script>
+<script src="assets/script.js?v=20260406-3"></script>
 </body>
 </html>
