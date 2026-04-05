@@ -764,12 +764,16 @@ function formatTopTimestamp(date = new Date()) {
   return `${gmt8.getUTCFullYear()}-${pad(gmt8.getUTCMonth() + 1)}-${pad(gmt8.getUTCDate())} ${pad(gmt8.getUTCHours())}:${pad(gmt8.getUTCMinutes())}:${pad(gmt8.getUTCSeconds())}`;
 }
 
-function signTopRequest(params, secret) {
+function signTopRequest(params, secret, signMethod = "md5") {
   const sorted = Object.keys(params)
     .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
     .sort()
     .map((key) => `${key}${params[key]}`)
     .join("");
+
+  if (String(signMethod || "").toLowerCase() === "hmac") {
+    return crypto.createHmac("md5", secret).update(sorted, "utf8").digest("hex").toUpperCase();
+  }
 
   return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
 }
@@ -1923,9 +1927,11 @@ async function fetchAliExpressAffiliateProduct(productId) {
         app_key: ALIEXPRESS_APP_KEY,
         method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
         format: "json",
-        sign_method: "md5",
+        sign_method: "hmac",
         timestamp: formatTopTimestamp(),
         v: "2.0",
+        partner_id: "apidoc",
+        simplify: "true",
         fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,target_app_sale_price,target_app_sale_price_currency,app_sale_price,app_sale_price_currency,sale_price,sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
         product_ids: String(productId),
         target_currency: "USD",
@@ -1939,7 +1945,7 @@ async function fetchAliExpressAffiliateProduct(productId) {
         params.tracking_id = ALIEXPRESS_TRACKING_ID;
       }
 
-      params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET);
+      params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET, params.sign_method);
 
       const body = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
@@ -2064,6 +2070,7 @@ async function fetchAliExpressAffiliateProduct(productId) {
         responseStatus: error?.response?.status || null,
         responseDataPreview: error?.response?.data ? previewValue(error.response.data) : ""
       });
+      if (error?.nonRetryable) break;
     }
   }
 
