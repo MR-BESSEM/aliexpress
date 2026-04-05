@@ -2152,6 +2152,29 @@
             return;
         }
 
+        const variantsHeader = dom.variantsCard.querySelector(".flex.items-center.justify-between.gap-3");
+        if (variantsHeader) variantsHeader.classList.add("hidden");
+
+        dom.variantGroups.innerHTML = `
+            <div class="space-y-2">
+                ${groups.map((group, index) => `
+                    <div class="space-y-2">
+                        <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${group.values.map((value) => `
+                                <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                    ${escapeHtml(value)}
+                                </span>
+                            `).join("")}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
         dom.variantGroups.innerHTML = `
             <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
                 <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
@@ -2623,7 +2646,7 @@
     function renderAlerts(product) {
         if (!dom.insightsCard || !dom.alerts || !dom.deliveryEstimate || !dom.riskBadge) return;
 
-        const alerts = Array.isArray(product?.alerts) ? product.alerts : [];
+        const alerts = (Array.isArray(product?.alerts) ? product.alerts : []).filter((alert) => !/affiliate api/i.test(String(alert?.text || "")));
         const hasInsights = Boolean(product) || alerts.length > 0;
         dom.insightsCard.classList.toggle("hidden", !hasInsights);
         if (!hasInsights) return;
