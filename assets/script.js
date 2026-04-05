@@ -2143,6 +2143,13 @@
 
     function renderVariants(product) {
         if (!dom.variantsCard || !dom.variantGroups) return;
+        dom.variantsCard.classList.add("hidden");
+        state.selectedVariants = {};
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        dom.variantGroups.innerHTML = "";
+        renderVariantSummary();
+        return;
+
         const groups = getProductOptionGroups(product);
         dom.variantsCard.classList.toggle("hidden", groups.length === 0);
         if (!groups.length) {
