@@ -576,9 +576,10 @@
         if (!product) return;
 
         const safeTitle = String(product.title || "").trim();
+        const compactTitle = buildDisplayProductTitle(safeTitle);
         if (dom.calcName) {
             dom.calcName.value = safeTitle && !/^aliexpress$/i.test(safeTitle)
-                ? safeTitle
+                ? compactTitle
                 : (dom.calcName.value || "");
         }
 
@@ -2095,7 +2096,7 @@
         const raw = String(title || "").replace(/\s+/g, " ").trim();
         if (!raw) return "منتج AliExpress";
         const words = raw.split(" ");
-        if (raw.length <= 58 && words.length <= 8) return raw;
+        if (raw.length <= 42 && words.length <= 6) return raw;
 
         const stopWords = new Set(["for", "with", "and", "the", "a", "an", "of", "to", "in", "on", "wholesale"]);
         const picked = [];
@@ -2105,13 +2106,13 @@
             const clean = word.replace(/[^\w-]/g, "");
             const key = clean.toLowerCase();
             if (!clean) continue;
-            if (picked.length >= 7) break;
+            if (picked.length >= 6) break;
             if (seen.has(key) && !stopWords.has(key)) continue;
             picked.push(word);
             seen.add(key);
         }
 
-        const compact = picked.join(" ").trim().slice(0, 54).trim();
+        const compact = picked.join(" ").trim().slice(0, 42).trim();
         return compact.length && compact.length < raw.length ? `${compact}...` : raw;
     }
 
@@ -3799,7 +3800,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         dom.resellerQty?.addEventListener("input", renderResellerMode);
         dom.calcName?.addEventListener("input", () => {
             if (state.currentProduct && dom.previewTitle && dom.calcName.value.trim()) {
-                dom.previewTitle.textContent = dom.calcName.value.trim();
+                dom.previewTitle.textContent = buildDisplayProductTitle(dom.calcName.value.trim());
             }
         });
     }
