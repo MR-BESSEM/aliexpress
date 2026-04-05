@@ -1278,6 +1278,7 @@
     function applyAccountUiCleanup() {
         const toolsPanel = document.querySelector('#section-account details[data-account-panel="tools"]');
         const notificationsPanel = document.querySelector('#section-account details[data-account-panel="notifications"]');
+        const adminPanel = document.querySelector('#section-account details[data-account-panel="admin"]');
         const legacyAccount = document.getElementById("section-account-legacy");
         if (toolsPanel) {
             toolsPanel.open = false;
@@ -1286,6 +1287,10 @@
         if (notificationsPanel) {
             notificationsPanel.open = false;
             notificationsPanel.classList.add("hidden");
+        }
+        if (adminPanel) {
+            adminPanel.open = false;
+            adminPanel.remove();
         }
         if (legacyAccount) {
             legacyAccount.remove();
@@ -1831,6 +1836,106 @@
         });
     }
 
+    function applyAccountCopy(lang) {
+        const copy = {
+            ar: {
+                title: "الحساب الشخصي",
+                subtitle: "واجهة أوضح للحساب وبياناتك السريعة.",
+                cloud: "معرف السحابة",
+                sync: "المزامنة",
+                summary: "الملخص",
+                orders: "طلبات",
+                wishlist: "المفضلة",
+                cloudIdentity: "هوية السحابة",
+                usage: "الاستخدام",
+                fetches: "عمليات الجلب",
+                quotes: "التسعيرات",
+                clientData: "بيانات العميل",
+                phone: "رقم الهاتف",
+                city: "المدينة",
+                address: "العنوان أو نقطة الاستلام",
+                save: "حفظ البيانات"
+            },
+            fr: {
+                title: "Mon Compte",
+                subtitle: "Une vue plus claire du compte et de vos infos rapides.",
+                cloud: "ID Cloud",
+                sync: "Sync",
+                summary: "Resume",
+                orders: "Commandes",
+                wishlist: "Souhaits",
+                cloudIdentity: "Identite Cloud",
+                usage: "Utilisation",
+                fetches: "Collectes",
+                quotes: "Devis",
+                clientData: "Infos Client",
+                phone: "Numero de telephone",
+                city: "Ville",
+                address: "Adresse ou point de retrait",
+                save: "Enregistrer"
+            },
+            en: {
+                title: "My Account",
+                subtitle: "A clearer account view with your quick details.",
+                cloud: "Cloud ID",
+                sync: "Sync",
+                summary: "Summary",
+                orders: "Orders",
+                wishlist: "Wishlist",
+                cloudIdentity: "Cloud Identity",
+                usage: "Usage",
+                fetches: "Fetches",
+                quotes: "Quotes",
+                clientData: "Client Data",
+                phone: "Phone Number",
+                city: "City",
+                address: "Address or pickup point",
+                save: "Save Details"
+            }
+        };
+
+        const text = copy[lang] || copy.ar;
+        const setText = (selector, value) => {
+            const element = document.querySelector(selector);
+            if (element) element.textContent = value;
+        };
+
+        setText("#section-account .text-center.mb-8 h2", text.title);
+        setText("#section-account .text-center.mb-8 p", text.subtitle);
+
+        const kpiLabels = document.querySelectorAll("#section-account .grid.grid-cols-1.md\\:grid-cols-3.gap-3.mb-5 .text-\\[9px\\].uppercase.tracking-\\[0\\.25em\\].text-slate-500.font-black");
+        if (kpiLabels[0]) kpiLabels[0].textContent = text.cloud;
+        if (kpiLabels[1]) kpiLabels[1].textContent = text.sync;
+        if (kpiLabels[2]) kpiLabels[2].textContent = text.summary;
+
+        const summaryLabels = document.querySelectorAll("#section-account .account-kpi .flex.items-center.gap-2.mt-2.text-xs.font-black.text-white .text-slate-500");
+        if (summaryLabels[0]) summaryLabels[0].textContent = text.orders;
+        if (summaryLabels[1]) summaryLabels[1].textContent = text.wishlist;
+
+        const overviewLabels = document.querySelectorAll("#section-account details[data-account-panel='overview'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-2");
+        if (overviewLabels[0]) overviewLabels[0].textContent = text.cloudIdentity;
+        if (overviewLabels[1]) overviewLabels[1].textContent = text.usage;
+
+        const usageLabels = document.querySelectorAll("#section-account details[data-account-panel='overview'] .rounded-2xl.bg-black\\/20.border.border-white\\/5.p-4.text-center .text-\\[9px\\].font-black.uppercase.mt-1");
+        if (usageLabels[0]) usageLabels[0].textContent = text.fetches;
+        if (usageLabels[1]) usageLabels[1].textContent = text.quotes;
+
+        const clientDataLabel = document.querySelector("#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3");
+        if (clientDataLabel) clientDataLabel.textContent = text.clientData;
+
+        if (dom.accountPhone) dom.accountPhone.placeholder = text.phone;
+        if (dom.accountCity) dom.accountCity.placeholder = text.city;
+        if (dom.accountAddress) dom.accountAddress.placeholder = text.address;
+        if (dom.accountSavePrefs) dom.accountSavePrefs.textContent = text.save;
+    }
+
+    function applyFooterCredit() {
+        const footerLove = document.querySelector(".footer-love");
+        if (footerLove) {
+            footerLove.innerHTML = 'Created with <span class="footer-love-heart">❤</span> By';
+        }
+    }
+
     function applyRuntimeTranslations(lang) {
         const setText = (selector, value) => {
             const element = document.querySelector(selector);
@@ -1860,8 +1965,8 @@
         setText("#runtime-export-csv", rt("export_csv", lang));
         setText("#section-account details[data-account-panel='overview'] .text-sm.font-black.text-white", rt("account_overview", lang));
         setText("#section-account details[data-account-panel='overview'] .text-[11px].text-slate-500.font-bold", rt("account_overview_desc", lang));
-        setText("#section-account details[data-account-panel='prefs'] .text-sm.font-black.text-white", rt("account_contact", lang));
-        setText("#section-account details[data-account-panel='prefs'] .text-[11px].text-slate-500.font-bold", rt("account_contact_desc", lang));
+        setText("#section-account details[data-account-panel='preferences'] .text-sm.font-black.text-white", rt("account_contact", lang));
+        setText("#section-account details[data-account-panel='preferences'] .text-[11px].text-slate-500.font-bold", rt("account_contact_desc", lang));
         setText("#section-account details[data-account-panel='admin'] .text-sm.font-black.text-white", rt("account_admin", lang));
         setText("#section-account details[data-account-panel='admin'] .text-[11px].text-slate-500.font-bold", rt("account_admin_desc", lang));
         setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-red-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_ban", lang));
@@ -1874,6 +1979,8 @@
         if (contactOptions[0]) contactOptions[0].textContent = rt("contact_whatsapp", lang);
         if (contactOptions[1]) contactOptions[1].textContent = rt("contact_call", lang);
         if (contactOptions[2]) contactOptions[2].textContent = rt("contact_sms", lang);
+        applyAccountCopy(lang);
+        applyFooterCredit();
     }
 
     function applyLanguage(lang = "ar") {
@@ -1886,6 +1993,7 @@
             dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
         }
         if (typeof window.renderCart === "function") window.renderCart();
+        if (typeof window.renderWishlist === "function") window.renderWishlist();
         if (typeof window.renderHistory === "function") window.renderHistory();
         renderNotifications();
         renderSavedPacks();
@@ -3278,6 +3386,63 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         };
     }
 
+    function patchRenderWishlist() {
+        if (typeof window.renderWishlist !== "function" || window.renderWishlist.__runtimeWrapped) return;
+
+        const wrapped = function patchedRenderWishlist() {
+            const list = document.getElementById("wishlist-items-list");
+            const items = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist : [];
+            if (!list) return;
+
+            if (!items.length) {
+                list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${typeof t === "function" ? t("wish_empty") : "Wishlist is empty."}</div>`;
+                return;
+            }
+
+            list.innerHTML = items.map((item) => {
+                const totalTnd = Number(item.totalWithFee || item.tnd || 0);
+                const productUsd = Number(item.productUsd || item.usd || 0);
+                const shippingText = Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0);
+                const imgHtml = item.image
+                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
+                    : `<div class="w-20 h-20 rounded-2xl border border-pink-500/20 bg-black/20 flex items-center justify-center text-pink-300 shrink-0"><i class="fas fa-heart text-lg"></i></div>`;
+
+                return `
+                    <div class="bg-slate-900/40 p-4 rounded-3xl border border-pink-500/15 space-y-4 auto-align shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+                        <div class="flex flex-col md:flex-row gap-4 md:items-start">
+                            ${imgHtml}
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div class="text-sm md:text-base font-black text-white leading-relaxed break-words">${escapeHtml(item.name || "Product")}</div>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black">
+                                    ${item.note ? `<span class="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300">${escapeHtml(item.note)}</span>` : ""}
+                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">${escapeHtml(shippingText)}</span>
+                                </div>
+                                ${item.link && item.link !== "https://" ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-blue-300 hover:text-white transition-colors break-all"><i class="fas fa-up-right-from-square"></i><span>${typeof t === "function" ? t("cart_prod_link") : "Product Link"}</span></a>` : ""}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">USD</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(productUsd)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("total"))}</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatTnd(totalTnd)}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="moveToCartFromWishlist(${Number(item.id || 0)})" class="px-4 py-2 rounded-2xl bg-amber-400 text-black text-[10px] font-black hover:bg-amber-300 transition-colors">${typeof t === "function" ? t("wish_move_cart") : "Move to Cart"}</button>
+                            <button onclick="removeWishlist(${Number(item.id || 0)})" class="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-slate-300 text-[10px] font-black hover:text-red-300 hover:border-red-400/30 transition-colors">${escapeHtml(rt("remove"))}</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        };
+
+        wrapped.__runtimeWrapped = true;
+        window.renderWishlist = wrapped;
+    }
+
     function buildOrderMessage(items, paymentLabel, finalTotal, orderRef) {
         const lines = [`🚀 *طلب جديد Alexpress Tunisie*`, ``, `🧾 *المرجع:* ${orderRef}`, `💳 *الدفع:* ${paymentLabel}`, ``];
 
@@ -3811,6 +3976,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         window.changeLanguage = applyLanguage;
         patchPromoLogic();
         patchGetFormData();
+        patchRenderWishlist();
         patchRenderCart();
         patchRenderHistory();
         patchHistoryFilters();
@@ -3846,13 +4012,14 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         patchGlobals();
         patchCollectionActions();
         patchTabSwitching();
-        bindEvents();
         applyCalculatorUiCleanup();
         applyAccountUiCleanup();
+        bindEvents();
         initAccountPanels();
         applyLanguage(window.localStorage.getItem("alexpress_lang") || "ar");
         renderRecentLinks();
         loadAccountPrefsIntoForm();
+        if (typeof window.renderWishlist === "function") window.renderWishlist();
         renderSavedPacks();
         renderPriceAlerts();
         renderReferralCard();
