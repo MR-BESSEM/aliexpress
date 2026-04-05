@@ -329,10 +329,82 @@ function ensureDataDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+function toFiniteNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getDefaultAdminSettings() {
+  return {
+    calculator: {
+      thresholds: {
+        low: 10,
+        mid: 50,
+        high: 150
+      },
+      rates: {
+        low: 4.5,
+        mid: 4.3,
+        high: 4.1,
+        base: 3.8
+      },
+      serviceFeeTnd: 0
+    },
+    storefront: {
+      whatsappNumber: "21627498276",
+      messengerHandle: "alexpresstunisie",
+      instagramHandle: "alexpress.tunisie"
+    },
+    admin: {
+      autoRefreshSeconds: 0
+    }
+  };
+}
+
+function normalizeAdminSettings(settings = {}) {
+  const defaults = getDefaultAdminSettings();
+  const source = settings && typeof settings === "object" ? settings : {};
+  const calculator = source.calculator && typeof source.calculator === "object" ? source.calculator : {};
+  const thresholds = calculator.thresholds && typeof calculator.thresholds === "object" ? calculator.thresholds : {};
+  const rates = calculator.rates && typeof calculator.rates === "object" ? calculator.rates : {};
+  const storefront = source.storefront && typeof source.storefront === "object" ? source.storefront : {};
+  const admin = source.admin && typeof source.admin === "object" ? source.admin : {};
+
+  const lowThreshold = Math.max(0, toFiniteNumber(thresholds.low, defaults.calculator.thresholds.low));
+  const midThreshold = Math.max(lowThreshold + 1, toFiniteNumber(thresholds.mid, defaults.calculator.thresholds.mid));
+  const highThreshold = Math.max(midThreshold + 1, toFiniteNumber(thresholds.high, defaults.calculator.thresholds.high));
+
+  return {
+    calculator: {
+      thresholds: {
+        low: lowThreshold,
+        mid: midThreshold,
+        high: highThreshold
+      },
+      rates: {
+        low: Math.max(0.001, toFiniteNumber(rates.low, defaults.calculator.rates.low)),
+        mid: Math.max(0.001, toFiniteNumber(rates.mid, defaults.calculator.rates.mid)),
+        high: Math.max(0.001, toFiniteNumber(rates.high, defaults.calculator.rates.high)),
+        base: Math.max(0.001, toFiniteNumber(rates.base, defaults.calculator.rates.base))
+      },
+      serviceFeeTnd: Math.max(0, toFiniteNumber(calculator.serviceFeeTnd, defaults.calculator.serviceFeeTnd))
+    },
+    storefront: {
+      whatsappNumber: sanitizeText(storefront.whatsappNumber || defaults.storefront.whatsappNumber),
+      messengerHandle: sanitizeText(storefront.messengerHandle || defaults.storefront.messengerHandle),
+      instagramHandle: sanitizeText(storefront.instagramHandle || defaults.storefront.instagramHandle)
+    },
+    admin: {
+      autoRefreshSeconds: Math.max(0, Math.round(toFiniteNumber(admin.autoRefreshSeconds, defaults.admin.autoRefreshSeconds)))
+    }
+  };
+}
+
 function getDefaultAdminStore() {
   return {
     promos: [],
     orders: [],
+    settings: getDefaultAdminSettings(),
     updatedAt: new Date().toISOString()
   };
 }
@@ -399,6 +471,7 @@ function loadAdminStore() {
     adminStoreCache = {
       promos: Array.isArray(parsed.promos) ? parsed.promos.map(normalizePromoRecord).filter(Boolean) : [],
       orders: Array.isArray(parsed.orders) ? sortOrdersNewestFirst(parsed.orders.map(normalizeOrderRecord).filter(Boolean)) : [],
+      settings: normalizeAdminSettings(parsed.settings || {}),
       updatedAt: parsed.updatedAt || new Date().toISOString()
     };
   } catch {
@@ -413,6 +486,7 @@ function saveAdminStore(store) {
   const normalized = {
     promos: Array.isArray(store.promos) ? store.promos.map(normalizePromoRecord).filter(Boolean) : [],
     orders: sortOrdersNewestFirst(Array.isArray(store.orders) ? store.orders.map(normalizeOrderRecord).filter(Boolean) : []),
+    settings: normalizeAdminSettings(store.settings || {}),
     updatedAt: new Date().toISOString()
   };
   const tempPath = `${ADMIN_STORE_PATH}.tmp`;
@@ -431,6 +505,14 @@ function getPublicPromoState(store = loadAdminStore()) {
     if (promo.limit > 0 && promo.used >= promo.limit) return false;
     return true;
   });
+}
+
+function getPublicSettings(store = loadAdminStore()) {
+  const settings = normalizeAdminSettings(store.settings || {});
+  return {
+    calculator: settings.calculator,
+    storefront: settings.storefront
+  };
 }
 
 function buildAdminAnalytics(store = loadAdminStore()) {
@@ -2816,6 +2898,13 @@ app.get("/api/promos", rateLimitMiddleware, (req, res) => {
   });
 });
 
+app.get("/api/settings", rateLimitMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    settings: getPublicSettings()
+  });
+});
+
 app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
   try {
     if (!req.query.url) {
@@ -2872,13 +2961,15 @@ app.post("/api/admin/login", rateLimitMiddleware, (req, res) => {
     return res.status(401).json({ success: false, error: "PIN الإدارة غير صحيح" });
   }
 
+  const store = loadAdminStore();
   res.json({
     success: true,
     token: createAdminToken(),
     state: {
-      promos: loadAdminStore().promos,
-      orders: sortOrdersNewestFirst(loadAdminStore().orders),
-      analytics: buildAdminAnalytics(loadAdminStore())
+      promos: store.promos,
+      orders: sortOrdersNewestFirst(store.orders),
+      analytics: buildAdminAnalytics(store),
+      settings: normalizeAdminSettings(store.settings || {})
     }
   });
 });
@@ -2889,8 +2980,43 @@ app.get("/api/admin/state", rateLimitMiddleware, requireAdminAuth, (req, res) =>
     success: true,
     promos: store.promos,
     orders: sortOrdersNewestFirst(store.orders),
-    analytics: buildAdminAnalytics(store)
+    analytics: buildAdminAnalytics(store),
+    settings: normalizeAdminSettings(store.settings || {})
   });
+});
+
+app.put("/api/admin/settings", rateLimitMiddleware, requireAdminAuth, (req, res) => {
+  const store = loadAdminStore();
+  const incoming = req.body && typeof req.body === "object" ? req.body : {};
+  const current = normalizeAdminSettings(store.settings || {});
+
+  store.settings = normalizeAdminSettings({
+    ...current,
+    ...incoming,
+    calculator: {
+      ...current.calculator,
+      ...(incoming.calculator || {}),
+      thresholds: {
+        ...current.calculator.thresholds,
+        ...((incoming.calculator && incoming.calculator.thresholds) || {})
+      },
+      rates: {
+        ...current.calculator.rates,
+        ...((incoming.calculator && incoming.calculator.rates) || {})
+      }
+    },
+    storefront: {
+      ...current.storefront,
+      ...(incoming.storefront || {})
+    },
+    admin: {
+      ...current.admin,
+      ...(incoming.admin || {})
+    }
+  });
+
+  saveAdminStore(store);
+  res.json({ success: true, settings: store.settings });
 });
 
 app.post("/api/admin/promos", rateLimitMiddleware, requireAdminAuth, (req, res) => {
