@@ -1932,7 +1932,7 @@
     function applyFooterCredit() {
         const footerLove = document.querySelector(".footer-love");
         if (footerLove) {
-            footerLove.innerHTML = 'Created with <span class="footer-love-heart">❤</span> By';
+            footerLove.innerHTML = 'Created with <span class="footer-love-heart">&#10084;</span> By';
         }
     }
 
