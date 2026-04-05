@@ -1997,6 +1997,7 @@
         applyLanguageMeta(safeLang);
         applyUiTranslations(safeLang);
         applyRuntimeTranslations(safeLang);
+        if (typeof window.refreshCloudUiState === "function") window.refreshCloudUiState();
         if (dom.previewMeta && dom.previewMeta.textContent === "Product Summary") {
             dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
         }
