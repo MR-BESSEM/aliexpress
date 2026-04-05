@@ -1416,6 +1416,49 @@ function buildEstimatedTimeline(product) {
   ];
 }
 
+function isAffiliateAppKeyInvalidError(error) {
+  return Boolean(
+    error?.apiError?.subCode === "isv.appkey-not-exists" ||
+    error?.apiError?.code === 29 ||
+    /invalid app key/i.test(String(error?.message || ""))
+  );
+}
+
+function buildUnavailableProductResponse({ canonicalUrl, productId, source = "manual-quote-required", alertText = "" }) {
+  const product = {
+    success: true,
+    title: "منتج AliExpress",
+    description: "",
+    price: 0,
+    shipping: null,
+    image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+    rating: 0,
+    reviewCount: 0,
+    soldCount: 0,
+    variants: [],
+    url: canonicalUrl,
+    source,
+    cached: false,
+    fetchedAt: new Date().toISOString(),
+    deliveryEstimate: "من 12 حتى 25 يوم",
+    manualQuoteRecommended: true,
+    priceUnavailable: true,
+    errorHint: alertText
+  };
+
+  product.shippingLabel = "غير متوفر";
+  product.restrictions = classifyProductRestrictions(product);
+  product.alerts = buildProductAlerts(product);
+  if (alertText) {
+    product.alerts.unshift({ level: "warning", text: alertText });
+  }
+  product.trustScore = buildSellerTrustScore(product);
+  product.customsAdvisor = buildCustomsAdvisor(product);
+  product.deliveryTimeline = buildEstimatedTimeline(product);
+
+  return product;
+}
+
 function buildVariantOfferProduct(baseProduct, offer) {
   const price = Number(offer?.price || 0) > 0 ? Number(offer.price) : Number(baseProduct?.price || 0);
   const shipping = offer?.shipping != null
@@ -2446,10 +2489,21 @@ async function fetchProduct(url) {
   }
 
   let apiData = null;
+  let apiError = null;
   try {
     apiData = await fetchAliExpressApiProduct(productId);
   } catch (error) {
+    apiError = error;
     log("warn", "AliExpress API product fetch failed", { productId, error: error.message });
+  }
+
+  if (isAffiliateAppKeyInvalidError(apiError)) {
+    return buildUnavailableProductResponse({
+      canonicalUrl,
+      productId,
+      source: "affiliate-auth-error",
+      alertText: "الجلب التلقائي متوقف مؤقتًا لأن إعدادات Affiliate API الحالية مرفوضة من AliExpress. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب إلى حين تبديل الـ App Key."
+    });
   }
 
   let pageData = null;
