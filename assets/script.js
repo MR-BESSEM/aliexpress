@@ -3,7 +3,7 @@
     const FX_FALLBACK_RATE = 4.5;
     const FX_MARKUP = 0;
     const SERVICE_FEE_PERCENT = 0.08;
-    const SERVICE_FEE_MIN_TND = 7;
+    const SERVICE_FEE_MIN_TND = 0;
     const RATE_REFRESH_MS = 15 * 60 * 1000;
     const WHATSAPP_NUMBER = "21627498276";
     const RECENT_LINKS_KEY = "alex_recent_links_v1";
