@@ -1136,7 +1136,7 @@
                     <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
-                    <div id="runtime-metric-rate" class="text-xl font-black text-white">3.800</div>
+                    <div id="runtime-metric-rate" class="text-xl font-black text-white">4.500</div>
                     <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
                 </div>
             </div>
@@ -2926,7 +2926,127 @@
     let orderHistory = [];
     let currentDiscount = 0; 
     let discountType = ''; 
-    const rates = { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 };
+    const defaultPublicSettings = {
+        calculator: {
+            thresholds: { low: 10, mid: 50, high: 150 },
+            rates: { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 },
+            serviceFeeTnd: 0
+        },
+        storefront: {
+            whatsappNumber: '21627498276',
+            messengerHandle: 'alexpresstunisie',
+            instagramHandle: 'alexpress.tunisie'
+        }
+    };
+    window.runtimeAdminSettings = JSON.parse(JSON.stringify(defaultPublicSettings));
+
+    function normalizeRuntimeSettings(raw = {}) {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const calculator = source.calculator && typeof source.calculator === 'object' ? source.calculator : {};
+        const thresholds = calculator.thresholds && typeof calculator.thresholds === 'object' ? calculator.thresholds : {};
+        const rates = calculator.rates && typeof calculator.rates === 'object' ? calculator.rates : {};
+        const storefront = source.storefront && typeof source.storefront === 'object' ? source.storefront : {};
+
+        const lowThreshold = Math.max(0, Number(thresholds.low || defaultPublicSettings.calculator.thresholds.low));
+        const midThreshold = Math.max(lowThreshold + 1, Number(thresholds.mid || defaultPublicSettings.calculator.thresholds.mid));
+        const highThreshold = Math.max(midThreshold + 1, Number(thresholds.high || defaultPublicSettings.calculator.thresholds.high));
+
+        return {
+            calculator: {
+                thresholds: {
+                    low: lowThreshold,
+                    mid: midThreshold,
+                    high: highThreshold
+                },
+                rates: {
+                    low: Math.max(0.001, Number(rates.low || defaultPublicSettings.calculator.rates.low)),
+                    mid: Math.max(0.001, Number(rates.mid || defaultPublicSettings.calculator.rates.mid)),
+                    high: Math.max(0.001, Number(rates.high || defaultPublicSettings.calculator.rates.high)),
+                    base: Math.max(0.001, Number(rates.base || defaultPublicSettings.calculator.rates.base))
+                },
+                serviceFeeTnd: Math.max(0, Number(calculator.serviceFeeTnd || defaultPublicSettings.calculator.serviceFeeTnd))
+            },
+            storefront: {
+                whatsappNumber: String(storefront.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber).trim().replace(/\D/g, '') || defaultPublicSettings.storefront.whatsappNumber,
+                messengerHandle: String(storefront.messengerHandle || defaultPublicSettings.storefront.messengerHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.messengerHandle,
+                instagramHandle: String(storefront.instagramHandle || defaultPublicSettings.storefront.instagramHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.instagramHandle
+            }
+        };
+    }
+
+    function getRuntimeSettings() {
+        return window.runtimeAdminSettings || defaultPublicSettings;
+    }
+
+    function getCalculatorSettings() {
+        return getRuntimeSettings().calculator || defaultPublicSettings.calculator;
+    }
+
+    function resolveUsdToTndRate(totalUSD) {
+        const settings = getCalculatorSettings();
+        let rate = Number(settings.rates.base || defaultPublicSettings.calculator.rates.base);
+        if (totalUSD > 0 && totalUSD < Number(settings.thresholds.low || defaultPublicSettings.calculator.thresholds.low)) rate = Number(settings.rates.low || rate);
+        else if (totalUSD < Number(settings.thresholds.mid || defaultPublicSettings.calculator.thresholds.mid)) rate = Number(settings.rates.mid || rate);
+        else if (totalUSD < Number(settings.thresholds.high || defaultPublicSettings.calculator.thresholds.high)) rate = Number(settings.rates.high || rate);
+        return rate;
+    }
+
+    function convertUsdTotalToTnd(totalUSD) {
+        const numericTotal = Math.max(0, Number(totalUSD || 0));
+        const settings = getCalculatorSettings();
+        const rate = resolveUsdToTndRate(numericTotal);
+        const convertedTnd = numericTotal * rate;
+        const serviceFeeTnd = Number(settings.serviceFeeTnd || 0);
+        return {
+            rate,
+            convertedTnd,
+            serviceFeeTnd,
+            totalTnd: convertedTnd + serviceFeeTnd
+        };
+    }
+
+    function recalculateStoredItem(item = {}) {
+        const usd = Number(item.usd || 0);
+        const calc = convertUsdTotalToTnd(usd);
+        return Object.assign({}, item, { usd, tnd: calc.totalTnd });
+    }
+
+    function recalculateStoredCollection(list = []) {
+        return Array.isArray(list) ? list.map(recalculateStoredItem) : [];
+    }
+
+    function updateCalculatorRuntimePanels(priceUsd, shippingUsd, calc) {
+        const rateBadge = document.getElementById('rate-badge');
+        const liveRateDisplay = document.getElementById('live-rate-display');
+        const runtimeMetricRate = document.getElementById('runtime-metric-rate');
+        const runtimeBreakdownProduct = document.getElementById('runtime-breakdown-product');
+        const runtimeBreakdownShipping = document.getElementById('runtime-breakdown-shipping');
+        const runtimeBreakdownService = document.getElementById('runtime-breakdown-service');
+        const runtimeBreakdownTotal = document.getElementById('runtime-breakdown-total');
+
+        if (rateBadge) {
+            rateBadge.textContent = (priceUsd + shippingUsd) > 0
+                ? `Rate ${calc.rate.toFixed(3)} | Fee ${calc.serviceFeeTnd.toFixed(3)}`
+                : '--';
+        }
+        if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ~ ${calc.rate.toFixed(3)} TND`;
+        if (runtimeMetricRate) runtimeMetricRate.textContent = calc.rate.toFixed(3);
+        if (runtimeBreakdownProduct) runtimeBreakdownProduct.textContent = `${(priceUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownShipping) runtimeBreakdownShipping.textContent = `${(shippingUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownService) runtimeBreakdownService.textContent = `${calc.serviceFeeTnd.toFixed(3)} TND`;
+        if (runtimeBreakdownTotal) runtimeBreakdownTotal.textContent = `${calc.totalTnd.toFixed(3)} TND`;
+    }
+
+    async function loadPublicSettings() {
+        try {
+            const response = await fetch('/api/settings');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.success === false) return;
+            window.runtimeAdminSettings = normalizeRuntimeSettings(data.settings || {});
+        } catch (e) {
+            console.error('Error loading public settings', e);
+        }
+    }
 
     // --- NEW SECURITY MEASURES (XSS & SPAM PROTECTION) ---
     let isActionLocked = false;
@@ -3000,8 +3120,8 @@
             const savedWish = localStorage.getItem('alexpress_wishlist');
             const savedHist = localStorage.getItem('alexpress_history');
             
-            if (savedCart) cart = decryptData(savedCart) || [];
-            if (savedWish) wishlist = decryptData(savedWish) || [];
+            if (savedCart) cart = recalculateStoredCollection(decryptData(savedCart) || []);
+            if (savedWish) wishlist = recalculateStoredCollection(decryptData(savedWish) || []);
             if (savedHist) orderHistory = decryptData(savedHist) || [];
         } catch (e) { console.error("Error loading data", e); }
         
@@ -3093,13 +3213,11 @@
         const p = parseFloat(document.getElementById('usd-price').value) || 0;
         const s = parseFloat(document.getElementById('usd-ship').value) || 0;
         const totalUSD = p + s;
-        let rate = rates.base;
-        if (totalUSD > 0 && totalUSD < 10) rate = rates.low;
-        else if (totalUSD < 50) rate = rates.mid;
-        else if (totalUSD < 150) rate = rates.high;
-        const totalTND = totalUSD * rate;
-        document.getElementById('tnd-result').textContent = totalTND.toFixed(3) + " TND";
-        document.getElementById('rate-badge').textContent = totalUSD > 0 ? `Rate: ${rate.toFixed(3)}` : "--";
+        const calc = convertUsdTotalToTnd(totalUSD);
+        const totalTND = calc.totalTnd;
+        const rate = calc.rate;
+        document.getElementById('tnd-result').textContent = calc.totalTnd.toFixed(3) + " TND";
+        updateCalculatorRuntimePanels(p, s, calc);
         
         const liveRateDisplay = document.getElementById('live-rate-display');
         if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ≈ ${rate.toFixed(3)} TND`;
@@ -3217,10 +3335,13 @@
         const list = document.getElementById('cart-items-list');
         const footer = document.getElementById('cart-footer');
         const totalDisplay = document.getElementById('cart-total-display');
+        const runtimeCartService = document.getElementById('runtime-cart-service');
+        const serviceFeePerItem = Number(getCalculatorSettings().serviceFeeTnd || 0);
         
         if (cart.length === 0) {
             list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('cart_empty')}</div>`;
             footer.classList.add('hidden');
+            if (runtimeCartService) runtimeCartService.textContent = "0.000 TND";
             return;
         }
         
@@ -3264,6 +3385,11 @@
             totalDisplay.innerHTML = `<span class="line-through text-slate-500 text-lg mr-2">${subtotal.toFixed(3)}</span> <span class="text-green-400">${finalTotal.toFixed(3)} TND</span>`;
         } else {
             totalDisplay.textContent = finalTotal.toFixed(3) + " TND";
+        }
+
+        if (runtimeCartService) {
+            const totalQty = cart.reduce((sum, item) => sum + Math.max(1, Number(item.qty || 1)), 0);
+            runtimeCartService.textContent = `${(totalQty * serviceFeePerItem).toFixed(3)} TND`;
         }
     }
 
@@ -3320,7 +3446,16 @@
         saveData(); renderHistory();
 
         const encoded = encodeURIComponent(message);
-        window.open(channel === 'whatsapp' ? `https://wa.me/21627498276?text=${encoded}` : (channel === 'messenger' ? `https://m.me/alexpresstunisie?text=${encoded}` : `https://ig.me/m/alexpress.tunisie?text=${encoded}`), '_blank');
+        const storefrontSettings = getRuntimeSettings().storefront || defaultPublicSettings.storefront;
+        const whatsappNumber = storefrontSettings.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber;
+        const messengerHandle = storefrontSettings.messengerHandle || defaultPublicSettings.storefront.messengerHandle;
+        const instagramHandle = storefrontSettings.instagramHandle || defaultPublicSettings.storefront.instagramHandle;
+        const targetUrl = channel === 'whatsapp'
+            ? `https://wa.me/${whatsappNumber}?text=${encoded}`
+            : (channel === 'messenger'
+                ? `https://m.me/${messengerHandle}?text=${encoded}`
+                : `https://ig.me/m/${instagramHandle}?text=${encoded}`);
+        window.open(targetUrl, '_blank');
         
         cart = []; updateBadges(); renderCart(); saveData();
         document.getElementById('promo-code').value = ''; 
@@ -3420,8 +3555,9 @@
         });
     }
 
-    window.onload = () => { 
+    window.onload = async () => { 
         initCharts(); 
+        await loadPublicSettings();
         calculateTND(); 
         loadData(); 
         initFirebase(); 
