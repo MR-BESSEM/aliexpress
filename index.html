@@ -1018,11 +1018,11 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase Instances
-        window.firebaseCore = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot };
+        window.firebaseCore = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot };
     </script>
 </head>
 <body class="custom-scrollbar overflow-x-hidden transition-all duration-300">
@@ -1455,7 +1455,7 @@
                         </div>
                     </div>
                     <div class="bg-black/40 p-5 md:p-6 rounded-2xl border border-white/5 text-center">
-                        <div id="tnd-result" class="text-2xl md:text-4xl font-black text-amber-400" dir="ltr">0.000 TND</div>
+                        <div id="tnd-result" class="text-2xl md:text-4xl font-black text-amber-400" dir="ltr">مشمولة</div>
                         <div id="rate-badge" class="mt-2 text-[8px] text-slate-600 font-bold tracking-widest">--</div>
                     </div>
                     <div id="runtime-breakdown-card" class="hidden bg-slate-950/60 p-4 md:p-5 rounded-2xl border border-white/5 space-y-3">
@@ -1473,7 +1473,7 @@
                         </div>
                         <div class="pt-3 border-t border-white/5 flex items-center justify-between text-xs md:text-sm font-black text-amber-400">
                             <span>الإجمالي النهائي</span>
-                            <span id="runtime-breakdown-total" dir="ltr">0.000 TND</span>
+                            <span id="runtime-breakdown-total" dir="ltr">مشمولة</span>
                         </div>
                     </div>
                     <div id="runtime-insights-card" class="hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-3">
@@ -2697,7 +2697,7 @@
     window.availablePromos = []; // Global for promos
 
     async function initFirebase() {
-        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
+        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
         
         // 🔴 Configuration Firebase officielle
         const firebaseConfig = {
@@ -2715,6 +2715,12 @@
         db = getFirestore(app);
         appId = firebaseConfig.projectId; 
 
+        try {
+            await setPersistence(auth, browserLocalPersistence);
+        } catch (error) {
+            console.warn("Firebase persistence unavailable:", error);
+        }
+
         // Promo Codes Listener - MOVED HERE AFTER db INIT
         onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'promos'), (snapshot) => {
             if (snapshot.exists()) {
@@ -2724,7 +2730,9 @@
 
         // Auth (Login)
         try {
-            await signInAnonymously(auth);
+            if (!auth.currentUser) {
+                await signInAnonymously(auth);
+            }
         } catch (error) {
             console.error("Erreur Auth:", error);
         }
@@ -2732,6 +2740,7 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
+                try { localStorage.setItem('alexpress_user_id', userId); } catch (e) {}
                 document.getElementById('user-uid-display').textContent = userId;
                 const uidCloneEl = document.getElementById('user-uid-display-clone');
                 if (uidCloneEl) uidCloneEl.textContent = userId;
@@ -3099,6 +3108,21 @@
         } catch (e) { return null; }
     }
 
+    function readStorageCollection(primaryKey, backupKey) {
+        try {
+            const primaryRaw = localStorage.getItem(primaryKey);
+            const primaryData = decryptData(primaryRaw);
+            if (Array.isArray(primaryData) && primaryData.length >= 0) return primaryData;
+
+            const backupRaw = localStorage.getItem(backupKey);
+            if (!backupRaw) return [];
+            const backupData = JSON.parse(backupRaw);
+            return Array.isArray(backupData) ? backupData : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     // --- NEW PRO FEATURE: Social Proof Notifications ---
     const spData = {
         ar: { names: ["أحمد من سوسة", "مريم من تونس", "خليل من صفاقس"], actions: ["شرا Smartwatch ⌚", "شرات Ecouteurs 🎧", "شرا SSD 1TB 💻"], times: ["منذ دقيقتين", "منذ 5 دقائق", "منذ لحظات"] },
@@ -3125,6 +3149,9 @@
         localStorage.setItem('alexpress_cart', encryptData(cart));
         localStorage.setItem('alexpress_wishlist', encryptData(wishlist));
         localStorage.setItem('alexpress_history', encryptData(orderHistory));
+        localStorage.setItem('alexpress_cart_backup', JSON.stringify(Array.isArray(cart) ? cart : []));
+        localStorage.setItem('alexpress_wishlist_backup', JSON.stringify(Array.isArray(wishlist) ? wishlist : []));
+        localStorage.setItem('alexpress_history_backup', JSON.stringify(Array.isArray(orderHistory) ? orderHistory : []));
         updateAccountStats();
         syncToCloud(); 
     }
@@ -3138,13 +3165,9 @@
             document.getElementById('theme-icon').className = 'fas fa-moon';
         }
         try {
-            const savedCart = localStorage.getItem('alexpress_cart');
-            const savedWish = localStorage.getItem('alexpress_wishlist');
-            const savedHist = localStorage.getItem('alexpress_history');
-            
-            if (savedCart) cart = recalculateStoredCollection(decryptData(savedCart) || []);
-            if (savedWish) wishlist = recalculateStoredCollection(decryptData(savedWish) || []);
-            if (savedHist) orderHistory = decryptData(savedHist) || [];
+            cart = recalculateStoredCollection(readStorageCollection('alexpress_cart', 'alexpress_cart_backup'));
+            wishlist = recalculateStoredCollection(readStorageCollection('alexpress_wishlist', 'alexpress_wishlist_backup'));
+            orderHistory = readStorageCollection('alexpress_history', 'alexpress_history_backup');
         } catch (e) { console.error("Error loading data", e); }
         
         updateBadges();
