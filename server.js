@@ -2031,7 +2031,7 @@ async function fetchAliExpressAffiliateProduct(productId) {
         headers: {
           "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
         },
-        proxy: false
+        ...getAxiosProxyOptions()
       });
 
       if (response.data?.error_response) {
@@ -2778,6 +2778,8 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
+  const scrapeProxy = getScrapeProxyConfig();
+  const affiliateMode = /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN;
   res.json({
     success: true,
     status: "ok",
@@ -2785,8 +2787,12 @@ app.get("/api/health", (req, res) => {
     playwright: Boolean(playwright?.chromium),
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
     aliexpressApiTokenConfigured: Boolean(process.env.ALIEXPRESS_ACCESS_TOKEN),
-    aliexpressApiMode: /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN ? "affiliate" : "ds",
-    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
+    aliexpressApiMode: affiliateMode ? "affiliate" : "ds",
+    affiliateApiConfigured: Boolean(ALIEXPRESS_AFFILIATE_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    affiliateTrackingIdConfigured: Boolean(ALIEXPRESS_TRACKING_ID),
+    scrapeProxyConfigured: Boolean(scrapeProxy),
+    scrapeProxyProtocol: scrapeProxy?.protocol || "",
+    scrapeProxyBypassConfigured: Boolean(SCRAPE_PROXY_BYPASS)
   });
 });
 
