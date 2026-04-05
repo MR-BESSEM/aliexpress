@@ -92,6 +92,23 @@
         }
     };
 
+    const STATUS_LABELS = {
+        pending: "قيد الانتظار",
+        processing: "قيد المعالجة",
+        shipped: "تم الشحن",
+        delivered: "تم التسليم"
+    };
+
+    const PROMO_TYPE_LABELS = {
+        percent: "نسبة مئوية",
+        fixed: "قيمة ثابتة"
+    };
+
+    function getStatusLabel(status) {
+        const normalized = String(status || "").toLowerCase();
+        return STATUS_LABELS[normalized] || status || "قيد الانتظار";
+    }
+
     function cloneValue(value) {
         return JSON.parse(JSON.stringify(value));
     }
@@ -176,7 +193,7 @@
     function formatDateLabel(value) {
         if (!value) return "--";
         try {
-            return new Intl.DateTimeFormat("en-GB", {
+            return new Intl.DateTimeFormat("ar-TN", {
                 day: "2-digit",
                 month: "short",
                 hour: "2-digit",
@@ -213,7 +230,7 @@
         const response = await fetch(`${API_BASE_URL}${endpoint}`, Object.assign({}, options, { headers }));
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.success === false) {
-            throw new Error(data.error || `Request failed (${response.status})`);
+            throw new Error(data.error || `فشل الطلب (${response.status})`);
         }
         return data;
     }
@@ -224,7 +241,7 @@
         dom.logoutBtn?.classList.toggle("hidden", !unlocked);
         dom.refreshBtn?.classList.toggle("hidden", !unlocked);
         if (dom.sessionPill) {
-            dom.sessionPill.textContent = unlocked ? "Unlocked" : "Locked";
+            dom.sessionPill.textContent = unlocked ? "مفتوح" : "مغلق";
             dom.sessionPill.className = `status-pill ${unlocked ? "text-emerald-300" : "text-slate-300"}`;
         }
     }
@@ -243,7 +260,7 @@
 
         state.autoRefreshHandle = window.setInterval(() => {
             refreshState(false, false).catch((error) => {
-                pushActivity(error.message || "Auto refresh failed.", "text-red-300");
+                pushActivity(error.message || "فشل التحديث التلقائي.", "text-red-300");
             });
         }, seconds * 1000);
     }
@@ -290,17 +307,17 @@
     function renderHeroSummary() {
         const calculator = state.settings.calculator;
         if (dom.activeBaseRateChip) {
-            dom.activeBaseRateChip.textContent = `Base ${Number(calculator.rates.base || 0).toFixed(3)}`;
+            dom.activeBaseRateChip.textContent = `السعر الأساسي ${Number(calculator.rates.base || 0).toFixed(3)}`;
         }
         if (dom.serviceFeeChip) {
-            dom.serviceFeeChip.textContent = `Service fee ${formatMoney(calculator.serviceFeeTnd || 0)}`;
+            dom.serviceFeeChip.textContent = `رسوم الخدمة ${formatMoney(calculator.serviceFeeTnd || 0)}`;
         }
         if (dom.refreshChip) {
             const seconds = Number(state.settings.admin.autoRefreshSeconds || 0);
-            dom.refreshChip.textContent = seconds > 0 ? `Auto refresh ${seconds}s` : "Auto refresh off";
+            dom.refreshChip.textContent = seconds > 0 ? `تحديث تلقائي كل ${seconds} ث` : "التحديث التلقائي متوقف";
         }
         if (dom.lastSavedChip) {
-            dom.lastSavedChip.textContent = state.lastSyncAt ? `Last sync ${formatDateLabel(state.lastSyncAt)}` : "Not synced yet";
+            dom.lastSavedChip.textContent = state.lastSyncAt ? `آخر مزامنة ${formatDateLabel(state.lastSyncAt)}` : "لم تتم المزامنة بعد";
         }
     }
 
@@ -316,7 +333,7 @@
     function renderMiniList(host, items, formatter) {
         if (!host) return;
         if (!items.length) {
-            host.innerHTML = `<div class="empty-state">No data available right now.</div>`;
+            host.innerHTML = `<div class="empty-state">لا توجد بيانات متاحة حالياً.</div>`;
             return;
         }
         host.innerHTML = items.map(formatter).join("");
@@ -324,27 +341,27 @@
 
     function renderPromos() {
         if (dom.promosCount) {
-            dom.promosCount.textContent = `${state.promos.length} promos`;
+            dom.promosCount.textContent = `${state.promos.length} عروض`;
         }
 
         renderMiniList(dom.promosList, state.promos, (promo) => {
-            const expiry = promo.expiresAt ? formatDateLabel(promo.expiresAt) : "No expiry";
-            const limit = Number(promo.limit || 0) > 0 ? Number(promo.limit || 0) : "Unlimited";
+            const expiry = promo.expiresAt ? formatDateLabel(promo.expiresAt) : "بدون تاريخ انتهاء";
+            const limit = Number(promo.limit || 0) > 0 ? Number(promo.limit || 0) : "غير محدود";
             return `
                 <div class="mini-item">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="text-sm font-black text-white">${escapeHtml(promo.code)}</div>
                             <div class="text-xs text-slate-400 mt-2">
-                                ${promo.type === "percent" ? `${Number(promo.value || 0)}%` : formatMoney(promo.value || 0)}
+                                ${promo.type === "percent" ? `${Number(promo.value || 0)}%` : formatMoney(promo.value || 0)} - ${escapeHtml(PROMO_TYPE_LABELS[promo.type] || promo.type || "")}
                             </div>
                             <div class="text-xs text-slate-500 mt-2">
-                                Used ${Number(promo.used || 0)} / ${limit} | ${escapeHtml(expiry)}
+                                استُخدم ${Number(promo.used || 0)} / ${limit} | ${escapeHtml(expiry)}
                             </div>
                         </div>
                         <div class="flex gap-2 shrink-0">
-                            <button class="btn btn-ghost !px-3 !py-2 text-xs" data-edit-promo="${escapeHtml(promo.code)}">Edit</button>
-                            <button class="btn btn-danger !px-3 !py-2 text-xs" data-delete-promo="${escapeHtml(promo.code)}">Delete</button>
+                            <button class="btn btn-ghost !px-3 !py-2 text-xs" data-edit-promo="${escapeHtml(promo.code)}">تعديل</button>
+                            <button class="btn btn-danger !px-3 !py-2 text-xs" data-delete-promo="${escapeHtml(promo.code)}">حذف</button>
                         </div>
                     </div>
                 </div>
@@ -409,36 +426,36 @@
         if (!dom.ordersTable) return;
         const rows = filteredOrders();
         if (!rows.length) {
-            dom.ordersTable.innerHTML = `<tr><td colspan="8"><div class="empty-state">No orders match this filter.</div></td></tr>`;
+            dom.ordersTable.innerHTML = `<tr><td colspan="8"><div class="empty-state">لا توجد طلبات مطابقة لهذا الفلتر.</div></td></tr>`;
             return;
         }
 
         dom.ordersTable.innerHTML = rows.map((order) => {
-            const customer = [order.customer?.name, order.customer?.phone, order.customer?.city].filter(Boolean).join(" | ") || "No customer data";
+            const customer = [order.customer?.name, order.customer?.phone, order.customer?.city].filter(Boolean).join(" | ") || "لا توجد بيانات عميل";
             const itemsHtml = Array.isArray(order.items) && order.items.length
-                ? order.items.slice(0, 3).map((item) => `<div class="text-xs text-slate-300">${escapeHtml(item?.name || "Item")}</div>`).join("")
-                : `<div class="text-xs text-slate-500">No items</div>`;
+                ? order.items.slice(0, 3).map((item) => `<div class="text-xs text-slate-300">${escapeHtml(item?.name || "منتج")}</div>`).join("")
+                : `<div class="text-xs text-slate-500">لا توجد منتجات</div>`;
 
             return `
                 <tr>
                     <td>
                         <div class="font-black text-white">${escapeHtml(order.orderRef || "")}</div>
-                        <div class="text-xs text-slate-500 mt-1">${escapeHtml(order.paymentMethod || "No payment method")}</div>
+                        <div class="text-xs text-slate-500 mt-1">${escapeHtml(order.paymentMethod || "لا توجد طريقة دفع")}</div>
                     </td>
                     <td>
                         <div class="text-sm text-slate-200">${escapeHtml(order.date || "")}</div>
-                        <div class="text-xs text-slate-500 mt-1">Updated ${escapeHtml(order.updatedAt || "")}</div>
+                        <div class="text-xs text-slate-500 mt-1">آخر تحديث ${escapeHtml(order.updatedAt || "")}</div>
                     </td>
                     <td>
                         <div class="text-sm text-slate-200">${escapeHtml(customer)}</div>
                     </td>
                     <td>${itemsHtml}</td>
                     <td>
-                        <span class="status-pill ${statusTone(order.status)}">${escapeHtml(order.status || "pending")}</span>
+                        <span class="status-pill ${statusTone(order.status)}">${escapeHtml(getStatusLabel(order.status || "pending"))}</span>
                     </td>
                     <td>
                         <div class="font-black text-white">${formatMoney(order.total || 0)}</div>
-                        <div class="text-xs text-slate-500 mt-1">${Number(order.itemsCount || 0)} items</div>
+                        <div class="text-xs text-slate-500 mt-1">${Number(order.itemsCount || 0)} منتجات</div>
                     </td>
                     <td>
                         <div class="text-sm text-slate-200">${escapeHtml(order.adminTracking || order.trackingHint || "--")}</div>
@@ -447,13 +464,13 @@
                     <td>
                         <div class="grid gap-2">
                             <select class="select text-xs" data-order-status="${escapeHtml(order.orderRef || "")}">
-                                <option value="pending" ${order.status === "pending" ? "selected" : ""}>pending</option>
-                                <option value="processing" ${order.status === "processing" ? "selected" : ""}>processing</option>
-                                <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>shipped</option>
-                                <option value="delivered" ${order.status === "delivered" ? "selected" : ""}>delivered</option>
+                                <option value="pending" ${order.status === "pending" ? "selected" : ""}>قيد الانتظار</option>
+                                <option value="processing" ${order.status === "processing" ? "selected" : ""}>قيد المعالجة</option>
+                                <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>تم الشحن</option>
+                                <option value="delivered" ${order.status === "delivered" ? "selected" : ""}>تم التسليم</option>
                             </select>
-                            <input class="field text-xs" data-order-tracking="${escapeHtml(order.orderRef || "")}" value="${escapeHtml(order.adminTracking || "")}" placeholder="Tracking note">
-                            <button class="btn btn-primary text-xs" data-save-order="${escapeHtml(order.orderRef || "")}">Save</button>
+                            <input class="field text-xs" data-order-tracking="${escapeHtml(order.orderRef || "")}" value="${escapeHtml(order.adminTracking || "")}" placeholder="ملاحظة التتبع">
+                            <button class="btn btn-primary text-xs" data-save-order="${escapeHtml(order.orderRef || "")}">حفظ</button>
                         </div>
                     </td>
                 </tr>
@@ -479,7 +496,7 @@
         state.charts.orders = new Chart(orderChartCtx, {
             type: "doughnut",
             data: {
-                labels: ["Pending", "Delivered", "Risk"],
+                labels: ["قيد الانتظار", "تم التسليم", "مخاطر"],
                 datasets: [{
                     data: [
                         Number(analytics.pendingOrders || 0),
@@ -510,11 +527,11 @@
             type: "bar",
             data: {
                 labels: topProducts.map((item) => {
-                    const label = String(item.name || "Unnamed").trim();
+                    const label = String(item.name || "بدون اسم").trim();
                     return label.length > 22 ? `${label.slice(0, 22)}...` : label;
                 }),
                 datasets: [{
-                    label: "Orders",
+                    label: "الطلبات",
                     data: topProducts.map((item) => Number(item.count || 0)),
                     borderRadius: 14,
                     backgroundColor: ["#38bdf8", "#7dd3fc", "#f59e0b", "#34d399", "#f97316"]
@@ -542,14 +559,14 @@
         const analytics = state.analytics || {};
         renderMiniList(dom.repeatCustomersList, analytics.repeatCustomers || [], (item) => `
             <div class="text-sm text-slate-200">
-                <strong>${escapeHtml(item.id || "Unknown")}</strong>
-                <span class="text-slate-500"> | ${Number(item.ordersCount || 0)} orders</span>
+                <strong>${escapeHtml(item.id || "غير معروف")}</strong>
+                <span class="text-slate-500"> | ${Number(item.ordersCount || 0)} طلبات</span>
             </div>
         `);
         renderMiniList(dom.topPromosList, analytics.topPromos || [], (item) => `
             <div class="text-sm text-slate-200">
-                <strong>${escapeHtml(item.code || "N/A")}</strong>
-                <span class="text-slate-500"> | used ${Number(item.used || 0)}</span>
+                <strong>${escapeHtml(item.code || "غير متوفر")}</strong>
+                <span class="text-slate-500"> | استُخدم ${Number(item.used || 0)}</span>
             </div>
         `);
     }
@@ -571,7 +588,7 @@
         dom.promoLimit.value = promo.limit ?? "";
         dom.promoExpiry.value = promo.expiresAt ? String(promo.expiresAt).slice(0, 16) : "";
         state.editingPromoCode = promo.code || "";
-        dom.promoMessage.textContent = `Editing ${promo.code}`;
+        dom.promoMessage.textContent = `جاري تعديل ${promo.code}`;
         dom.promoMessage.className = "text-sm font-bold text-sky-300 mb-4";
     }
 
@@ -649,16 +666,16 @@
     function validateDraftSettings() {
         const raw = readRawSettingsInputs();
         if (raw.lowThreshold < 0 || raw.midThreshold <= raw.lowThreshold || raw.highThreshold <= raw.midThreshold) {
-            throw new Error("Thresholds must be increasing: low < mid < high.");
+            throw new Error("يجب أن تكون الحدود تصاعدية: الأول < الثاني < الثالث.");
         }
         if (raw.lowRate <= 0 || raw.midRate <= 0 || raw.highRate <= 0 || raw.baseRate <= 0) {
-            throw new Error("All calculator rates must be greater than zero.");
+            throw new Error("يجب أن تكون كل أسعار الحاسبة أكبر من صفر.");
         }
         if (raw.serviceFeeTnd < 0) {
-            throw new Error("Service fee cannot be negative.");
+            throw new Error("لا يمكن أن تكون رسوم الخدمة سالبة.");
         }
         if (raw.autoRefreshSeconds < 0) {
-            throw new Error("Auto refresh cannot be negative.");
+            throw new Error("لا يمكن أن يكون التحديث التلقائي بقيمة سالبة.");
         }
     }
 
@@ -690,7 +707,7 @@
             renderSettingsForm();
         }
         if (showMessage) {
-            pushActivity("Dashboard data refreshed.", "text-emerald-300");
+            pushActivity("تم تحديث بيانات لوحة الإدارة.", "text-emerald-300");
         }
     }
 
@@ -698,7 +715,7 @@
         const pin = String(dom.pinInput?.value || "").trim();
         if (!pin) {
             if (dom.loginMessage) {
-                dom.loginMessage.textContent = "Enter the admin PIN first.";
+                dom.loginMessage.textContent = "أدخل رمز الإدارة أولاً.";
                 dom.loginMessage.className = "text-sm font-bold text-red-300";
             }
             return;
@@ -706,7 +723,7 @@
 
         if (dom.loginBtn) dom.loginBtn.disabled = true;
         if (dom.loginMessage) {
-            dom.loginMessage.textContent = "Opening admin session...";
+            dom.loginMessage.textContent = "جاري فتح جلسة الإدارة...";
             dom.loginMessage.className = "text-sm font-bold text-sky-300";
         }
 
@@ -723,11 +740,11 @@
             renderAll();
             renderSettingsForm();
             showSettingsMessage("");
-            pushActivity("Admin Studio unlocked.", "text-emerald-300");
+            pushActivity("تم فتح لوحة الإدارة.", "text-emerald-300");
             if (dom.loginMessage) dom.loginMessage.textContent = "";
         } catch (error) {
             if (dom.loginMessage) {
-                dom.loginMessage.textContent = error.message || "Login failed.";
+                dom.loginMessage.textContent = error.message || "فشل تسجيل الدخول.";
                 dom.loginMessage.className = "text-sm font-bold text-red-300";
             }
         } finally {
@@ -740,14 +757,14 @@
         setStoredToken("");
         clearAutoRefreshTimer();
         setSessionUi(false);
-        pushActivity("Admin session closed.", "text-amber-300");
+        pushActivity("تم إغلاق جلسة الإدارة.", "text-amber-300");
     }
 
     async function saveSettings() {
         try {
             validateDraftSettings();
             const payload = getDraftSettings();
-            showSettingsMessage("Saving settings...", "text-sky-300");
+            showSettingsMessage("جاري حفظ الإعدادات...", "text-sky-300");
             const data = await apiFetch("/api/admin/settings", {
                 method: "PUT",
                 body: JSON.stringify(payload)
@@ -757,16 +774,16 @@
             updateAutoRefreshTimer();
             renderAll();
             renderSettingsForm();
-            showSettingsMessage("Settings saved and synced to the storefront.", "text-emerald-300");
-            pushActivity("Calculator and storefront settings updated.", "text-emerald-300");
+            showSettingsMessage("تم حفظ الإعدادات ومزامنتها مع المتجر.", "text-emerald-300");
+            pushActivity("تم تحديث إعدادات الحاسبة والمتجر.", "text-emerald-300");
         } catch (error) {
-            showSettingsMessage(error.message || "Failed to save settings.", "text-red-300");
+            showSettingsMessage(error.message || "فشل حفظ الإعدادات.", "text-red-300");
         }
     }
 
     function resetSettingsForm() {
         renderSettingsForm();
-        showSettingsMessage("Form reset to the last saved values.", "text-slate-300");
+        showSettingsMessage("تمت إعادة النموذج إلى آخر قيم محفوظة.", "text-slate-300");
     }
 
     async function savePromo() {
@@ -778,7 +795,7 @@
 
         if (!code || value <= 0) {
             if (dom.promoMessage) {
-                dom.promoMessage.textContent = "Complete the promo fields before saving.";
+                dom.promoMessage.textContent = "أكمل بيانات العرض قبل الحفظ.";
                 dom.promoMessage.className = "text-sm font-bold text-red-300 mb-4";
             }
             return;
@@ -801,10 +818,10 @@
             renderPromos();
             clearPromoForm();
             await refreshState(false, false);
-            pushActivity(`Promo ${code} saved.`, "text-emerald-300");
+            pushActivity(`تم حفظ العرض ${code}.`, "text-emerald-300");
         } catch (error) {
             if (dom.promoMessage) {
-                dom.promoMessage.textContent = error.message || "Promo save failed.";
+                dom.promoMessage.textContent = error.message || "فشل حفظ العرض.";
                 dom.promoMessage.className = "text-sm font-bold text-red-300 mb-4";
             }
         }
@@ -819,9 +836,9 @@
             state.promos = Array.isArray(data.promos) ? data.promos : [];
             renderPromos();
             await refreshState(false, false);
-            pushActivity(`Promo ${code} deleted.`, "text-rose-300");
+            pushActivity(`تم حذف العرض ${code}.`, "text-rose-300");
         } catch (error) {
-            pushActivity(error.message || "Failed to delete promo.", "text-red-300");
+            pushActivity(error.message || "فشل حذف العرض.", "text-red-300");
         }
     }
 
@@ -844,9 +861,9 @@
                 state.orders = state.orders.map((order) => order.orderRef === nextOrder.orderRef ? nextOrder : order);
             }
             await refreshState(false, false);
-            pushActivity(`Order ${orderRef} updated to ${statusSelect.value}.`, "text-sky-300");
+            pushActivity(`تم تحديث الطلب ${orderRef} إلى ${getStatusLabel(statusSelect.value)}.`, "text-sky-300");
         } catch (error) {
-            pushActivity(error.message || `Failed to update ${orderRef}.`, "text-red-300");
+            pushActivity(error.message || `فشل تحديث الطلب ${orderRef}.`, "text-red-300");
         }
     }
 
@@ -915,7 +932,7 @@
 
         try {
             await refreshState(false, true);
-            pushActivity("Previous admin session restored.", "text-emerald-300");
+            pushActivity("تمت استعادة جلسة الإدارة السابقة.", "text-emerald-300");
         } catch {
             logout();
         }
