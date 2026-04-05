@@ -1463,15 +1463,12 @@ function buildUnavailableProductResponse({ canonicalUrl, productId, source = "ma
     deliveryEstimate: "من 12 حتى 25 يوم",
     manualQuoteRecommended: true,
     priceUnavailable: true,
-    errorHint: alertText
+    errorHint: ""
   };
 
   product.shippingLabel = "غير متوفر";
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
-  if (alertText) {
-    product.alerts.unshift({ level: "warning", text: alertText });
-  }
   product.trustScore = buildSellerTrustScore(product);
   product.customsAdvisor = buildCustomsAdvisor(product);
   product.deliveryTimeline = buildEstimatedTimeline(product);
@@ -2645,10 +2642,7 @@ async function fetchProduct(url) {
   product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
   product.restrictions = classifyProductRestrictions(product);
   product.alerts = buildProductAlerts(product);
-  if (affiliateAuthFailed) {
-    product.alerts.unshift({ level: "warning", text: affiliateAuthAlertText });
-    product.errorHint = affiliateAuthAlertText;
-  }
+  product.errorHint = "";
   product.trustScore = buildSellerTrustScore(product);
   product.customsAdvisor = buildCustomsAdvisor(product);
   product.deliveryTimeline = buildEstimatedTimeline(product);
@@ -2677,10 +2671,6 @@ async function fetchProduct(url) {
     if (product.soldCount > 50000 && (!product.description || isLowValueProductTitle(product.title))) {
       product.soldCount = 0;
     }
-    product.alerts.unshift({
-      level: "warning",
-      text: "ما قدرناش نجيبولك السعر exact توّا بسبب حماية AliExpress. استعمل التسعيرة اليدوية أو ابعثنا الرابط على واتساب."
-    });
     product.manualQuoteRecommended = true;
   }
 
