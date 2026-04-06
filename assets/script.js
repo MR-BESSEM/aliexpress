@@ -475,7 +475,7 @@
         syncOrdersFromServer(Array.isArray(data.orders) ? data.orders : []);
         if (dom.adminPanel) dom.adminPanel.classList.remove("hidden");
         if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Unlocked";
+            dom.adminUnlockStatus.textContent = currentLanguageText("مفتوحة", "Ouvert", "Unlocked");
             dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
         }
         openAccountPanel("admin");
@@ -694,18 +694,18 @@
         const points = (ordersCount * 120) + (Number(stats.fetches || 0) * 5) + (Number(stats.manualQuotes || 0) * 15) + (wishCount * 8);
         const tags = [];
 
-        if (ordersCount >= 8) tags.push({ label: "VIP CLIENT", tone: "amber" });
-        else if (ordersCount >= 3) tags.push({ label: "RETURNING", tone: "blue" });
-        else tags.push({ label: "NEW CLIENT", tone: "slate" });
+        if (ordersCount >= 8) tags.push({ label: currentLanguageText("حريف VIP", "Client VIP", "VIP CLIENT"), tone: "amber" });
+        else if (ordersCount >= 3) tags.push({ label: currentLanguageText("راجع من قبل", "Retour client", "RETURNING"), tone: "blue" });
+        else tags.push({ label: currentLanguageText("حريف جديد", "Nouveau client", "NEW CLIENT"), tone: "slate" });
 
-        if (Number(stats.fetches || 0) >= 10) tags.push({ label: "POWER SEARCHER", tone: "emerald" });
-        if (Number(stats.manualQuotes || 0) >= 3) tags.push({ label: "QUOTE READY", tone: "purple" });
-        if (wishCount >= 4) tags.push({ label: "HIGH INTENT", tone: "pink" });
+        if (Number(stats.fetches || 0) >= 10) tags.push({ label: currentLanguageText("باحث قوي", "Recherche active", "POWER SEARCHER"), tone: "emerald" });
+        if (Number(stats.manualQuotes || 0) >= 3) tags.push({ label: currentLanguageText("جاهز للتسعير", "Pret pour devis", "QUOTE READY"), tone: "purple" });
+        if (wishCount >= 4) tags.push({ label: currentLanguageText("نية شراء عالية", "Intention forte", "HIGH INTENT"), tone: "pink" });
 
-        let tier = "BRONZE";
-        if (points >= 1800) tier = "PLATINUM";
-        else if (points >= 900) tier = "GOLD";
-        else if (points >= 350) tier = "SILVER";
+        let tier = currentLanguageText("برونزي", "Bronze", "BRONZE");
+        if (points >= 1800) tier = currentLanguageText("بلاتيني", "Platine", "PLATINUM");
+        else if (points >= 900) tier = currentLanguageText("ذهبي", "Or", "GOLD");
+        else if (points >= 350) tier = currentLanguageText("فضي", "Argent", "SILVER");
 
         return { points, tags, tier };
     }
@@ -771,7 +771,7 @@
         if (!dom.adminActivity) return;
         const entries = getActivityLog();
         if (!entries.length) {
-            dom.adminActivity.innerHTML = `<div class="text-[10px] text-slate-500 italic">No activity yet.</div>`;
+            dom.adminActivity.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("لا يوجد نشاط حتى الآن.", "Aucune activite pour le moment.", "No activity yet."))}</div>`;
             return;
         }
 
@@ -788,6 +788,7 @@
 
     function renderNotifications() {
         if (!dom.notifications) return;
+        const lang = currentUiLanguage();
         const toneMap = {
             blue: "border-blue-400/20 bg-blue-500/10",
             emerald: "border-emerald-400/20 bg-emerald-500/10",
@@ -802,29 +803,29 @@
         if (latestOrder) {
             notices.push({
                 tone: "blue",
-                title: `Latest order: ${latestOrder.orderRef || latestOrder.id}`,
+                title: `${pickLanguageText(lang, "آخر طلب", "Derniere commande", "Latest order")}: ${latestOrder.orderRef || latestOrder.id}`,
                 body: latestOrder.adminTracking || latestOrder.trackingHint || getStatusUi(latestOrder.status || "pending").label
             });
         }
         if (promos.length) {
             notices.push({
                 tone: "emerald",
-                title: `${promos.length} active promos`,
-                body: `Top code: ${promos[0].code}`
+                title: `${promos.length} ${pickLanguageText(lang, "برومو نشط", "promos actives", "active promos")}`,
+                body: `${pickLanguageText(lang, "أفضل كود", "Code principal", "Top code")}: ${promos[0].code}`
             });
         }
         if (stats.manualQuotes > 0) {
             notices.push({
                 tone: "amber",
-                title: "Manual quote activity",
-                body: `${stats.manualQuotes} quote requests prepared from this device`
+                title: pickLanguageText(lang, "نشاط التسعير اليدوي", "Activite devis manuel", "Manual quote activity"),
+                body: `${stats.manualQuotes} ${pickLanguageText(lang, "طلب تسعير تجهز من هذا الجهاز", "demande(s) de devis preparee(s) depuis cet appareil", "quote request(s) prepared from this device")}`
             });
         }
         if (!notices.length) {
             notices.push({
                 tone: "slate",
-                title: "System ready",
-                body: "ابدأ scrape جديد أو اطلب quote باش يبان النشاط هنا."
+                title: pickLanguageText(lang, "النظام جاهز", "Systeme pret", "System ready"),
+                body: pickLanguageText(lang, "ابدأ جلب منتج جديد أو حضّر تسعيرة يدوية باش يبان النشاط هنا.", "Lancez un nouveau fetch produit ou preparez un devis manuel pour voir l'activite ici.", "Fetch a product or prepare a manual quote to see activity here.")
             });
         }
 
@@ -837,11 +838,12 @@
     }
 
     function getStatusUi(status) {
+        const lang = currentUiLanguage();
         const statusMap = {
-            pending: { label: "قيد المراجعة", classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-            processing: { label: "تم الشراء", classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
-            shipped: { label: "في الطريق", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
-            delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
+            pending: { label: pickLanguageText(lang, "قيد المراجعة", "En revision", "Under Review"), classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+            processing: { label: pickLanguageText(lang, "تم الشراء", "Achete", "Purchased"), classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
+            shipped: { label: pickLanguageText(lang, "في الطريق", "En transit", "In Transit"), classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
+            delivered: { label: pickLanguageText(lang, "تم التسليم", "Livre", "Delivered"), classes: "text-green-400 bg-green-400/10 border-green-400/20" }
         };
         return statusMap[status] || statusMap.pending;
     }
@@ -863,15 +865,15 @@
         dom.trackStatusRef.textContent = order.orderRef || String(order.id || "");
         dom.trackStatusBadge.textContent = statusUi.label;
         dom.trackStatusBadge.className = `text-[10px] px-3 py-1 rounded-full font-black border ${statusUi.classes}`;
-        dom.trackStatusNote.textContent = order.trackingHint || order.adminTracking || "مازال ما فماش tracking note مضافة.";
-        dom.trackStatusExtra.textContent = order.adminTracking ? `Tracking: ${order.adminTracking}` : "";
+        dom.trackStatusNote.textContent = order.trackingHint || order.adminTracking || currentLanguageText("مازال ما فماش tracking note مضافة.", "Aucune note de suivi ajoutee pour le moment.", "No tracking note has been added yet.");
+        dom.trackStatusExtra.textContent = order.adminTracking ? `${currentLanguageText("التتبع", "Suivi", "Tracking")}: ${order.adminTracking}` : "";
         renderTrackingTimeline(order);
     }
 
     async function searchTrackedOrder() {
         const ref = dom.trackRef?.value.trim() || "";
         if (!ref) {
-            toast("دخل مرجع الطلب أولًا.");
+            toast(currentLanguageText("دخل مرجع الطلب أولًا.", "Entrez d'abord la reference de commande.", "Enter the order reference first."));
             return;
         }
         let order = null;
@@ -888,7 +890,7 @@
         if (!order) order = findOrderByRef(ref);
         if (!order) {
             renderTrackLookupResult(null);
-            toast("ما لقيناش الطلب بهذا المرجع.");
+            toast(currentLanguageText("ما لقيناش الطلب بهذا المرجع.", "Commande introuvable avec cette reference.", "We could not find an order with that reference."));
             return;
         }
         renderTrackLookupResult(order);
@@ -899,22 +901,22 @@
         state.adminUnlocked = pin === getAdminPin();
         if (!dom.adminPanel || !dom.adminUnlockStatus) return;
         dom.adminPanel.classList.toggle("hidden", !state.adminUnlocked);
-        dom.adminUnlockStatus.textContent = state.adminUnlocked ? "Unlocked" : "Locked";
+        dom.adminUnlockStatus.textContent = state.adminUnlocked ? currentLanguageText("مفتوحة", "Ouvert", "Unlocked") : currentLanguageText("مغلقة", "Verrouille", "Locked");
         dom.adminUnlockStatus.className = `text-[9px] font-black ${state.adminUnlocked ? "text-emerald-300" : "text-red-300"}`;
         if (!state.adminUnlocked) {
-            toast("PIN admin غالط.");
+            toast(currentLanguageText("PIN الإدارة غالط.", "PIN admin incorrect.", "Admin PIN is incorrect."));
             return;
         }
         renderAdminPromos();
         renderAdminOrders();
-        toast("تم فتح لوحة الإدارة.");
+        toast(currentLanguageText("تم فتح لوحة الإدارة.", "Le panneau admin est ouvert.", "Admin panel unlocked."));
     }
 
     function lockAdmin() {
         state.adminUnlocked = false;
         if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
         if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
             dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
         }
         openAccountPanel("overview");
@@ -922,9 +924,10 @@
 
     function renderAdminPromos() {
         if (!dom.adminPromos) return;
+        const lang = currentUiLanguage();
         const promos = getAdminPromos();
         if (!promos.length) {
-            dom.adminPromos.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش promo codes محليين توّا.</div>`;
+            dom.adminPromos.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(pickLanguageText(lang, "ما فماش promo codes محليين توّا.", "Aucun code promo local pour le moment.", "No local promo codes yet."))}</div>`;
             return;
         }
         dom.adminPromos.innerHTML = promos.map((promo, index) => `
@@ -933,11 +936,11 @@
                     <div class="text-[10px] font-black text-white">${escapeHtml(promo.code)}</div>
                     <div class="text-[9px] text-slate-400">
                         ${promo.type === "percent" ? `${promo.value}%` : `${promo.value} TND`} • 
-                        used ${Number(promo.used || 0)}/${Number(promo.limit || 0) || "∞"} • 
-                        ${promo.expiresAt || "no expiry"}
+                        ${pickLanguageText(lang, "مستعمل", "utilise", "used")} ${Number(promo.used || 0)}/${Number(promo.limit || 0) || "∞"} • 
+                        ${promo.expiresAt || pickLanguageText(lang, "بدون انتهاء", "sans expiration", "no expiry")}
                     </div>
                 </div>
-                <button type="button" class="text-[9px] font-black text-red-300 hover:text-red-200 transition-colors" data-remove-promo="${index}">Delete</button>
+                <button type="button" class="text-[9px] font-black text-red-300 hover:text-red-200 transition-colors" data-remove-promo="${index}">${pickLanguageText(lang, "حذف", "Supprimer", "Delete")}</button>
             </div>
         `).join("");
     }
@@ -946,7 +949,7 @@
         if (!dom.adminOrders) return;
         const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.slice(0, 8) : [];
         if (!orders.length) {
-            dom.adminOrders.innerHTML = `<div class="text-[10px] text-slate-500 italic">ما فماش طلبات حتى الآن.</div>`;
+            dom.adminOrders.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش طلبات حتى الآن.", "Aucune commande pour le moment.", "No orders yet."))}</div>`;
             return;
         }
         dom.adminOrders.innerHTML = orders.map((order) => {
@@ -970,7 +973,7 @@
         const limit = Number(dom.adminPromoLimit?.value || 0);
         const expiresAt = dom.adminPromoExpiry?.value || "";
         if (!code || value <= 0) {
-            toast("كمّل بيانات الـ promo code.");
+            toast(currentLanguageText("كمّل بيانات الـ promo code.", "Completez les informations du code promo.", "Complete the promo code details."));
             return;
         }
         const promos = getAdminPromos().filter((promo) => promo.code !== code);
@@ -980,7 +983,7 @@
         if (dom.adminPromoValue) dom.adminPromoValue.value = "";
         if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
         if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
-        toast("تم حفظ الـ promo code.");
+        toast(currentLanguageText("تم حفظ الـ promo code.", "Code promo enregistre.", "Promo code saved."));
     }
 
     function normalizePromo(promo) {
@@ -1014,7 +1017,7 @@
         const discountBadge = document.getElementById("discount-badge");
         const code = String(codeInput?.value || "").trim().toUpperCase();
         if (!code || typeof currentDiscount === "undefined") {
-            toast("دخل promo code صحيح.");
+            toast(currentLanguageText("دخل promo code صحيح.", "Entrez un code promo valide.", "Enter a valid promo code."));
             return;
         }
 
@@ -1032,11 +1035,11 @@
             if (msg) {
                 msg.classList.remove("hidden", "text-green-400");
                 msg.classList.add("text-red-400");
-                msg.textContent = "الكود غالط، منتهي، أو limit متاعو كمل.";
+                msg.textContent = currentLanguageText("الكود غالط، منتهي، أو limit متاعو كمل.", "Le code est invalide, expire ou sa limite est atteinte.", "The code is invalid, expired, or its limit has been reached.");
             }
             discountBadge?.classList.add("hidden");
             if (typeof renderCart === "function") renderCart();
-            toast("الـ promo code موش صالح.");
+            toast(currentLanguageText("الـ promo code موش صالح.", "Le code promo n'est pas valide.", "The promo code is not valid."));
             return;
         }
 
@@ -1047,12 +1050,12 @@
             msg.classList.remove("hidden", "text-red-400");
             msg.classList.add("text-green-400");
             msg.textContent = promo.type === "percent"
-                ? `تم تفعيل ${promo.code} بخصم ${promo.value}%`
-                : `تم تفعيل ${promo.code} بخصم ${promo.value} TND`;
+                ? pickLanguageText(currentUiLanguage(), `تم تفعيل ${promo.code} بخصم ${promo.value}%`, `${promo.code} active avec ${promo.value}% de remise`, `${promo.code} applied with ${promo.value}% off`)
+                : pickLanguageText(currentUiLanguage(), `تم تفعيل ${promo.code} بخصم ${promo.value} TND`, `${promo.code} active avec ${promo.value} TND de remise`, `${promo.code} applied with ${promo.value} TND off`);
         }
         discountBadge?.classList.remove("hidden");
         if (typeof renderCart === "function") renderCart();
-        toast("تم تفعيل الـ promo code.");
+        toast(currentLanguageText("تم تفعيل الـ promo code.", "Code promo active.", "Promo code applied."));
     }
 
     function markPromoUsed(code) {
@@ -1068,7 +1071,7 @@
         const promos = getAdminPromos().slice();
         promos.splice(index, 1);
         saveAdminPromos(promos);
-        toast("تم حذف الـ promo code.");
+        toast(currentLanguageText("تم حذف الـ promo code.", "Code promo supprime.", "Promo code deleted."));
     }
 
     function fillAdminOrder(ref) {
@@ -1082,12 +1085,12 @@
     function updateAdminOrder() {
         const ref = dom.adminOrderRef?.value.trim() || "";
         if (!ref || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) {
-            toast("دخل مرجع طلب صحيح.");
+            toast(currentLanguageText("دخل مرجع طلب صحيح.", "Entrez une reference de commande valide.", "Enter a valid order reference."));
             return;
         }
         const target = findOrderByRef(ref);
         if (!target) {
-            toast("الطلب هذا موش موجود.");
+            toast(currentLanguageText("الطلب هذا موش موجود.", "Cette commande est introuvable.", "This order does not exist."));
             return;
         }
         target.status = dom.adminOrderStatus?.value || "pending";
@@ -1097,7 +1100,7 @@
         if (typeof window.renderHistory === "function") window.renderHistory();
         renderTrackLookupResult(target);
         renderAdminOrders();
-        toast("تم تحديث status الطلب.");
+        toast(currentLanguageText("تم تحديث status الطلب.", "Statut de commande mis a jour.", "Order status updated."));
     }
 
     async function unlockAdminRemote() {
@@ -1116,22 +1119,22 @@
             saveAdminPromos(Array.isArray(data.state?.promos) ? data.state.promos : []);
             syncOrdersFromServer(Array.isArray(data.state?.orders) ? data.state.orders : []);
             dom.adminPanel.classList.remove("hidden");
-            dom.adminUnlockStatus.textContent = "Unlocked";
+            dom.adminUnlockStatus.textContent = currentLanguageText("مفتوحة", "Ouvert", "Unlocked");
             dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
             openAccountPanel("admin");
             renderAdminPromos();
             renderAdminOrders();
             renderAdminAnalytics();
-            pushActivityLog("admin", "Admin session unlocked and synced.");
-            toast("Admin synced.");
+            pushActivityLog("admin", currentLanguageText("تم فتح جلسة الإدارة ومزامنتها.", "Session admin ouverte et synchronisee.", "Admin session unlocked and synced."));
+            toast(currentLanguageText("تمت مزامنة الإدارة.", "Admin synchronise.", "Admin synced."));
         } catch (error) {
             state.adminUnlocked = false;
             state.adminToken = "";
             setStoredAdminToken("");
             dom.adminPanel.classList.add("hidden");
-            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
             dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
-            toast(error.message || "Admin login failed.");
+            toast(error.message || currentLanguageText("فشل دخول الإدارة.", "Connexion admin echouee.", "Admin login failed."));
         }
     }
 
@@ -1141,7 +1144,7 @@
         setStoredAdminToken("");
         if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
         if (dom.adminUnlockStatus) {
-            dom.adminUnlockStatus.textContent = "Locked";
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
             dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
         }
         openAccountPanel("overview");
@@ -1159,11 +1162,11 @@
         const expiresAt = dom.adminPromoExpiry?.value || "";
 
         if (!code || value <= 0) {
-            toast("Promo data is incomplete.");
+            toast(currentLanguageText("بيانات البرومو ناقصة.", "Les donnees promo sont incompletes.", "Promo data is incomplete."));
             return;
         }
         if (!state.adminToken) {
-            toast("Unlock admin first.");
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
             return;
         }
 
@@ -1177,10 +1180,10 @@
             if (dom.adminPromoValue) dom.adminPromoValue.value = "";
             if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
             if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
-            pushActivityLog("promo", `Saved promo ${code}.`);
-            toast("Promo saved.");
+            pushActivityLog("promo", pickLanguageText(currentUiLanguage(), `تم حفظ البرومو ${code}.`, `Promo ${code} enregistre.`, `Saved promo ${code}.`));
+            toast(currentLanguageText("تم حفظ البرومو.", "Promo enregistree.", "Promo saved."));
         } catch (error) {
-            toast(error.message || "Promo save failed.");
+            toast(error.message || currentLanguageText("فشل حفظ البرومو.", "Echec de l'enregistrement promo.", "Promo save failed."));
         }
     }
 
@@ -1188,7 +1191,7 @@
         const promo = getAdminPromos().slice()[index];
         if (!promo?.code) return;
         if (!state.adminToken) {
-            toast("Unlock admin first.");
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
             return;
         }
 
@@ -1197,21 +1200,21 @@
                 method: "DELETE"
             }, true);
             saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
-            pushActivityLog("promo", `Deleted promo ${promo.code}.`);
-            toast("Promo deleted.");
+            pushActivityLog("promo", pickLanguageText(currentUiLanguage(), `تم حذف البرومو ${promo.code}.`, `Promo ${promo.code} supprime.`, `Deleted promo ${promo.code}.`));
+            toast(currentLanguageText("تم حذف البرومو.", "Promo supprimee.", "Promo deleted."));
         } catch (error) {
-            toast(error.message || "Promo delete failed.");
+            toast(error.message || currentLanguageText("فشل حذف البرومو.", "Echec de la suppression promo.", "Promo delete failed."));
         }
     }
 
     async function updateAdminOrderRemote() {
         const ref = dom.adminOrderRef?.value.trim() || "";
         if (!ref) {
-            toast("Order ref required.");
+            toast(currentLanguageText("مرجع الطلب مطلوب.", "La reference de commande est obligatoire.", "Order reference is required."));
             return;
         }
         if (!state.adminToken) {
-            toast("Unlock admin first.");
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
             return;
         }
 
@@ -1229,11 +1232,11 @@
                 if (typeof window.renderHistory === "function") window.renderHistory();
                 renderTrackLookupResult(data.order);
                 renderAdminOrders();
-                pushActivityLog("order", `Updated ${ref} to ${dom.adminOrderStatus?.value || "pending"}.`);
+                pushActivityLog("order", pickLanguageText(currentUiLanguage(), `تم تحديث ${ref} إلى ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`, `${ref} mis a jour vers ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`, `Updated ${ref} to ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`));
             }
-            toast("Order updated.");
+            toast(currentLanguageText("تم تحديث الطلب.", "Commande mise a jour.", "Order updated."));
         } catch (error) {
-            toast(error.message || "Order update failed.");
+            toast(error.message || currentLanguageText("فشل تحديث الطلب.", "Echec de mise a jour de la commande.", "Order update failed."));
         }
     }
 
@@ -1272,7 +1275,7 @@
         const node = document.createElement("p");
         node.id = "runtime-preview-description";
         node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed max-w-4xl";
-        node.textContent = "وصف المنتج باش يظهر هنا كي يتجلب المنتج.";
+        node.textContent = currentLanguageText("وصف المنتج باش يظهر هنا كي يتجلب المنتج.", "La description du produit apparaitra ici apres le chargement.", "The product description will appear here after the product loads.");
         dom.previewTitle.insertAdjacentElement("afterend", node);
         dom.previewDescription = node;
         return node;
@@ -1816,6 +1819,16 @@
         return RUNTIME_TRANSLATIONS[lang]?.[key] || RUNTIME_TRANSLATIONS.ar[key] || key;
     }
 
+    function pickLanguageText(lang, ar, fr, en) {
+        if (lang === "fr") return fr;
+        if (lang === "en") return en;
+        return ar;
+    }
+
+    function currentLanguageText(ar, fr, en) {
+        return pickLanguageText(currentUiLanguage(), ar, fr, en);
+    }
+
     function applyLanguageMeta(lang) {
         const rtl = lang === "ar";
         document.documentElement.lang = lang;
@@ -1990,6 +2003,7 @@
         setMany("#runtime-preview-card .runtime-preview-stat-label", 1, rt("stat_delivery", lang));
         setMany("#runtime-preview-card .runtime-preview-stat-label", 2, rt("stat_rating", lang));
         setMany("#runtime-preview-card .runtime-preview-stat-label", 3, rt("stat_reviews", lang));
+        if (dom.previewMeta) dom.previewMeta.textContent = rt("preview_ready", lang);
         setText("#runtime-preview-link span", rt("action_open", lang));
         setText("#runtime-create-alert", rt("action_alert", lang));
         setText("#runtime-copy-referral-share", rt("action_share", lang));
@@ -2002,7 +2016,7 @@
         setText("#runtime-variants-card .text-[9px].text-slate-500.font-bold", rt("variant_desc", lang));
         setText("#runtime-variants-card span.px-3.py-1.rounded-full", rt("variant_auto", lang));
         setText("#runtime-download-quote", rt("quote_pdf", lang));
-        setText("#runtime-export-csv", rt("export_csv", lang));
+        setText("#runtime-export-csv", pickLanguageText(lang, "تصدير طلبات CSV", "Exporter commandes CSV", "Export Orders CSV"));
         setText("#section-account details[data-account-panel='overview'] .text-sm.font-black.text-white", rt("account_overview", lang));
         setText("#section-account details[data-account-panel='overview'] .text-[11px].text-slate-500.font-bold", rt("account_overview_desc", lang));
         setText("#section-account details[data-account-panel='preferences'] .text-sm.font-black.text-white", rt("account_contact", lang));
@@ -2014,6 +2028,75 @@
         setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-emerald-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_before", lang));
         setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 0, rt("safety_docs", lang));
         setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 1, rt("safety_notice", lang));
+        setText("#runtime-metric-orders-label", pickLanguageText(lang, "الطلبات المسجلة", "Commandes enregistrees", "Orders Logged"));
+        setText("#runtime-metric-promos-label", pickLanguageText(lang, "البروموات النشطة", "Promos actives", "Active Promos"));
+        setText("#runtime-metric-fetches-label", pickLanguageText(lang, "عمليات الجلب", "Collectes produit", "Product Fetches"));
+        setText("#runtime-metric-rate-label", pickLanguageText(lang, "سعر الدولار/الدينار", "Taux USD/TND", "Live USD/TND"));
+        setText("#runtime-breakdown-product-label", pickLanguageText(lang, "سعر المنتج", "Prix produit", "Product Price"));
+        setText("#runtime-breakdown-shipping-label", pickLanguageText(lang, "الشحن", "Livraison", "Shipping"));
+        setText("#runtime-breakdown-service-label", pickLanguageText(lang, "عمولة الخدمة", "Frais de service", "Service Fee"));
+        setText("#runtime-breakdown-total-label", pickLanguageText(lang, "الإجمالي النهائي", "Total final", "Final Total"));
+        setText("#runtime-budget-title", pickLanguageText(lang, "مخطط الميزانية الذكي", "Planificateur budget intelligent", "Smart Budget Planner"));
+        setText("#runtime-budget-desc", pickLanguageText(lang, "حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا", "Definissez votre budget en dinar et verifiez si le produit reste confortable.", "Set a budget in TND and see if the product still fits safely."));
+        setText("#runtime-budget-status", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        if (dom.budgetInput) dom.budgetInput.placeholder = pickLanguageText(lang, "الميزانية بالدينار", "Budget en TND", "Budget TND");
+        setText("#runtime-budget-buffer-5", pickLanguageText(lang, "هامش 5%", "Marge 5%", "5% buffer"));
+        setText("#runtime-budget-buffer-10", pickLanguageText(lang, "هامش 10%", "Marge 10%", "10% buffer"));
+        setText("#runtime-budget-buffer-15", pickLanguageText(lang, "هامش 15%", "Marge 15%", "15% buffer"));
+        setText("#runtime-budget-buffer-20", pickLanguageText(lang, "هامش 20%", "Marge 20%", "20% buffer"));
+        setText("#runtime-budget-remaining-label", pickLanguageText(lang, "الباقي", "Reste", "Remaining"));
+        setText("#runtime-budget-safe-total-label", pickLanguageText(lang, "الحد الآمن", "Depense sure", "Safe Spend"));
+        setText("#runtime-budget-max-usd-label", pickLanguageText(lang, "أقصى سعر بالدولار", "Prix max en USD", "Max Price in USD"));
+        setText("#runtime-budget-note", pickLanguageText(lang, "أدخل budget باش تشوف التوصية الذكية.", "Entrez un budget pour voir la recommandation intelligente.", "Enter a budget to see the smart recommendation."));
+        setText("#runtime-customs-title", pickLanguageText(lang, "مستشار الديوانة الذكي", "Conseiller douane intelligent", "Smart Customs Advisor"));
+        setText("#runtime-customs-desc", pickLanguageText(lang, "مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب", "Niveau de risque, documents possibles et alternative plus sure.", "Risk level, useful documents, and a safer alternative."));
+        setText("#runtime-quote-compare-title", pickLanguageText(lang, "مقارنة التسعير", "Comparaison de devis", "Quote Comparison"));
+        setText("#runtime-quote-compare-desc", pickLanguageText(lang, "قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review", "Comparez le calcul auto, les commandes similaires et la revue manuelle.", "Compare the auto quote, similar orders, and manual review."));
+        setText("#runtime-quote-auto-label", pickLanguageText(lang, "التسعير الآلي", "Devis auto", "Auto Quote"));
+        setText("#runtime-quote-similar-label", pickLanguageText(lang, "طلبات مشابهة", "Commandes similaires", "Similar Orders"));
+        setText("#runtime-quote-manual-label", pickLanguageText(lang, "الهدف اليدوي", "Cible manuelle", "Manual Target"));
+        setText("#runtime-quote-note", pickLanguageText(lang, "اجلب منتجًا أولًا باش نقارن الثقة في التسعير.", "Chargez d'abord un produit pour comparer la confiance du prix.", "Fetch a product first to compare pricing confidence."));
+        setText("#runtime-reseller-title", pickLanguageText(lang, "وضع الربح / إعادة البيع", "Mode profit / revente", "Profit / Reseller Mode"));
+        setText("#runtime-reseller-desc", pickLanguageText(lang, "أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even", "Entrez le prix de revente et la quantite pour voir la marge, le ROI et le seuil de rentabilite.", "Enter resale price and quantity to see margin, ROI, and break-even."));
+        setText("#runtime-reseller-status", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        if (dom.resellerPrice) dom.resellerPrice.placeholder = pickLanguageText(lang, "سعر البيع بالدينار", "Prix de revente TND", "Resale Price TND");
+        if (dom.resellerQty) dom.resellerQty.placeholder = pickLanguageText(lang, "الكمية", "Quantite", "Qty");
+        setText("#runtime-profit-unit-label", pickLanguageText(lang, "ربح / وحدة", "Profit / unite", "Profit / Unit"));
+        setText("#runtime-profit-total-label", pickLanguageText(lang, "الربح الكلي", "Profit total", "Total Profit"));
+        setText("#runtime-profit-roi-label", "ROI");
+        setText("#runtime-profit-break-even-label", pickLanguageText(lang, "سعر التعادل", "Seuil de rentabilite", "Break-Even"));
+        setText("#runtime-manual-quote-label", pickLanguageText(lang, "اطلب تسعيرة يدوية", "Demander un devis manuel", "Request Manual Quote"));
+        setText("#runtime-quick-order-label", pickLanguageText(lang, "اطلب توّا على واتساب", "Commander sur WhatsApp", "Order on WhatsApp"));
+        if (dom.voiceStopBtn) dom.voiceStopBtn.textContent = pickLanguageText(lang, "إيقاف", "Arreter", "Stop");
+        setText("#runtime-track-title", pickLanguageText(lang, "تتبع داخلي للطلبات", "Suivi interne des commandes", "Internal Order Tracking"));
+        setText("#runtime-track-desc", pickLanguageText(lang, "دخل مرجع الطلب متاعك وشوف آخر status وtracking note", "Entrez votre reference pour voir le dernier statut et la note de suivi.", "Enter your reference to see the latest status and tracking note."));
+        setText("#runtime-track-pill", pickLanguageText(lang, "مرجع الطلب", "Ref commande", "Order Ref"));
+        if (dom.trackRef) dom.trackRef.placeholder = pickLanguageText(lang, "مرجع الطلب", "Reference de commande", "Order Reference");
+        setText("#runtime-track-search-btn", pickLanguageText(lang, "شوف الحالة", "Voir le statut", "Check Status"));
+        setText("#posttrack-search-btn", pickLanguageText(lang, "تتبع", "Suivre", "Track"));
+        const postTrackInput = document.getElementById("posttrack-search-input");
+        if (postTrackInput) postTrackInput.placeholder = pickLanguageText(lang, "رقم التتبع", "Numero de suivi", "Tracking Number");
+        setText("#runtime-admin-promo-title", pickLanguageText(lang, "كود برومو", "Code promo", "Promo Code"));
+        setText("#runtime-admin-order-title", pickLanguageText(lang, "حالة الطلب", "Statut commande", "Order Status"));
+        setText("#runtime-admin-promos-label", pickLanguageText(lang, "البروموات", "Promos", "Promos"));
+        setText("#runtime-admin-orders-label", pickLanguageText(lang, "الطلبات", "Orders", "Orders"));
+        setText("#runtime-admin-activity-label", pickLanguageText(lang, "نشاط الإدارة", "Activite admin", "Admin Activity"));
+        setText("#runtime-admin-analytics-label", pickLanguageText(lang, "التحليلات", "Analytics", "Analytics"));
+        setText("#section-account details[data-account-panel='overview'] .account-summary-pill", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        setText("#admin-promo-type-percent", pickLanguageText(lang, "نسبة %", "Pourcentage %", "Percent %"));
+        setText("#admin-promo-type-fixed", pickLanguageText(lang, "مبلغ TND", "Montant TND", "Fixed TND"));
+        setText("#admin-order-status-pending", getStatusUi("pending").label);
+        setText("#admin-order-status-processing", getStatusUi("processing").label);
+        setText("#admin-order-status-shipped", getStatusUi("shipped").label);
+        setText("#admin-order-status-delivered", getStatusUi("delivered").label);
+        if (dom.adminUnlockStatus) dom.adminUnlockStatus.textContent = state.adminUnlocked ? pickLanguageText(lang, "مفتوحة", "Ouvert", "Unlocked") : pickLanguageText(lang, "مغلقة", "Verrouille", "Locked");
+        if (dom.adminUnlockBtn) dom.adminUnlockBtn.textContent = pickLanguageText(lang, "فتح اللوحة", "Ouvrir le panneau", "Unlock Panel");
+        if (dom.adminLockBtn) dom.adminLockBtn.textContent = pickLanguageText(lang, "إغلاق", "Fermer", "Lock");
+        if (dom.adminPromoSave) dom.adminPromoSave.textContent = pickLanguageText(lang, "حفظ البرومو", "Enregistrer promo", "Save Promo");
+        if (dom.adminOrderUpdate) dom.adminOrderUpdate.textContent = pickLanguageText(lang, "تحديث الطلب", "Mettre a jour", "Update Order");
+        if (dom.adminPin) dom.adminPin.placeholder = pickLanguageText(lang, "PIN الإدارة", "PIN admin", "Admin PIN");
+        if (dom.adminPromoLimit) dom.adminPromoLimit.placeholder = pickLanguageText(lang, "حد الاستخدام", "Limite d'utilisation", "Usage limit");
+        if (dom.adminOrderTracking) dom.adminOrderTracking.placeholder = pickLanguageText(lang, "تتبع / ملاحظة", "Suivi / note", "Tracking / note");
 
         const contactOptions = dom.accountContactMethod?.querySelectorAll("option") || [];
         if (contactOptions[0]) contactOptions[0].textContent = rt("contact_whatsapp", lang);
@@ -2037,10 +2120,22 @@
         if (typeof window.renderWishlist === "function") window.renderWishlist();
         if (typeof window.renderHistory === "function") window.renderHistory();
         renderNotifications();
+        renderActivityLog();
         renderSavedPacks();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderVoiceNote();
+        renderAdminAnalytics();
+        renderRepeatOrders();
+        renderCustomerProfile();
+        renderTrackingHint();
         renderBundleDeals();
         renderCartInsights();
         if (state.currentProduct) renderPreview(state.currentProduct);
+        if (dom.trackStatusCard && !dom.trackStatusCard.classList.contains("hidden")) {
+            const activeOrder = findOrderByRef(dom.trackStatusRef?.textContent || "");
+            if (activeOrder) renderTrackLookupResult(activeOrder);
+        }
     }
 
     function clearImagePreview() {
@@ -2071,7 +2166,7 @@
         state.accountPrefs = prefs;
         writeJsonStorage(ACCOUNT_PREFS_KEY, prefs);
         loadAccountPrefsIntoForm();
-        toast("تم حفظ بياناتك السريعة.");
+        toast(currentLanguageText("تم حفظ بياناتك السريعة.", "Vos informations rapides sont enregistrees.", "Your quick details were saved."));
     }
 
     function getEffectiveRate() {
@@ -2151,8 +2246,8 @@
         if (!hasData) return;
 
         if (dom.breakdownProduct) dom.breakdownProduct.textContent = formatTnd(pricing.productTnd);
-        if (dom.breakdownShipping) dom.breakdownShipping.textContent = pricing.shippingUsd === 0 ? "شحن مجاني" : formatTnd(pricing.shippingTnd);
-        if (dom.breakdownServiceLabel) dom.breakdownServiceLabel.textContent = "عمولة الخدمة";
+        if (dom.breakdownShipping) dom.breakdownShipping.textContent = pricing.shippingUsd === 0 ? rt("shipping_free") : formatTnd(pricing.shippingTnd);
+        if (dom.breakdownServiceLabel) dom.breakdownServiceLabel.textContent = currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee");
         if (dom.breakdownService) dom.breakdownService.textContent = getServiceFeeDisplayText(pricing);
         if (dom.breakdownTotal) dom.breakdownTotal.textContent = formatTnd(pricing.finalTnd);
     }
@@ -2480,7 +2575,7 @@
             advisor.level === "medium" ? "bg-amber-400/10 text-amber-300" :
             "bg-emerald-500/10 text-emerald-300"
         }`;
-        dom.customsNote.textContent = advisor.note || "No customs issue detected yet.";
+        dom.customsNote.textContent = advisor.note || currentLanguageText("ما فماش مشكل ديوانة ظاهر حتى الآن.", "Aucun souci douane detecte pour le moment.", "No customs issue detected yet.");
         dom.customsDocs.innerHTML = (Array.isArray(advisor.docs) ? advisor.docs : []).map((doc) => `
             <span class="px-3 py-1 rounded-full bg-black/20 border border-white/5 text-[9px] font-black text-slate-200">${escapeHtml(doc)}</span>
         `).join("");
@@ -2556,14 +2651,14 @@
         dom.voicePlayer.classList.toggle("hidden", !hasVoice);
         if (hasVoice) {
             dom.voicePlayer.src = state.voiceNote.url;
-            dom.voiceStatus.textContent = "READY";
+            dom.voiceStatus.textContent = currentLanguageText("جاهز", "Pret", "Ready");
             dom.voiceStatus.className = "px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black";
-            dom.voiceNote.textContent = state.voiceNote.label || "Voice note attached.";
+            dom.voiceNote.textContent = state.voiceNote.label || currentLanguageText("تم إرفاق note صوتية.", "Note vocale ajoutee.", "Voice note attached.");
         } else {
             dom.voicePlayer.removeAttribute("src");
-            dom.voiceStatus.textContent = "EMPTY";
+            dom.voiceStatus.textContent = currentLanguageText("فارغ", "Vide", "Empty");
             dom.voiceStatus.className = "px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black";
-            dom.voiceNote.textContent = "No voice note attached yet.";
+            dom.voiceNote.textContent = currentLanguageText("ما فماش note صوتية مضافة توّا.", "Aucune note vocale pour le moment.", "No voice note attached yet.");
         }
     }
 
@@ -2577,24 +2672,24 @@
             label
         };
         renderVoiceNote();
-        pushActivityLog("voice", "Voice note attached to current order.");
+        pushActivityLog("voice", currentLanguageText("تم إرفاق note صوتية بالطلب الحالي.", "Note vocale ajoutee a la commande actuelle.", "Voice note attached to the current order."));
     }
 
     function renderPriceAlerts() {
         if (!dom.alertWatchlist || !dom.alertCount) return;
         const alerts = Array.isArray(state.priceAlerts) ? state.priceAlerts : [];
-        dom.alertCount.textContent = `${alerts.length} ${alerts.length === 1 ? "watch" : "watches"}`;
+        dom.alertCount.textContent = `${alerts.length} ${pickLanguageText(currentUiLanguage(), alerts.length === 1 ? "تنبيه" : "تنبيهات", alerts.length === 1 ? "alerte" : "alertes", alerts.length === 1 ? "alert" : "alerts")}`;
         if (!alerts.length) {
-            dom.alertWatchlist.innerHTML = `<div class="text-[10px] text-slate-500 italic">No alerts yet.</div>`;
+            dom.alertWatchlist.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش تنبيهات حتى الآن.", "Aucune alerte pour le moment.", "No alerts yet."))}</div>`;
             return;
         }
         dom.alertWatchlist.innerHTML = alerts.map((alert) => `
             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
                 <div class="min-w-0">
-                    <div class="text-[10px] font-black text-white">${escapeHtml(alert.title || "AliExpress Product")}</div>
-                    <div class="text-[9px] text-slate-500 font-bold">Target ${escapeHtml(formatUsd(alert.targetPriceUsd || 0))} • ship ${escapeHtml(formatUsd(alert.targetShippingUsd || 0))}</div>
+                    <div class="text-[10px] font-black text-white">${escapeHtml(alert.title || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress Product"))}</div>
+                    <div class="text-[9px] text-slate-500 font-bold">${pickLanguageText(currentUiLanguage(), "السعر المستهدف", "Cible", "Target")} ${escapeHtml(formatUsd(alert.targetPriceUsd || 0))} • ${pickLanguageText(currentUiLanguage(), "الشحن", "livraison", "ship")} ${escapeHtml(formatUsd(alert.targetShippingUsd || 0))}</div>
                 </div>
-                <button type="button" data-remove-alert="${escapeHtml(alert.url)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-200 hover:bg-red-500/20 transition-colors">Delete</button>
+                <button type="button" data-remove-alert="${escapeHtml(alert.url)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-200 hover:bg-red-500/20 transition-colors">${pickLanguageText(currentUiLanguage(), "حذف", "Supprimer", "Delete")}</button>
             </div>
         `).join("");
     }
@@ -2604,10 +2699,10 @@
         const referral = getReferralState();
         dom.referralCode.textContent = referral.code;
         dom.referralCredits.textContent = String(referral.credits || 0);
-        dom.referralTier.textContent = referral.credits >= 100 ? "Ambassador" : (referral.credits >= 40 ? "Booster" : "Starter");
+        dom.referralTier.textContent = referral.credits >= 100 ? pickLanguageText(currentUiLanguage(), "سفير", "Ambassadeur", "Ambassador") : (referral.credits >= 40 ? pickLanguageText(currentUiLanguage(), "معزز", "Booster", "Booster") : pickLanguageText(currentUiLanguage(), "بداية", "Starter", "Starter"));
         dom.referralNote.textContent = referral.appliedCodes?.length
-            ? `Applied ${referral.appliedCodes.length} referral code(s). Credits are ready to use for future promos.`
-            : "Share your code to grow your rewards balance.";
+            ? pickLanguageText(currentUiLanguage(), `تم تطبيق ${referral.appliedCodes.length} code إحالة. الكريدي جاهز للبروموات الجاية.`, `${referral.appliedCodes.length} code(s) de parrainage appliques. Les credits sont prets pour les prochaines promos.`, `${referral.appliedCodes.length} referral code(s) applied. Credits are ready for future promos.`)
+            : currentLanguageText("شارك كودك باش تكبر رصيد المكافآت.", "Partagez votre code pour augmenter votre solde de recompenses.", "Share your code to grow your rewards balance.");
     }
 
     function renderAdminAnalytics() {
@@ -2623,30 +2718,30 @@
             <div class="grid grid-cols-2 gap-3">
                 <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
                     <div class="text-lg font-black text-white">${orders.length}</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">${pickLanguageText(currentUiLanguage(), "الطلبات", "Commandes", "Orders")}</div>
                 </div>
                 <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
                     <div class="text-lg font-black text-amber-300" dir="ltr">${formatTnd(totalRevenue)}</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Revenue</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">${pickLanguageText(currentUiLanguage(), "المداخيل", "Revenu", "Revenue")}</div>
                 </div>
             </div>
-            <div class="text-[10px] font-black text-white">Top Products</div>
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "أفضل المنتجات", "Top produits", "Top Products")}</div>
             <div class="space-y-2">
-                ${(topProducts.length ? topProducts : [{ name: "No product data yet", count: 0 }]).map((item) => `
+                ${(topProducts.length ? topProducts : [{ name: currentLanguageText("لا توجد بيانات منتجات بعد", "Pas encore de donnees produit", "No product data yet"), count: 0 }]).map((item) => `
                     <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
-                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.name || item.id || "Unknown")}</span>
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.name || item.id || currentLanguageText("غير معروف", "Inconnu", "Unknown"))}</span>
                         <span class="text-[9px] text-amber-300 font-black">${escapeHtml(item.count || item.ordersCount || 0)}</span>
                     </div>
                 `).join("")}
             </div>
-            <div class="text-[10px] font-black text-white">Promo / Repeat Clients</div>
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "البرومو / الحرفاء المتكررين", "Promos / clients recurrents", "Promo / Repeat Clients")}</div>
             <div class="space-y-2">
                 ${[...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].length ? [...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].map((item) => `
                     <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
-                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.code || item.id || "Client")}</span>
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.code || item.id || currentLanguageText("حريف", "Client", "Client"))}</span>
                         <span class="text-[9px] text-blue-300 font-black">${escapeHtml(item.used || item.ordersCount || 0)}</span>
                     </div>
-                `).join("") : `<div class="text-[10px] text-slate-500 italic">No analytics yet.</div>`}
+                `).join("") : `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش analytics حتى الآن.", "Aucune analytics pour le moment.", "No analytics yet."))}</div>`}
             </div>
         `;
     }
@@ -2654,10 +2749,10 @@
     function getOrderTimelineSteps(order) {
         const status = String(order?.status || "pending");
         const steps = [
-            { key: "pending", label: "Review" },
-            { key: "processing", label: "Purchase" },
-            { key: "shipped", label: "Transit" },
-            { key: "delivered", label: "Delivered" }
+            { key: "pending", label: pickLanguageText(currentUiLanguage(), "مراجعة", "Revision", "Review") },
+            { key: "processing", label: pickLanguageText(currentUiLanguage(), "شراء", "Achat", "Purchase") },
+            { key: "shipped", label: pickLanguageText(currentUiLanguage(), "عبور", "Transit", "Transit") },
+            { key: "delivered", label: pickLanguageText(currentUiLanguage(), "تسليم", "Livre", "Delivered") }
         ];
         const currentIndex = steps.findIndex((step) => step.key === status);
         return steps.map((step, index) => ({
@@ -2676,7 +2771,7 @@
         dom.trackTimeline.innerHTML = getOrderTimelineSteps(order).map((step) => `
             <div class="rounded-2xl border p-3 text-center ${step.active ? "bg-amber-400/10 border-amber-400/20 text-amber-300" : "bg-white/5 border-white/5 text-slate-500"}">
                 <div class="text-[9px] font-black uppercase">${escapeHtml(step.label)}</div>
-                <div class="text-[8px] font-bold mt-1">${step.current ? "Current" : (step.active ? "Done" : "Next")}</div>
+                <div class="text-[8px] font-bold mt-1">${step.current ? pickLanguageText(currentUiLanguage(), "الحالي", "Actuel", "Current") : (step.active ? pickLanguageText(currentUiLanguage(), "تم", "Fait", "Done") : pickLanguageText(currentUiLanguage(), "التالي", "Suivant", "Next"))}</div>
             </div>
         `).join("");
     }
@@ -2687,14 +2782,14 @@
         dom.repeatOrders.classList.toggle("hidden", orders.length === 0);
         if (!orders.length) return;
         dom.repeatOrders.innerHTML = `
-            <div class="text-[10px] font-black text-white">Repeat-Order Assistant</div>
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "مساعد إعادة الطلب", "Assistant re-commande", "Repeat-Order Assistant")}</div>
             ${orders.map((order) => `
                 <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
                         <div class="text-[9px] text-slate-500 font-bold">${escapeHtml((order.items || []).map((item) => item.name).slice(0, 2).join(" + "))}</div>
                     </div>
-                    <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
+                    <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">${pickLanguageText(currentUiLanguage(), "عاود اطلب", "Recommander", "Buy Again")}</button>
                 </div>
             `).join("")}
         `;
@@ -2703,25 +2798,25 @@
     function createPriceAlertFromCurrentProduct() {
         const product = state.currentProduct;
         if (!product?.url) {
-            toast("Fetch a product first.");
+            toast(currentLanguageText("اجلب منتجًا أولًا.", "Chargez d'abord un produit.", "Fetch a product first."));
             return;
         }
         const alerts = getPriceAlerts().filter((entry) => entry.url !== product.url);
         alerts.unshift({
             url: product.url,
-            title: product.title || dom.calcName?.value.trim() || "منتج AliExpress",
+            title: product.title || dom.calcName?.value.trim() || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress Product"),
             targetPriceUsd: Number(product.price || dom.usdPrice?.value || 0),
             targetShippingUsd: Number(product.shipping || dom.usdShip?.value || 0),
             createdAt: new Date().toISOString()
         });
         savePriceAlerts(alerts);
-        pushActivityLog("alert", `Created price alert for ${product.title || "product"}.`);
-        toast("Price-drop alert saved.");
+        pushActivityLog("alert", pickLanguageText(currentUiLanguage(), `تم إنشاء تنبيه سعر لـ ${product.title || "المنتج"}.`, `Alerte prix creee pour ${product.title || "produit"}.`, `Created price alert for ${product.title || "product"}.`));
+        toast(currentLanguageText("تم حفظ تنبيه هبوط السعر.", "Alerte de baisse de prix enregistree.", "Price-drop alert saved."));
     }
 
     function removePriceAlert(url) {
         savePriceAlerts(getPriceAlerts().filter((entry) => entry.url !== url));
-        toast("Alert removed.");
+        toast(currentLanguageText("تم حذف التنبيه.", "Alerte supprimee.", "Alert removed."));
     }
 
     function checkPriceAlerts(product) {
@@ -2731,40 +2826,40 @@
         const currentPrice = Number(product.price || 0);
         const currentShipping = Number(product.shipping || 0);
         if ((currentPrice > 0 && currentPrice < Number(watch.targetPriceUsd || 0)) || currentShipping < Number(watch.targetShippingUsd || 0)) {
-            toast(`Price drop detected for ${product.title || "saved alert"}!`);
-            pushActivityLog("alert", `Price drop detected for ${product.title || "saved alert"}.`);
+            toast(pickLanguageText(currentUiLanguage(), `تم رصد هبوط سعر لـ ${product.title || "تنبيه محفوظ"}!`, `Baisse de prix detectee pour ${product.title || "alerte enregistree"} !`, `Price drop detected for ${product.title || "saved alert"}!`));
+            pushActivityLog("alert", pickLanguageText(currentUiLanguage(), `تم رصد هبوط سعر لـ ${product.title || "تنبيه محفوظ"}.`, `Baisse de prix detectee pour ${product.title || "alerte enregistree"}.`, `Price drop detected for ${product.title || "saved alert"}.`));
         }
     }
 
     function copyReferral(shareMode = false) {
         const referral = getReferralState();
         const text = shareMode
-            ? `Use my Alexpress referral code: ${referral.code}`
+            ? pickLanguageText(currentUiLanguage(), `استعمل كود الإحالة متاعي في Alexpress: ${referral.code}`, `Utilisez mon code de parrainage Alexpress : ${referral.code}`, `Use my Alexpress referral code: ${referral.code}`)
             : referral.code;
         if (navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(text).then(() => toast("Referral copied."));
+            navigator.clipboard.writeText(text).then(() => toast(currentLanguageText("تم نسخ كود الإحالة.", "Code de parrainage copie.", "Referral copied.")));
             return;
         }
-        toast("Clipboard unavailable.");
+        toast(currentLanguageText("النسخ غير متاح على هذا الجهاز.", "Presse-papiers indisponible.", "Clipboard unavailable."));
     }
 
     function applyReferralCode() {
         const referral = getReferralState();
         const code = String(dom.referralInput?.value || "").trim().toUpperCase();
         if (!code || code === referral.code) {
-            toast("Enter a valid referral code.");
+            toast(currentLanguageText("أدخل code إحالة صحيح.", "Entrez un code de parrainage valide.", "Enter a valid referral code."));
             return;
         }
         if (referral.appliedCodes.includes(code)) {
-            toast("This referral code is already used.");
+            toast(currentLanguageText("code الإحالة هذا مستعمل من قبل.", "Ce code de parrainage est deja utilise.", "This referral code is already used."));
             return;
         }
         referral.appliedCodes.push(code);
         referral.credits = Number(referral.credits || 0) + 20;
         saveReferralState(referral);
         if (dom.referralInput) dom.referralInput.value = "";
-        pushActivityLog("referral", `Applied referral code ${code}.`);
-        toast("Referral bonus added.");
+        pushActivityLog("referral", pickLanguageText(currentUiLanguage(), `تم تطبيق code الإحالة ${code}.`, `Code de parrainage ${code} applique.`, `Applied referral code ${code}.`));
+        toast(currentLanguageText("تمت إضافة bonus الإحالة.", "Bonus de parrainage ajoute.", "Referral bonus added."));
     }
 
     function applyVariantSelection(group, value) {
@@ -2783,7 +2878,7 @@
             });
         }
         renderVariantSummary();
-        toast(`${group} set to ${value}`);
+        toast(pickLanguageText(currentUiLanguage(), `${group} تم تعيينو إلى ${value}`, `${group} defini sur ${value}`, `${group} set to ${value}`));
     }
 
     function renderVariantSummary() {
@@ -2804,13 +2899,13 @@
         if (typeof renderCart === "function") renderCart();
         if (typeof saveData === "function") saveData();
         if (typeof window.switchTab === "function") window.switchTab("cart");
-        pushActivityLog("repeat", `Loaded repeat order ${orderRef}.`);
-        toast("Order loaded back into cart.");
+        pushActivityLog("repeat", pickLanguageText(currentUiLanguage(), `تم تحميل الطلب ${orderRef} من جديد في السلة.`, `Commande ${orderRef} rechargee dans le panier.`, `Loaded repeat order ${orderRef} into cart.`));
+        toast(currentLanguageText("تم تحميل الطلب من جديد في السلة.", "Commande rechargee dans le panier.", "Order loaded back into cart."));
     }
 
     async function startVoiceRecording() {
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-            toast("Voice recording is not supported on this device.");
+            toast(currentLanguageText("تسجيل الصوت غير مدعوم على هذا الجهاز.", "L'enregistrement vocal n'est pas pris en charge sur cet appareil.", "Voice recording is not supported on this device."));
             return;
         }
         try {
@@ -2822,16 +2917,16 @@
             };
             recorder.onstop = () => {
                 const blob = new Blob(state.audioChunks, { type: recorder.mimeType || "audio/webm" });
-                setVoiceNoteFromBlob(blob, `Recorded voice note (${Math.max(1, Math.round(blob.size / 1024))} KB)`);
+                setVoiceNoteFromBlob(blob, pickLanguageText(currentUiLanguage(), `ملاحظة صوتية مسجلة (${Math.max(1, Math.round(blob.size / 1024))} KB)`, `Note vocale enregistree (${Math.max(1, Math.round(blob.size / 1024))} KB)`, `Recorded voice note (${Math.max(1, Math.round(blob.size / 1024))} KB)`));
                 stream.getTracks().forEach((track) => track.stop());
             };
             recorder.start();
             state.mediaRecorder = recorder;
-            dom.voiceStatus.textContent = "REC";
+            dom.voiceStatus.textContent = currentLanguageText("تسجيل", "REC", "REC");
             dom.voiceStatus.className = "px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-[10px] font-black";
-            dom.voiceNote.textContent = "Recording in progress...";
+            dom.voiceNote.textContent = currentLanguageText("التسجيل قاعد يصير...", "Enregistrement en cours...", "Recording in progress...");
         } catch {
-            toast("Microphone access was blocked.");
+            toast(currentLanguageText("تم حظر الوصول للميكرو.", "Acces micro bloque.", "Microphone access was blocked."));
         }
     }
 
@@ -3154,7 +3249,7 @@
     async function scrapeProduct() {
         const url = dom.calcLink?.value.trim() || "";
         if (!isAliExpressUrl(url)) {
-            const message = "يرجى إدخال رابط AliExpress صحيح";
+            const message = currentLanguageText("يرجى إدخال رابط AliExpress صحيح", "Veuillez entrer un lien AliExpress valide", "Please enter a valid AliExpress link");
             setError(message);
             toast(message);
             return;
@@ -3172,7 +3267,7 @@
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data.success) {
-                throw new Error(data.error || "فشل الجلب التلقائي، حاول مرة أخرى");
+                throw new Error(data.error || currentLanguageText("فشل الجلب التلقائي، حاول مرة أخرى", "Le chargement automatique a echoue, reessayez", "Automatic fetch failed, please try again"));
             }
 
             state.baseProduct = cloneData(data);
@@ -3183,14 +3278,14 @@
             renderPreview(state.currentProduct, { resetSelection: true });
             renderPricing();
             saveRecentLink(data);
-            pushActivityLog("fetch", data.title ? `Fetched ${data.title}` : "Fetched AliExpress product data.");
+            pushActivityLog("fetch", data.title ? pickLanguageText(currentUiLanguage(), `تم جلب ${data.title}`, `${data.title} recupere`, `Fetched ${data.title}`) : currentLanguageText("تم جلب بيانات منتج AliExpress.", "Donnees produit AliExpress recuperees.", "Fetched AliExpress product data."));
             if (data.priceUnavailable) {
                 setError("");
             } else {
-                toast(data.manualQuoteRecommended ? "تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد." : "تم جلب البيانات بنجاح!");
+                toast(data.manualQuoteRecommended ? currentLanguageText("تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد.", "Produit charge. Nous conseillons une revue manuelle avant validation.", "Product fetched. We recommend a manual review before checkout.") : currentLanguageText("تم جلب البيانات بنجاح!", "Donnees chargees avec succes !", "Product data fetched successfully!"));
             }
         } catch (error) {
-            const message = error.message || "خطأ في الاتصال بسيرفر الجلب";
+            const message = error.message || currentLanguageText("خطأ في الاتصال بسيرفر الجلب", "Erreur de connexion au serveur de collecte", "Connection error with the fetch server");
             setError(message);
             toast(message);
         } finally {
@@ -3201,30 +3296,35 @@
     function buildCustomerSummaryLines() {
         const prefs = getAccountPrefs();
         const lines = [];
-        if (prefs.phone) lines.push(`الهاتف: ${prefs.phone}`);
-        if (prefs.city) lines.push(`المدينة: ${prefs.city}`);
-        if (prefs.address) lines.push(`العنوان: ${prefs.address}`);
-        if (prefs.contactMethod) lines.push(`طريقة التواصل: ${prefs.contactMethod}`);
+        const contactMethodLabel = prefs.contactMethod === "call"
+            ? currentLanguageText("مكالمة", "Appel", "Call")
+            : (prefs.contactMethod === "message" || prefs.contactMethod === "sms")
+                ? currentLanguageText("SMS", "SMS", "SMS")
+                : currentLanguageText("واتساب", "WhatsApp", "WhatsApp");
+        if (prefs.phone) lines.push(`${currentLanguageText("الهاتف", "Telephone", "Phone")}: ${prefs.phone}`);
+        if (prefs.city) lines.push(`${currentLanguageText("المدينة", "Ville", "City")}: ${prefs.city}`);
+        if (prefs.address) lines.push(`${currentLanguageText("العنوان", "Adresse", "Address")}: ${prefs.address}`);
+        if (prefs.contactMethod) lines.push(`${currentLanguageText("طريقة التواصل", "Mode de contact", "Contact Method")}: ${contactMethodLabel}`);
         return lines;
     }
 
     function buildManualQuoteMessage() {
         const pricing = calculatePricingData();
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
-        const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
+        const title = dom.calcName?.value.trim() || state.currentProduct?.title || currentLanguageText("منتج من AliExpress", "Produit AliExpress", "AliExpress Product");
         const note = getSpecsValueText(state.currentProduct);
         const restrictions = getRestrictionSummary(state.currentProduct);
 
         return [
-            "سلام، نحب تسعيرة يدوية للمنتج هذا:",
-            `المنتج: ${title}`,
-            `الرابط: ${link || "غير متوفر"}`,
-            `السعر: ${formatUsd(pricing.productUsd)}`,
-            `الشحن: ${pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd)}`,
-            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
-            `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
-            `المواصفات: ${note}`,
-            restrictions ? `ملاحظة: ${restrictions}` : ""
+            currentLanguageText("سلام، نحب تسعيرة يدوية للمنتج هذا:", "Bonjour, je veux un devis manuel pour ce produit :", "Hello, I would like a manual quote for this product:"),
+            `${currentLanguageText("المنتج", "Produit", "Product")}: ${title}`,
+            `${currentLanguageText("الرابط", "Lien", "Link")}: ${link || currentLanguageText("غير متوفر", "Indisponible", "Not available")}`,
+            `${currentLanguageText("السعر", "Prix", "Price")}: ${formatUsd(pricing.productUsd)}`,
+            `${currentLanguageText("الشحن", "Livraison", "Shipping")}: ${pricing.shippingUsd === 0 ? rt("shipping_free") : formatUsd(pricing.shippingUsd)}`,
+            `${currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee")}: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
+            `${currentLanguageText("الإجمالي النهائي", "Total final", "Final Total")}: ${formatTnd(pricing.finalTnd)}`,
+            `${currentLanguageText("المواصفات", "Specifications", "Specs")}: ${note}`,
+            restrictions ? `${currentLanguageText("ملاحظة", "Note", "Note")}: ${restrictions}` : ""
         ].filter(Boolean).join("\n");
     }
 
@@ -3235,49 +3335,49 @@
     function sendManualQuote() {
         const link = dom.calcLink?.value.trim() || "";
         if (!link && !dom.calcName?.value.trim()) {
-            toast("حط الرابط أو اسم المنتج أولاً");
+            toast(currentLanguageText("حط الرابط أو اسم المنتج أولاً", "Ajoutez d'abord le lien ou le nom du produit.", "Add the link or product name first."));
             return;
         }
         incrementStat("manualQuotes");
-        saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || "AliExpress product" });
-        pushActivityLog("quote", "Prepared a manual quote request.");
+        saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress product") });
+        pushActivityLog("quote", currentLanguageText("تم تجهيز طلب تسعيرة يدوية.", "Demande de devis manuel preparee.", "Prepared a manual quote request."));
         openWhatsAppMessage([buildManualQuoteMessage()].concat(buildCustomerSummaryLines()).join("\n"));
     }
 
     function quickOrderFromForm() {
         const pricing = calculatePricingData();
         if (pricing.finalTnd <= 0) {
-            toast("كمّل بيانات المنتج أولاً");
+            toast(currentLanguageText("كمّل بيانات المنتج أولاً", "Completez d'abord les infos du produit.", "Complete the product details first."));
             return;
         }
 
-        const title = dom.calcName?.value.trim() || state.currentProduct?.title || "منتج من AliExpress";
+        const title = dom.calcName?.value.trim() || state.currentProduct?.title || currentLanguageText("منتج من AliExpress", "Produit AliExpress", "AliExpress Product");
         const note = getSpecsValueText(state.currentProduct);
         const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
-        const delivery = state.currentProduct?.deliveryEstimate || "غير متوفر";
-        const shippingText = pricing.shippingUsd === 0 ? "شحن مجاني" : formatUsd(pricing.shippingUsd);
+        const delivery = state.currentProduct?.deliveryEstimate || currentLanguageText("غير متوفر", "Indisponible", "Not available");
+        const shippingText = pricing.shippingUsd === 0 ? rt("shipping_free") : formatUsd(pricing.shippingUsd);
 
         const message = [
-            "سلام، نحب نطلب المنتج هذا:",
-            `المنتج: ${title}`,
-            `الرابط: ${link || "غير متوفر"}`,
-            `سعر المنتج: ${formatUsd(pricing.productUsd)}`,
-            `الشحن: ${shippingText}`,
-            `عمولة الخدمة: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
-            `الإجمالي النهائي: ${formatTnd(pricing.finalTnd)}`,
-            `التوصيل المتوقع: ${delivery}`,
-            `المواصفات: ${note}`
+            currentLanguageText("سلام، نحب نطلب المنتج هذا:", "Bonjour, je veux commander ce produit :", "Hello, I want to order this product:"),
+            `${currentLanguageText("المنتج", "Produit", "Product")}: ${title}`,
+            `${currentLanguageText("الرابط", "Lien", "Link")}: ${link || currentLanguageText("غير متوفر", "Indisponible", "Not available")}`,
+            `${currentLanguageText("سعر المنتج", "Prix produit", "Product Price")}: ${formatUsd(pricing.productUsd)}`,
+            `${currentLanguageText("الشحن", "Livraison", "Shipping")}: ${shippingText}`,
+            `${currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee")}: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
+            `${currentLanguageText("الإجمالي النهائي", "Total final", "Final Total")}: ${formatTnd(pricing.finalTnd)}`,
+            `${currentLanguageText("التوصيل المتوقع", "Livraison estimee", "Estimated Delivery")}: ${delivery}`,
+            `${currentLanguageText("المواصفات", "Specifications", "Specs")}: ${note}`
         ].join("\n");
 
         saveRecentLink(state.currentProduct || { url: link, title });
-        pushActivityLog("quick-order", `Prepared quick order for ${title}.`);
+        pushActivityLog("quick-order", pickLanguageText(currentUiLanguage(), `تم تجهيز طلب سريع لـ ${title}.`, `Commande rapide preparee pour ${title}.`, `Prepared quick order for ${title}.`));
         openWhatsAppMessage([message].concat(buildCustomerSummaryLines()).join("\n"));
     }
 
     function renderSavedPacks() {
         if (!dom.savedPacks || !dom.packCount || !dom.savePackBtn) return;
         const packs = Array.isArray(state.savedPacks) ? state.savedPacks : [];
-        dom.packCount.textContent = `${packs.length} ${packs.length === 1 ? "pack" : "packs"}`;
+        dom.packCount.textContent = `${packs.length} ${pickLanguageText(currentUiLanguage(), packs.length === 1 ? "تجميعة" : "تجميعات", packs.length === 1 ? "pack" : "packs", packs.length === 1 ? "pack" : "packs")}`;
 
         const cartItems = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
         dom.savePackBtn.disabled = cartItems.length === 0;
@@ -3285,7 +3385,7 @@
         dom.savePackBtn.classList.toggle("cursor-not-allowed", cartItems.length === 0);
 
         if (!packs.length) {
-            dom.savedPacks.innerHTML = `<div class="text-[10px] text-slate-500 italic">No saved packs yet.</div>`;
+            dom.savedPacks.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش تجميعات محفوظة حتى الآن.", "Aucun pack enregistre pour le moment.", "No saved packs yet."))}</div>`;
             return;
         }
 
@@ -3293,21 +3393,21 @@
             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <div class="text-[11px] font-black text-white">${escapeHtml(pack.name || "Saved Pack")}</div>
-                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml(pack.itemCount || 0)} items • ${escapeHtml(formatTnd(pack.total || 0))} • ${escapeHtml(formatDateLabel(pack.createdAt))}</div>
+                        <div class="text-[11px] font-black text-white">${escapeHtml(pack.name || currentLanguageText("تجميعة محفوظة", "Pack enregistre", "Saved Pack"))}</div>
+                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml(pack.itemCount || 0)} ${pickLanguageText(currentUiLanguage(), "عنصر", "article(s)", "items")} • ${escapeHtml(formatTnd(pack.total || 0))} • ${escapeHtml(formatDateLabel(pack.createdAt))}</div>
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" data-pack-load="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[9px] font-black hover:bg-emerald-400 transition-colors">Load</button>
-                        <button type="button" data-pack-delete="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[9px] font-black hover:bg-red-500/20 transition-colors">Delete</button>
+                        <button type="button" data-pack-load="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[9px] font-black hover:bg-emerald-400 transition-colors">${pickLanguageText(currentUiLanguage(), "تحميل", "Charger", "Load")}</button>
+                        <button type="button" data-pack-delete="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[9px] font-black hover:bg-red-500/20 transition-colors">${pickLanguageText(currentUiLanguage(), "حذف", "Supprimer", "Delete")}</button>
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     ${(Array.isArray(pack.items) ? pack.items.slice(0, 3) : []).map((item) => `
                         <span class="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
-                            ${escapeHtml(item.name || "Item")}
+                            ${escapeHtml(item.name || currentLanguageText("عنصر", "Article", "Item"))}
                         </span>
                     `).join("")}
-                    ${(Array.isArray(pack.items) && pack.items.length > 3) ? `<span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-slate-400">+${pack.items.length - 3} more</span>` : ""}
+                    ${(Array.isArray(pack.items) && pack.items.length > 3) ? `<span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-slate-400">+${pack.items.length - 3} ${pickLanguageText(currentUiLanguage(), "أكثر", "plus", "more")}</span>` : ""}
                 </div>
             </div>
         `).join("");
@@ -3316,7 +3416,7 @@
     function saveCurrentPack() {
         const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
         if (!items.length) {
-            toast("السلة فارغة، ما نجمناش نحفظو pack.");
+            toast(currentLanguageText("السلة فارغة، ما نجمناش نحفظو pack.", "Le panier est vide, impossible d'enregistrer un pack.", "The cart is empty, so the pack could not be saved."));
             return;
         }
 
@@ -3333,8 +3433,8 @@
         });
         saveSavedPacks(packs);
         if (dom.packName) dom.packName.value = "";
-        pushActivityLog("pack", `Saved pack ${packName}.`);
-        toast("تم حفظ الـ pack بنجاح.");
+        pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم حفظ التجميعة ${packName}.`, `Pack ${packName} enregistre.`, `Saved pack ${packName}.`));
+        toast(currentLanguageText("تم حفظ الـ pack بنجاح.", "Pack enregistre avec succes.", "Pack saved successfully."));
     }
 
     function loadSavedPack(id) {
@@ -3345,8 +3445,8 @@
         if (typeof renderCart === "function") renderCart();
         if (typeof saveData === "function") saveData();
         if (typeof window.switchTab === "function") window.switchTab("cart");
-        pushActivityLog("pack", `Loaded pack ${pack.name}.`);
-        toast("تم تحميل الـ pack إلى السلة.");
+        pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم تحميل التجميعة ${pack.name}.`, `Pack ${pack.name} charge.`, `Loaded pack ${pack.name}.`));
+        toast(currentLanguageText("تم تحميل الـ pack إلى السلة.", "Pack charge dans le panier.", "Pack loaded into cart."));
     }
 
     function deleteSavedPack(id) {
@@ -3354,9 +3454,9 @@
         const next = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((item) => String(item.id) !== String(id));
         saveSavedPacks(next);
         if (deleted) {
-            pushActivityLog("pack", `Deleted pack ${deleted.name}.`);
+            pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم حذف التجميعة ${deleted.name}.`, `Pack ${deleted.name} supprime.`, `Deleted pack ${deleted.name}.`));
         }
-        toast("تم حذف الـ pack.");
+        toast(currentLanguageText("تم حذف الـ pack.", "Pack supprime.", "Pack deleted."));
     }
 
     function downloadBlob(filename, content, type) {
@@ -3374,19 +3474,19 @@
     function downloadQuoteDocument() {
         const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
         if (!items.length) {
-            toast("السلة فارغة، ما فماش quote باش نخرجوها.");
+            toast(currentLanguageText("السلة فارغة، ما فماش quote باش نخرجوها.", "Le panier est vide, aucun devis a exporter.", "The cart is empty, so there is no quote to export."));
             return;
         }
 
         const paymentSelect = document.getElementById("payment-method");
-        const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || "Not selected";
+        const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || currentLanguageText("غير محدد", "Non defini", "Not selected");
         const quoteRef = `QT-${Date.now().toString().slice(-8)}`;
         const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
         const customerLines = buildCustomerSummaryLines();
         const rows = items.map((item, index) => `
             <tr>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${index + 1}</td>
-                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name || "Item")}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name || currentLanguageText("عنصر", "Article", "Item"))}</td>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.note || "-")}</td>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${Number(item.qty || 1)}</td>
                 <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1)))}</td>
@@ -3394,10 +3494,10 @@
         `).join("");
 
         const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(currentUiLanguage())}">
 <head>
 <meta charset="UTF-8">
-<title>Alexpress Quote ${quoteRef}</title>
+<title>${escapeHtml(currentLanguageText("عرض سعر Alexpress", "Devis Alexpress", "Alexpress Quote"))} ${quoteRef}</title>
 <style>
 body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
 .hero { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
@@ -3411,30 +3511,30 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 <body>
     <div class="hero">
         <div>
-            <div class="badge">Alexpress Tunisie Quote</div>
-            <h1 style="margin:14px 0 8px;">Quote ${quoteRef}</h1>
-            <div class="muted">Generated ${escapeHtml(new Date().toLocaleString("en-GB"))}</div>
+            <div class="badge">${escapeHtml(currentLanguageText("عرض سعر Alexpress Tunisie", "Devis Alexpress Tunisie", "Alexpress Tunisie Quote"))}</div>
+            <h1 style="margin:14px 0 8px;">${escapeHtml(currentLanguageText("عرض سعر", "Devis", "Quote"))} ${quoteRef}</h1>
+            <div class="muted">${escapeHtml(currentLanguageText("تم الإنشاء", "Genere", "Generated"))} ${escapeHtml(new Date().toLocaleString("en-GB"))}</div>
         </div>
         <div style="text-align:right;">
-            <div><strong>Total:</strong> ${escapeHtml(formatTnd(total))}</div>
-            <div><strong>Payment:</strong> ${escapeHtml(paymentLabel)}</div>
-            <div><strong>Items:</strong> ${items.length}</div>
+            <div><strong>${escapeHtml(currentLanguageText("الإجمالي", "Total", "Total"))}:</strong> ${escapeHtml(formatTnd(total))}</div>
+            <div><strong>${escapeHtml(currentLanguageText("الدفع", "Paiement", "Payment"))}:</strong> ${escapeHtml(paymentLabel)}</div>
+            <div><strong>${escapeHtml(currentLanguageText("العناصر", "Articles", "Items"))}:</strong> ${items.length}</div>
         </div>
     </div>
     <div class="card">
-        <h3 style="margin-top:0;">Customer Summary</h3>
-        <div class="muted">${customerLines.length ? customerLines.map((line) => escapeHtml(line)).join("<br>") : "No customer info saved yet."}</div>
+        <h3 style="margin-top:0;">${escapeHtml(currentLanguageText("ملخص الحريف", "Resume client", "Customer Summary"))}</h3>
+        <div class="muted">${customerLines.length ? customerLines.map((line) => escapeHtml(line)).join("<br>") : escapeHtml(currentLanguageText("لا توجد بيانات حريف محفوظة بعد.", "Aucune info client enregistree pour le moment.", "No customer info saved yet."))}</div>
     </div>
     <div class="card">
-        <h3 style="margin-top:0;">Order Lines</h3>
+        <h3 style="margin-top:0;">${escapeHtml(currentLanguageText("تفاصيل الطلب", "Lignes de commande", "Order Lines"))}</h3>
         <table>
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Product</th>
-                    <th>Notes</th>
-                    <th>Qty</th>
-                    <th>Total</th>
+                    <th>${escapeHtml(currentLanguageText("المنتج", "Produit", "Product"))}</th>
+                    <th>${escapeHtml(currentLanguageText("المواصفات", "Notes", "Notes"))}</th>
+                    <th>${escapeHtml(currentLanguageText("الكمية", "Qte", "Qty"))}</th>
+                    <th>${escapeHtml(currentLanguageText("الإجمالي", "Total", "Total"))}</th>
                 </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -3446,7 +3546,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         const quoteWindow = window.open("", "_blank", "noopener,noreferrer");
         if (!quoteWindow) {
             downloadBlob(`alexpress-quote-${quoteRef}.html`, html, "text/html;charset=utf-8");
-            toast("فتح الطباعة ما نجحش، هبطنا quote HTML بدلها.");
+            toast(currentLanguageText("فتح الطباعة ما نجحش، هبطنا quote HTML بدلها.", "L'impression ne s'est pas ouverte, un fichier HTML a ete telecharge a la place.", "Print preview failed, so an HTML quote was downloaded instead."));
             return;
         }
         quoteWindow.document.open();
@@ -3459,7 +3559,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
     function exportOrdersCsv() {
         const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
         if (!orders.length) {
-            toast("ما فماش طلبات باش نصدرهم.");
+            toast(currentLanguageText("ما فماش طلبات باش نصدرهم.", "Aucune commande a exporter.", "There are no orders to export."));
             return;
         }
 
@@ -3487,7 +3587,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         }).join(",")).join("\n");
 
         downloadBlob(`alexpress-orders-${formatDateLabel(new Date()).replace(/\//g, "-")}.csv`, csv, "text/csv;charset=utf-8");
-        toast("تم تصدير orders CSV.");
+        toast(currentLanguageText("تم تصدير orders CSV.", "CSV des commandes exporte.", "Orders CSV exported."));
     }
 
     function getCurrentProductMeta() {
@@ -3823,13 +3923,14 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
         window.sendOrder = function patchedSendOrder(channel) {
             if (typeof cart === "undefined" || !Array.isArray(cart) || cart.length === 0) {
-                toast("السلة فارغة.. ابدأ بالحساب!");
+                toast(currentLanguageText("السلة فارغة.. ابدأ بالحساب!", "Le panier est vide. Commencez par calculer un produit.", "The cart is empty. Start by calculating a product."));
                 return;
             }
 
             const paymentSelect = document.getElementById("payment-method");
-            const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || "غير محدد";
+            const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || currentLanguageText("غير محدد", "Non defini", "Not selected");
             const orderRef = `AX-${Date.now().toString().slice(-8)}`;
+            const dateLocale = currentUiLanguage() === "fr" ? "fr-FR" : (currentUiLanguage() === "en" ? "en-GB" : "ar-TN");
 
             let subtotal = 0;
             cart.forEach((item) => {
@@ -3852,13 +3953,13 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             const orderEntry = {
                 id: Date.now(),
                 orderRef,
-                date: new Date().toLocaleString("ar-TN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+                date: new Date().toLocaleString(dateLocale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
                 total: finalTotal,
                 itemsCount: cart.length,
                 items: JSON.parse(JSON.stringify(cart)),
                 status: "pending",
                 paymentMethod: paymentLabel,
-                trackingHint: "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.",
+                trackingHint: currentLanguageText("بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.", "Une fois commande, nous vous enverrons le numero de suivi sur WhatsApp.", "Once we place it, we will send the tracking number on WhatsApp."),
                 adminTracking: "",
                 promoCode: state.activePromoCode || "",
                 customer: getAccountPrefs(),
@@ -3867,7 +3968,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
             };
             pushOrderHistory(orderEntry);
             persistOrderToBackend(orderEntry);
-            pushActivityLog("order", `Placed new order ${orderRef}.`);
+            pushActivityLog("order", pickLanguageText(currentUiLanguage(), `تم تسجيل طلب جديد ${orderRef}.`, `Nouvelle commande ${orderRef} enregistree.`, `Placed new order ${orderRef}.`));
             referral.credits = Number(referral.credits || 0) + Number(orderEntry.loyaltyCredit || 0);
             saveReferralState(referral);
 
@@ -3888,7 +3989,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
             clearCartState();
             renderVoiceNote();
-            toast("تم تجهيز الطلب وإرساله!");
+            toast(currentLanguageText("تم تجهيز الطلب وإرساله!", "Commande preparee et envoyee !", "Order prepared and sent!"));
         };
     }
 
@@ -3898,29 +3999,23 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
     function renderHistoryCard(order) {
         const status = order.status || "pending";
-        const statusMap = {
-            pending: { label: "في الانتظار", classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-            processing: { label: "قيد المعالجة", classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
-            shipped: { label: "تم الشحن", classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
-            delivered: { label: "تم التسليم", classes: "text-green-400 bg-green-400/10 border-green-400/20" }
-        };
         const statusUi = getStatusUi(status);
         const items = Array.isArray(order.items) ? order.items : [];
-        const trackingText = order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.";
+        const trackingText = order.adminTracking || order.trackingHint || currentLanguageText("سيتم إرسال رقم التتبع بعد الشراء.", "Le numero de suivi sera envoye apres l'achat.", "The tracking number will be sent after purchase.");
         const steps = ["pending", "processing", "shipped", "delivered"];
 
         const itemsHtml = items.map((item) => `
             <div class="rounded-2xl border border-white/5 bg-black/20 p-3 space-y-1">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <div class="text-[11px] font-black text-white">${escapeHtml(item.name || "منتج")}</div>
+                        <div class="text-[11px] font-black text-white">${escapeHtml(item.name || currentLanguageText("منتج", "Produit", "Product"))}</div>
                         <div class="text-[9px] text-slate-400 break-all">${escapeHtml(item.link || "")}</div>
                     </div>
                     <div class="text-[10px] font-black text-amber-400 shrink-0">${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}</div>
                 </div>
                 <div class="flex flex-wrap gap-2 text-[9px] text-slate-400">
-                    <span>QTE: ${Number(item.qty || 1)}</span>
-                    <span>${Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0)}</span>
+                    <span>${currentLanguageText("الكمية", "Qte", "Qty")}: ${Number(item.qty || 1)}</span>
+                    <span>${Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0)}</span>
                     ${item.deliveryEstimate ? `<span>${escapeHtml(item.deliveryEstimate)}</span>` : ""}
                 </div>
             </div>
@@ -3945,18 +4040,18 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                     </div>
                     <div class="text-left rtl:text-left ltr:text-right shrink-0">
                         <div class="text-sm font-black text-blue-400" dir="ltr">${formatTnd(order.total || 0)}</div>
-                        <div class="text-[9px] text-slate-500 mt-1">${Number(order.itemsCount || items.length || 0)} منتج</div>
+                        <div class="text-[9px] text-slate-500 mt-1">${Number(order.itemsCount || items.length || 0)} ${pickLanguageText(currentUiLanguage(), "منتج", "article(s)", "items")}</div>
                     </div>
                 </div>
                 <details class="group/details border-t border-white/5">
                     <summary class="p-3 text-[10px] font-bold text-slate-400 cursor-pointer hover:bg-white/5 transition-colors flex justify-between items-center outline-none select-none">
-                        <span>شوف التفاصيل</span>
+                        <span>${currentLanguageText("شوف التفاصيل", "Voir les details", "View Details")}</span>
                         <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform"></i>
                     </summary>
                     <div class="p-3 pt-0 space-y-2 pb-4">
-                        ${itemsHtml || `<div class="text-[10px] text-slate-500">لا توجد تفاصيل عناصر.</div>`}
-                        ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> الدفع: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
-                        <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">Buy Again</button>
+                        ${itemsHtml || `<div class="text-[10px] text-slate-500">${escapeHtml(currentLanguageText("لا توجد تفاصيل عناصر.", "Aucun detail produit.", "No item details."))}</div>`}
+                        ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> ${escapeHtml(currentLanguageText("الدفع", "Paiement", "Payment"))}: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
+                        <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">${pickLanguageText(currentUiLanguage(), "عاود اطلب", "Recommander", "Buy Again")}</button>
                     </div>
                 </details>
             </div>
@@ -3968,7 +4063,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
         window.renderHistory = function patchedRenderHistory() {
             if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
-                dom.historyList.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">لا يوجد سجل طلبات حتى الآن</div>`;
+                dom.historyList.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${escapeHtml(currentLanguageText("لا يوجد سجل طلبات حتى الآن", "Aucun historique de commande pour le moment", "No order history yet"))}</div>`;
                 return;
             }
 
@@ -3986,7 +4081,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         const hintHtml = latest.map((order) => `
             <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-3">
                 <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
-                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.adminTracking || order.trackingHint || "سيتم إرسال رقم التتبع بعد الشراء.")}</div>
+                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.adminTracking || order.trackingHint || currentLanguageText("سيتم إرسال رقم التتبع بعد الشراء.", "Le numero de suivi sera envoye apres l'achat.", "The tracking number will be sent after purchase."))}</div>
             </div>
         `).join("");
 
@@ -3999,7 +4094,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
         host.innerHTML = `
             <div class="space-y-3">
-                <div class="text-[10px] font-black text-slate-400">آخر الطلبات المسجلة عندك:</div>
+                <div class="text-[10px] font-black text-slate-400">${escapeHtml(currentLanguageText("آخر الطلبات المسجلة عندك:", "Dernieres commandes enregistrees :", "Latest saved orders:"))}</div>
                 ${hintHtml}
             </div>`;
     }
@@ -4035,7 +4130,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
 
             dom.historyList.innerHTML = filtered.length
                 ? filtered.map(renderHistoryCard).join("")
-                : `<div class="text-center py-12 text-slate-600 text-xs italic">No matching orders found.</div>`;
+                : `<div class="text-center py-12 text-slate-600 text-xs italic">${escapeHtml(currentLanguageText("ما لقيناش طلبات تطابق الفلترة.", "Aucune commande ne correspond aux filtres.", "No matching orders found."))}</div>`;
             renderNotifications();
         };
         wrapped.__historyFilterWrapped = true;
@@ -4125,7 +4220,7 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         dom.voiceUpload?.addEventListener("change", (event) => {
             const file = event.target?.files?.[0];
             if (!file) return;
-            setVoiceNoteFromBlob(file, `Uploaded voice note: ${file.name}`);
+            setVoiceNoteFromBlob(file, pickLanguageText(currentUiLanguage(), `ملاحظة صوتية مرفوعة: ${file.name}`, `Note vocale importee : ${file.name}`, `Uploaded voice note: ${file.name}`));
         });
         dom.recentLinks?.addEventListener("click", (event) => {
             const trigger = event.target.closest("[data-recent-index]");
