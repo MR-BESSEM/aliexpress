@@ -44,6 +44,9 @@
         previewPrice: document.getElementById("runtime-preview-price"),
         previewLink: document.getElementById("runtime-preview-link"),
         previewSource: document.getElementById("runtime-preview-source"),
+        previewTrust: document.getElementById("runtime-preview-trust"),
+        previewSold: document.getElementById("runtime-preview-sold"),
+        previewRisk: document.getElementById("runtime-preview-risk"),
         previewShipping: document.getElementById("runtime-preview-shipping"),
         previewDelivery: document.getElementById("runtime-preview-delivery"),
         previewRating: document.getElementById("runtime-preview-rating"),
@@ -216,6 +219,8 @@
         activePromoCode: "",
         activityLog: [],
         selectedVariants: {},
+        autoPreviewTimer: null,
+        lastAutoPreviewUrl: "",
         stats: {
             fetches: 0,
             manualQuotes: 0
@@ -2949,6 +2954,7 @@
         const hasDeliveryValue = Boolean(String(product?.deliveryEstimate || "").trim());
         const hasRatingValue = Number(product?.rating || 0) > 0;
         const hasReviewValue = Number(product?.reviewCount || 0) > 0;
+        const hasSoldValue = Number(product?.soldCount || 0) > 0;
         const sourceLabelMap = {
             ar: {
                 "api+scrape": "بيانات مؤكدة",
@@ -3015,6 +3021,44 @@
             dom.previewSource.textContent = sourceUi.label;
             dom.previewSource.className = sourceUi.classes;
         }
+        if (dom.previewTrust) {
+            const trust = product?.trustScore || null;
+            const hasTrustValue = Boolean(trust && Number.isFinite(Number(trust.score)));
+            const trustScore = hasTrustValue ? Number(trust.score) : 0;
+            const trustLabel = currentLang === "ar"
+                ? `ثقة ${trustScore}/100`
+                : (currentLang === "fr" ? `Confiance ${trustScore}/100` : `Trust ${trustScore}/100`);
+            dom.previewTrust.textContent = trustLabel;
+            dom.previewTrust.className = `runtime-preview-chip ${
+                trustScore >= 80
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                    : trustScore >= 65
+                        ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                        : "bg-amber-400/10 text-amber-300 border-amber-400/20"
+            }`;
+            dom.previewTrust.classList.toggle("hidden", !hasTrustValue);
+        }
+        if (dom.previewSold) {
+            const soldLabel = currentLang === "ar"
+                ? `${formatCompactCount(product?.soldCount || 0)} مبيعات`
+                : (currentLang === "fr" ? `${formatCompactCount(product?.soldCount || 0)} ventes` : `${formatCompactCount(product?.soldCount || 0)} sold`);
+            dom.previewSold.textContent = soldLabel;
+            dom.previewSold.classList.toggle("hidden", !hasSoldValue);
+        }
+        if (dom.previewRisk) {
+            let riskLabel = "";
+            let riskClass = "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+            if (product?.restrictions?.banned) {
+                riskLabel = currentLang === "ar" ? "خطر مرتفع" : (currentLang === "fr" ? "Risque eleve" : "High risk");
+                riskClass = "bg-red-500/10 text-red-300 border-red-500/20";
+            } else if (product?.restrictions?.restricted || product?.manualQuoteRecommended) {
+                riskLabel = currentLang === "ar" ? "راجع قبل الطلب" : (currentLang === "fr" ? "Verifier avant" : "Review first");
+                riskClass = "bg-amber-400/10 text-amber-300 border-amber-400/20";
+            }
+            dom.previewRisk.textContent = riskLabel;
+            dom.previewRisk.className = `runtime-preview-chip ${riskClass}`;
+            dom.previewRisk.classList.toggle("hidden", !riskLabel);
+        }
         if (dom.previewShipping) {
             dom.previewShipping.textContent = hasShippingValue
                 ? (Number(product.shipping) === 0 ? rt("shipping_free") : getShippingLabel(product.shipping))
@@ -3046,6 +3090,22 @@
         checkPriceAlerts(product);
     }
 
+    function scheduleAutoPreview(delay = 700) {
+        if (!dom.calcLink) return;
+        const raw = String(dom.calcLink.value || "").trim();
+        if (!isAliExpressUrl(raw)) {
+            if (state.autoPreviewTimer) window.clearTimeout(state.autoPreviewTimer);
+            return;
+        }
+        if (raw === state.lastAutoPreviewUrl && state.currentProduct?.url === raw) return;
+        if (state.autoPreviewTimer) window.clearTimeout(state.autoPreviewTimer);
+        state.autoPreviewTimer = window.setTimeout(() => {
+            if (dom.scrapeBtn?.disabled) return;
+            state.lastAutoPreviewUrl = raw;
+            scrapeProduct();
+        }, delay);
+    }
+
     function setError(message = "") {
         if (!dom.scrapeError) return;
         dom.scrapeError.textContent = message;
@@ -3060,6 +3120,9 @@
         }
         if (dom.scrapeLoader) {
             dom.scrapeLoader.classList.toggle("hidden", !isLoading);
+        }
+        if (!isLoading && dom.calcLink) {
+            state.lastAutoPreviewUrl = String(dom.calcLink.value || "").trim();
         }
     }
 
@@ -4033,6 +4096,9 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
                 scrapeProduct();
             }
         });
+        dom.calcLink?.addEventListener("input", () => scheduleAutoPreview(900));
+        dom.calcLink?.addEventListener("paste", () => window.setTimeout(() => scheduleAutoPreview(250), 50));
+        dom.calcLink?.addEventListener("blur", () => scheduleAutoPreview(150));
         dom.calcImage?.addEventListener("change", (event) => {
             const file = event.target?.files?.[0];
             if (!file) {
