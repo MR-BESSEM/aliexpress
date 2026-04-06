@@ -3569,6 +3569,78 @@ th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid 
         if (typeof saveData === "function") saveData();
     }
 
+    function decodeHtmlEntities(value = "") {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = String(value || "");
+        return textarea.value;
+    }
+
+    function normalizeOrderLink(value = "") {
+        let link = decodeHtmlEntities(String(value || "").trim());
+        if (!link) return "";
+        link = link
+            .replace(/^https:\/\/https:\/\//i, "https://")
+            .replace(/^http:\/\/https:\/\//i, "https://")
+            .replace(/^https:\/\/http:\/\//i, "http://")
+            .replace(/^http:\/\/http:\/\//i, "http://");
+        return link;
+    }
+
+    function buildCustomerSummaryLines() {
+        const prefs = getAccountPrefs();
+        const contactMethodMap = {
+            whatsapp: "whatsapp",
+            call: "اتصال",
+            message: "SMS",
+            sms: "SMS"
+        };
+        const lines = [];
+        if (prefs.phone) lines.push(`الهاتف: ${prefs.phone}`);
+        if (prefs.city) lines.push(`المدينة: ${prefs.city}`);
+        if (prefs.address) lines.push(`العنوان: ${prefs.address}`);
+        if (prefs.contactMethod) lines.push(`طريقة التواصل: ${contactMethodMap[String(prefs.contactMethod).toLowerCase()] || prefs.contactMethod}`);
+        return lines;
+    }
+
+    function buildOrderMessage(items, paymentLabel, finalTotal, orderRef) {
+        const lines = [
+            `🚀 *طلب جديد Alexpress Tunisie*`,
+            ``,
+            `🧾 *المرجع:* ${orderRef}`,
+            `💳 *الدفع:* ${paymentLabel}`,
+            ``
+        ];
+
+        items.forEach((item, index) => {
+            const cleanLink = normalizeOrderLink(item.link);
+            const specs = item.note || (item.hasOptions ? "يرجى تحديد اللون / المقاس / الطول المطلوب" : "بدون ملاحظات");
+            const shippingText = Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0);
+            const serviceText = item.serviceFeeDisplay || (item.hasOptions ? "مشمولة" : formatTnd(item.serviceFeeTnd || 0));
+            const lineTotal = formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1));
+
+            lines.push(`📦 *منتج ${index + 1}:* ${item.name || "منتج من AliExpress"}`);
+            lines.push(`🔗 الرابط: ${cleanLink || "غير متوفر"}`);
+            lines.push(`🔢 الكمية: ${item.qty || 1}`);
+            lines.push(`📝 المواصفات: ${specs}`);
+            lines.push(`💵 سعر المنتج: ${formatUsd(item.productUsd || item.usd || 0)}`);
+            lines.push(`🚚 الشحن: ${shippingText}`);
+            lines.push(`🧰 عمولة الخدمة: ${serviceText}`);
+            lines.push(`💰 الإجمالي: ${lineTotal}`);
+            if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
+            if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: المنتج هذا فيه خطر ديوانة مرتفع.`);
+            else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: المنتج هذا يحتاج تثبّت أو مراجعة قبل الطلب.`);
+            lines.push(`────────────`);
+        });
+
+        if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
+            lines.push(`🎟️ *التخفيض:* ${discountType === "percent" ? `${currentDiscount}%` : `${currentDiscount} TND`}`);
+        }
+
+        lines.push(`💵 *TOTAL:* ${formatTnd(finalTotal)}`);
+        lines.push(`📲 نحب تأكيد الطلب والمتابعة.`);
+        return lines.join("\n");
+    }
+
     function patchRenderCart() {
         if (typeof window.renderCart !== "function" || window.renderCart.__runtimeWrapped) return;
         const wrapped = function patchedRenderCart() {
