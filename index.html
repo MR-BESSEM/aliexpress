@@ -1195,19 +1195,19 @@
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-align">
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-orders" class="text-xl font-black text-amber-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders Logged</div>
+                    <div id="runtime-metric-orders-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders Logged</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-promos" class="text-xl font-black text-emerald-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Promos</div>
+                    <div id="runtime-metric-promos-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Promos</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-fetches" class="text-xl font-black text-blue-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
+                    <div id="runtime-metric-fetches-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-rate" class="text-xl font-black text-white">4.500</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
+                    <div id="runtime-metric-rate-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
                 </div>
             </div>
 
@@ -1574,10 +1574,12 @@
                     <div id="runtime-breakdown-card" class="hidden bg-slate-950/60 p-4 md:p-5 rounded-2xl border border-white/5 space-y-3">
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
                             <span>سعر المنتج</span>
+                            <span id="runtime-breakdown-product-label">Ø³Ø¹Ø± Ø§Ù„Ù…Ù†ØªØ¬</span>
                             <span id="runtime-breakdown-product" dir="ltr">0.000 TND</span>
                         </div>
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
                             <span>الشحن</span>
+                            <span id="runtime-breakdown-shipping-label">Ø§Ù„Ø´Ø­Ù†</span>
                             <span id="runtime-breakdown-shipping" dir="ltr">0.000 TND</span>
                         </div>
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
@@ -1586,6 +1588,7 @@
                         </div>
                         <div class="pt-3 border-t border-white/5 flex items-center justify-between text-xs md:text-sm font-black text-amber-400">
                             <span>الإجمالي النهائي</span>
+                            <span id="runtime-breakdown-total-label">Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ</span>
                             <span id="runtime-breakdown-total" dir="ltr">مشمولة</span>
                         </div>
                     </div>
@@ -1599,32 +1602,32 @@
                     <div id="runtime-budget-card" class="hidden bg-emerald-500/5 p-4 md:p-5 rounded-2xl border border-emerald-500/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Smart Budget Planner</div>
-                                <div class="text-[9px] text-slate-500 font-bold">حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا</div>
+                                <div id="runtime-budget-title" class="text-[10px] font-black text-white">Smart Budget Planner</div>
+                                <div id="runtime-budget-desc" class="text-[9px] text-slate-500 font-bold">حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا</div>
                             </div>
                             <span id="runtime-budget-status" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">READY</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                             <input id="runtime-budget-input" type="number" min="0" step="1" placeholder="Budget TND" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400 ltr-input" dir="ltr">
                             <select id="runtime-budget-buffer" class="w-full sm:w-[160px] bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400">
-                                <option value="5">5% buffer</option>
-                                <option value="10" selected>10% buffer</option>
-                                <option value="15">15% buffer</option>
-                                <option value="20">20% buffer</option>
+                                <option id="runtime-budget-buffer-5" value="5">5% buffer</option>
+                                <option id="runtime-budget-buffer-10" value="10" selected>10% buffer</option>
+                                <option id="runtime-budget-buffer-15" value="15">15% buffer</option>
+                                <option id="runtime-budget-buffer-20" value="20">20% buffer</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-remaining" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Remaining</div>
+                                <div id="runtime-budget-remaining-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Remaining</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-safe-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Safe Spend</div>
+                                <div id="runtime-budget-safe-total-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Safe Spend</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-max-usd" class="text-lg font-black text-amber-300" dir="ltr">0.00 USD</div>
-                                <div class="text-[9px] text-slate-500 font-bold mt-1">أقصى سعر بالدولار</div>
+                                <div id="runtime-budget-max-usd-label" class="text-[9px] text-slate-500 font-bold mt-1">أقصى سعر بالدولار</div>
                             </div>
                         </div>
                         <div id="runtime-budget-note" class="text-[10px] font-bold text-slate-300 leading-relaxed">أدخل budget باش تشوف التوصية الذكية.</div>
@@ -1632,8 +1635,8 @@
                     <div id="runtime-customs-card" class="hidden bg-red-500/5 p-4 md:p-5 rounded-2xl border border-red-500/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Smart Customs Advisor</div>
-                                <div class="text-[9px] text-slate-500 font-bold">مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب</div>
+                                <div id="runtime-customs-title" class="text-[10px] font-black text-white">Smart Customs Advisor</div>
+                                <div id="runtime-customs-desc" class="text-[9px] text-slate-500 font-bold">مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب</div>
                             </div>
                             <span id="runtime-customs-level" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">LOW</span>
                         </div>
@@ -1644,23 +1647,23 @@
                     <div id="runtime-quote-compare-card" class="hidden hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-4" style="display:none !important;">
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Auto-Quote Comparison</div>
-                                <div class="text-[9px] text-slate-500 font-bold">قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review</div>
+                                <div id="runtime-quote-compare-title" class="text-[10px] font-black text-white">Auto-Quote Comparison</div>
+                                <div id="runtime-quote-compare-desc" class="text-[9px] text-slate-500 font-bold">قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review</div>
                             </div>
                             <span id="runtime-quote-compare-status" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">LIVE</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-auto" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Auto Quote</div>
+                                <div id="runtime-quote-auto-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Auto Quote</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-similar" class="text-lg font-black text-amber-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Similar Orders</div>
+                                <div id="runtime-quote-similar-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Similar Orders</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-manual" class="text-lg font-black text-blue-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Manual Target</div>
+                                <div id="runtime-quote-manual-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Manual Target</div>
                             </div>
                         </div>
                         <div id="runtime-quote-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Fetch a product to compare pricing confidence.</div>
@@ -1668,8 +1671,8 @@
                     <div id="runtime-reseller-card" class="hidden bg-amber-400/5 p-4 md:p-5 rounded-2xl border border-amber-400/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Profit / Reseller Mode</div>
-                                <div class="text-[9px] text-slate-500 font-bold">أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even</div>
+                                <div id="runtime-reseller-title" class="text-[10px] font-black text-white">Profit / Reseller Mode</div>
+                                <div id="runtime-reseller-desc" class="text-[9px] text-slate-500 font-bold">أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even</div>
                             </div>
                             <span id="runtime-reseller-status" class="px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black">READY</span>
                         </div>
@@ -1680,30 +1683,30 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-unit" class="text-lg font-black text-white" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Profit / Unit</div>
+                                <div id="runtime-profit-unit-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Profit / Unit</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Profit</div>
+                                <div id="runtime-profit-total-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Profit</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-roi" class="text-lg font-black text-blue-300" dir="ltr">0%</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">ROI</div>
+                                <div id="runtime-profit-roi-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">ROI</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-break-even" class="text-lg font-black text-amber-300" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Break-Even</div>
+                                <div id="runtime-profit-break-even-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Break-Even</div>
                             </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button id="runtime-manual-quote" type="button" class="py-3 bg-slate-800 border border-slate-700 text-white font-black rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
                             <i class="fas fa-headset"></i>
-                            <span>اطلب تسعيرة يدوية</span>
+                            <span id="runtime-manual-quote-label">اطلب تسعيرة يدوية</span>
                         </button>
                         <button id="runtime-quick-order" type="button" class="py-3 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
                             <i class="fab fa-whatsapp"></i>
-                            <span>اطلب توّا على واتساب</span>
+                            <span id="runtime-quick-order-label">اطلب توّا على واتساب</span>
                         </button>
                     </div>
                     
@@ -1760,18 +1763,18 @@
                 <p class="text-slate-400 text-[10px] md:text-xs mb-8" data-i18n="track_desc">أدخل رقم التتبع الخاص بك لرؤية حالة شحنتك.</p>
                 
                 <div data-ptwidget-type="search" data-ptwidget-result-container-id="search-result" class="auto-align">
-                    <input class="search-input" type="text" placeholder="Tracking Number">
-                    <button class="search-btn">TRACK</button>
+                    <input id="posttrack-search-input" class="search-input" type="text" placeholder="Tracking Number">
+                    <button id="posttrack-search-btn" class="search-btn">TRACK</button>
                 </div>
                 <div id="search-result" class="mt-8 auto-align"></div>
 
                 <div class="mt-8 bg-slate-900/60 p-5 rounded-3xl border border-white/5 space-y-4 auto-align">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <h3 class="text-sm font-black text-white">تتبع داخلي للطلبات</h3>
-                            <p class="text-[10px] text-slate-500 font-bold">دخل مرجع الطلب متاعك وشوف آخر status وtracking note</p>
+                            <h3 id="runtime-track-title" class="text-sm font-black text-white">تتبع داخلي للطلبات</h3>
+                            <p id="runtime-track-desc" class="text-[10px] text-slate-500 font-bold">دخل مرجع الطلب متاعك وشوف آخر status وtracking note</p>
                         </div>
-                        <span class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">AX REF</span>
+                        <span id="runtime-track-pill" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">AX REF</span>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <input id="runtime-track-ref" type="text" placeholder="AX-12345678" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
@@ -2175,12 +2178,12 @@
                             <div id="runtime-admin-panel" class="hidden space-y-4">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div class="account-subcard space-y-3">
-                                        <div class="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em]">Promo Code</div>
+                                        <div id="runtime-admin-promo-title" class="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em]">Promo Code</div>
                                         <input id="admin-promo-code" type="text" placeholder="CODE10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         <div class="grid grid-cols-2 gap-2">
                                             <select id="admin-promo-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
-                                                <option value="percent">%</option>
-                                                <option value="fixed">TND</option>
+                                                <option id="admin-promo-type-percent" value="percent">%</option>
+                                                <option id="admin-promo-type-fixed" value="fixed">TND</option>
                                             </select>
                                             <input id="admin-promo-value" type="number" placeholder="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         </div>
@@ -2192,13 +2195,13 @@
                                     </div>
 
                                     <div class="account-subcard space-y-3">
-                                        <div class="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Order Status</div>
+                                        <div id="runtime-admin-order-title" class="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Order Status</div>
                                         <input id="admin-order-ref" type="text" placeholder="AX-12345678" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         <select id="admin-order-status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
-                                            <option value="pending">قيد المراجعة</option>
-                                            <option value="processing">تم الشراء</option>
-                                            <option value="shipped">في الطريق</option>
-                                            <option value="delivered">تم التسليم</option>
+                                            <option id="admin-order-status-pending" value="pending">قيد المراجعة</option>
+                                            <option id="admin-order-status-processing" value="processing">تم الشراء</option>
+                                            <option id="admin-order-status-shipped" value="shipped">في الطريق</option>
+                                            <option id="admin-order-status-delivered" value="delivered">تم التسليم</option>
                                         </select>
                                         <input id="admin-order-tracking" type="text" placeholder="Tracking / note" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
                                         <button id="admin-order-update" type="button" class="w-full bg-blue-600 text-white font-black rounded-xl py-3 text-xs hover:bg-blue-500 transition-colors">تحديث الطلب</button>
@@ -2207,24 +2210,24 @@
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div class="account-subcard">
-                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Promos</div>
+                                        <div id="runtime-admin-promos-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Promos</div>
                                         <div id="runtime-admin-promos" class="space-y-2"></div>
                                     </div>
                                     <div class="account-subcard">
-                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Orders</div>
+                                        <div id="runtime-admin-orders-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Orders</div>
                                         <div id="runtime-admin-orders" class="space-y-2"></div>
                                     </div>
                                 </div>
 
                                 <div class="account-subcard">
-                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Admin Activity</div>
+                                    <div id="runtime-admin-activity-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Admin Activity</div>
                                     <div id="runtime-admin-activity" class="space-y-2">
                                         <div class="text-[10px] text-slate-500 italic">No activity yet.</div>
                                     </div>
                                 </div>
 
                                 <div class="account-subcard">
-                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Analytics</div>
+                                    <div id="runtime-admin-analytics-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Analytics</div>
                                     <div id="runtime-admin-analytics" class="space-y-3">
                                         <div class="text-[10px] text-slate-500 italic">Analytics loading...</div>
                                     </div>
@@ -3945,6 +3948,6 @@
     }
 })();
 </script>
-<script src="assets/script.js?v=20260406-8"></script>
+<script src="assets/script.js?v=20260406-9"></script>
 </body>
 </html>
