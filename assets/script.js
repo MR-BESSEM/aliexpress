@@ -36,6 +36,7 @@
         scrapeBtn: document.getElementById("runtime-scrape-btn"),
         scrapeLoader: document.getElementById("runtime-scrape-loader"),
         scrapeError: document.getElementById("runtime-scrape-error"),
+        previewSkeleton: document.getElementById("runtime-preview-skeleton"),
         previewCard: document.getElementById("runtime-preview-card"),
         previewImage: document.getElementById("runtime-preview-image"),
         previewTitle: document.getElementById("runtime-preview-title"),
@@ -2992,6 +2993,9 @@
             ? rt("preview_review")
             : rt("preview_ready");
 
+        if (dom.previewSkeleton) {
+            dom.previewSkeleton.classList.add("hidden");
+        }
         dom.previewCard.classList.remove("hidden");
         if (dom.previewImage) {
             dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
@@ -3110,6 +3114,9 @@
         if (!dom.scrapeError) return;
         dom.scrapeError.textContent = message;
         dom.scrapeError.classList.toggle("hidden", !message);
+        if (message && dom.previewSkeleton) {
+            dom.previewSkeleton.classList.add("hidden");
+        }
     }
 
     function setLoading(isLoading) {
@@ -3120,6 +3127,12 @@
         }
         if (dom.scrapeLoader) {
             dom.scrapeLoader.classList.toggle("hidden", !isLoading);
+        }
+        if (dom.previewSkeleton) {
+            dom.previewSkeleton.classList.toggle("hidden", !isLoading);
+        }
+        if (isLoading && dom.previewCard) {
+            dom.previewCard.classList.add("hidden");
         }
         if (!isLoading && dom.calcLink) {
             state.lastAutoPreviewUrl = String(dom.calcLink.value || "").trim();
