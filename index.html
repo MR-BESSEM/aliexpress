@@ -623,6 +623,76 @@
                 radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.08), transparent 24%);
             pointer-events: none;
         }
+        @keyframes previewSkeletonShimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+        .preview-skeleton-line,
+        .preview-skeleton-box,
+        .preview-skeleton-chip,
+        .preview-skeleton-action,
+        .preview-skeleton-stat {
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.1) 18%, rgba(255,255,255,0.04) 36%),
+                rgba(15, 23, 42, 0.78);
+            background-size: 220% 100%;
+            animation: previewSkeletonShimmer 1.35s linear infinite;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        #runtime-preview-skeleton {
+            max-width: 760px;
+            margin-inline: auto;
+        }
+        .preview-skeleton-box {
+            border-radius: 1.35rem;
+            width: 96px;
+            height: 96px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+        }
+        .preview-skeleton-line {
+            height: 0.9rem;
+            border-radius: 999px;
+        }
+        .preview-skeleton-line--title {
+            height: 1.15rem;
+            width: 82%;
+        }
+        .preview-skeleton-line--subtitle {
+            width: 58%;
+        }
+        .preview-skeleton-line--desc {
+            width: 100%;
+            height: 0.72rem;
+        }
+        .preview-skeleton-line--desc-short {
+            width: 72%;
+            height: 0.72rem;
+        }
+        .preview-skeleton-chip {
+            width: 92px;
+            height: 1.55rem;
+            border-radius: 999px;
+        }
+        .preview-skeleton-stat {
+            min-height: 70px;
+            border-radius: 1rem;
+        }
+        .preview-skeleton-action {
+            height: 40px;
+            border-radius: 1rem;
+        }
+        @media (max-width: 768px) {
+            .preview-skeleton-box {
+                width: 84px;
+                height: 84px;
+            }
+        }
         @keyframes footerGlowFloat {
             0%, 100% {
                 transform: translateY(0);
@@ -1329,6 +1399,44 @@
                             </div>
                         </div>
                         <div id="runtime-scrape-error" class="hidden mt-2 text-[10px] text-red-400 font-black"></div>
+                    </div>
+                    <div id="runtime-preview-skeleton" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
+                        <div class="relative z-10 space-y-4">
+                            <div class="runtime-preview-main flex flex-col md:flex-row auto-align">
+                                <div class="runtime-preview-media">
+                                    <div class="preview-skeleton-box"></div>
+                                </div>
+                                <div class="runtime-preview-copy flex-1 min-w-0 space-y-3">
+                                    <div class="flex flex-wrap gap-2 items-center">
+                                        <span class="preview-skeleton-chip"></span>
+                                        <span class="preview-skeleton-chip"></span>
+                                        <span class="preview-skeleton-chip"></span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="preview-skeleton-line preview-skeleton-line--title"></div>
+                                        <div class="preview-skeleton-line preview-skeleton-line--subtitle"></div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="preview-skeleton-line preview-skeleton-line--desc"></div>
+                                        <div class="preview-skeleton-line preview-skeleton-line--desc-short"></div>
+                                    </div>
+                                    <div class="runtime-preview-summary">
+                                        <div class="preview-skeleton-line" style="width: 140px; height: 1.7rem;"></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                    </div>
+                                    <div class="runtime-preview-actions">
+                                        <div class="preview-skeleton-action"></div>
+                                        <div class="preview-skeleton-action"></div>
+                                        <div class="preview-skeleton-action"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div id="runtime-preview-card" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
                         <div class="relative z-10 space-y-4">
@@ -3837,6 +3945,6 @@
     }
 })();
 </script>
-<script src="assets/script.js?v=20260406-7"></script>
+<script src="assets/script.js?v=20260406-8"></script>
 </body>
 </html>
