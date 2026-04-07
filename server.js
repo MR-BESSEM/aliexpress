@@ -2364,6 +2364,41 @@ async function scrapeWithPlaywright(url) {
   const browser = await getBrowser();
   const context = await buildPlaywrightContext(browser);
   const page = await context.newPage();
+  const responsePayloads = [];
+  const responsePayloadTasks = [];
+
+  const captureResponsePayload = async (response) => {
+    try {
+      const responseUrl = String(response.url() || "");
+      if (!/aliexpress\./i.test(responseUrl)) return;
+      if (response.status() >= 400) return;
+
+      const headers = response.headers();
+      const contentType = String(headers["content-type"] || "");
+      const looksStructured =
+        /json|javascript/i.test(contentType) ||
+        /graphql|api|mtop|detail|product|sku|price|recommend|component|render/i.test(responseUrl);
+      if (!looksStructured) return;
+
+      const body = await response.text();
+      if (!body || body.length > 1_500_000) return;
+
+      const parsed = parseMaybeJson(body, 4);
+      if (!parsed || typeof parsed !== "object") return;
+
+      responsePayloads.push(parsed);
+      if (responsePayloads.length > 24) responsePayloads.shift();
+    } catch {}
+  };
+
+  page.on("response", (response) => {
+    const task = captureResponsePayload(response);
+    responsePayloadTasks.push(task);
+    task.finally(() => {
+      const index = responsePayloadTasks.indexOf(task);
+      if (index >= 0) responsePayloadTasks.splice(index, 1);
+    }).catch(() => {});
+  });
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: SCRAPE_TIMEOUT_MS });
@@ -2376,9 +2411,36 @@ async function scrapeWithPlaywright(url) {
       ).catch(() => {})
     ]);
     await page.waitForTimeout(1500);
+    if (responsePayloadTasks.length) {
+      await Promise.allSettled(responsePayloadTasks);
+    }
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+      const toSerializable = (value, depth = 0, seen = new WeakSet()) => {
+        if (value == null) return value;
+        if (typeof value === "string") return value.length > 4_000 ? value.slice(0, 4_000) : value;
+        if (typeof value === "number" || typeof value === "boolean") return value;
+        if (depth >= 5) return undefined;
+        if (Array.isArray(value)) {
+          return value
+            .slice(0, 24)
+            .map((entry) => toSerializable(entry, depth + 1, seen))
+            .filter((entry) => entry !== undefined);
+        }
+        if (typeof value !== "object") return undefined;
+        if (seen.has(value)) return undefined;
+        seen.add(value);
+
+        const result = {};
+        Object.entries(value)
+          .slice(0, 80)
+          .forEach(([key, entry]) => {
+            const normalized = toSerializable(entry, depth + 1, seen);
+            if (normalized !== undefined) result[key] = normalized;
+          });
+        return Object.keys(result).length ? result : undefined;
+      };
       const queryText = (selectors) => {
         for (const selector of selectors) {
           const element = document.querySelector(selector);
@@ -2408,7 +2470,7 @@ async function scrapeWithPlaywright(url) {
       };
 
       const globalSnapshots = [];
-      [
+      const candidateGlobalEntries = [
         window.runParams,
         window.__INITIAL_STATE__,
         window.__data__,
@@ -2416,22 +2478,44 @@ async function scrapeWithPlaywright(url) {
         window.__NEXT_DATA__,
         window.detailData,
         window.pageData
-      ].forEach((entry) => {
+      ];
+      Object.keys(window)
+        .filter((key) => /(?:^__|data|state|detail|product|sku|price|offer|render|page)/i.test(key))
+        .slice(0, 20)
+        .forEach((key) => {
+          try {
+            candidateGlobalEntries.push(window[key]);
+          } catch {}
+        });
+      candidateGlobalEntries.forEach((entry) => {
         if (entry && typeof entry === "object") {
-          globalSnapshots.push(entry);
+          const normalized = toSerializable(entry);
+          if (normalized) globalSnapshots.push(normalized);
         }
       });
 
       return {
-        title: queryText(["h1[data-pl='product-title']", "h1[class*='title']", "h1"]),
+        title: queryText([
+          "h1[data-pl='product-title']",
+          "h1[data-testid*='title']",
+          "h1[class*='title']",
+          "h1"
+        ]),
         description:
           queryText(["meta[property='og:description']", "meta[name='description']", "[class*='description']", "[class*='Description']"]) ||
           "",
         image:
           queryAttr(["meta[property='og:image']", "meta[name='twitter:image']"], "content") ||
-          queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "currentSrc") ||
-          queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "src"),
-        priceTexts: collectTexts(["[class*='price']", "[class*='Price']", "[data-testid*='price']"]),
+          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "currentSrc") ||
+          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "src"),
+        priceTexts: collectTexts([
+          "[class*='price']",
+          "[class*='Price']",
+          "[data-testid*='price']",
+          "[data-pl*='price']",
+          "[class*='snow-price']",
+          "[class*='product-price']"
+        ]),
         ratingTexts: collectTexts(["[class*='rating']", "[class*='Rating']", "[class*='star']", "[class*='Star']"]),
         reviewTexts: collectTexts(["[class*='review']", "[class*='Review']", "[class*='feedback']", "[class*='comment']"]),
         soldTexts: collectTexts(["[class*='sold']", "[class*='Sold']", "[class*='order']", "[class*='Order']", "[class*='trade']"]),
@@ -2460,33 +2544,53 @@ async function scrapeWithPlaywright(url) {
     const html = await page.content();
     const parsed = extractHtmlProduct(html, page.url(), "playwright");
     const fromGlobals = extractProductFieldsFromObjectTree(runtime.globalSnapshots || []);
+    const fromResponses = extractProductFieldsFromObjectTree(responsePayloads);
+    const responseVariants = extractVariantOffersFromObjectTree(responsePayloads);
 
     const merged = {
       ...parsed,
-      title: sanitizeText(runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
-      description: cleanupProductDescription(runtime.description || fromGlobals.description || parsed.description || runtime.bodyText, runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
-      image: normalizeUrl(runtime.image || fromGlobals.image || parsed.image),
+      title: sanitizeText(runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle),
+      description: cleanupProductDescription(
+        runtime.description || fromResponses.description || fromGlobals.description || parsed.description || runtime.bodyText,
+        runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle
+      ),
+      image: normalizeUrl(runtime.image || fromResponses.image || fromGlobals.image || parsed.image),
       price: pickFirstPositive([
         extractPriceFromTextList(runtime.priceTexts),
+        fromResponses.price,
         fromGlobals.price,
         parsed.price,
         extractPriceFromTextList([runtime.bodyText])
       ]),
-      rating: normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) || normalizeRating(fromGlobals.rating) || normalizeRating(parsed.rating),
+      rating:
+        normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) ||
+        normalizeRating(fromResponses.rating) ||
+        normalizeRating(fromGlobals.rating) ||
+        normalizeRating(parsed.rating),
       reviewCount: Math.max(
         extractCountFromTextList(runtime.reviewTexts, /review|feedback|ratings?|avis/i),
+        Number(fromResponses.reviewCount || 0),
         Number(fromGlobals.reviewCount || 0),
         Number(parsed.reviewCount || 0)
       ),
       soldCount: Math.max(
         extractCountFromTextList(runtime.soldTexts, /sold|orders?|commandes|ventes/i),
+        Number(fromResponses.soldCount || 0),
         Number(fromGlobals.soldCount || 0),
         Number(parsed.soldCount || 0)
       ),
-      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromGlobals.shipping ?? parsed.shipping,
-      deliveryEstimate: extractDeliveryEstimateFromTexts(runtime.shippingTexts) || fromGlobals.deliveryEstimate || parsed.deliveryEstimate || "",
+      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromResponses.shipping ?? fromGlobals.shipping ?? parsed.shipping,
+      deliveryEstimate:
+        extractDeliveryEstimateFromTexts(runtime.shippingTexts) ||
+        fromResponses.deliveryEstimate ||
+        fromGlobals.deliveryEstimate ||
+        parsed.deliveryEstimate ||
+        "",
       variants: mergeVariantGroups(
-        mergeVariantGroups(fromGlobals.variants, parsed.variants),
+        mergeVariantGroups(
+          mergeVariantGroups(responseVariants.groups, fromGlobals.variants),
+          parsed.variants
+        ),
         extractVariantGroupsFromTextList(runtime.variantTexts)
       )
     };
@@ -2509,7 +2613,14 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
 
-    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title) || isAliExpressBlockedTitle(merged.title) || isAliExpressBlockedTitle(merged.description) || isAliExpressPlaceholderText(merged.title) || isAliExpressPlaceholderText(merged.description)) || !merged.image) {
+    if (
+      !hasUsefulPartialProductData(merged) ||
+      /^aliexpress$/i.test(merged.title) ||
+      isAliExpressBlockedTitle(merged.title) ||
+      isAliExpressBlockedTitle(merged.description) ||
+      isAliExpressPlaceholderText(merged.title) ||
+      isAliExpressPlaceholderText(merged.description)
+    ) {
       log("warn", "Playwright extracted partial product data", {
         url,
         title: merged.title || null,
@@ -2532,7 +2643,7 @@ async function scrapeWithPlaywright(url) {
         soldCount: merged.soldCount,
         variants: merged.variants
       };
-      if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
+      if (hasUsefulPartialProductData(merged)) {
         error.nonRetryable = true;
       }
       throw error;
@@ -2560,7 +2671,14 @@ async function scrapeWithHttp(url) {
   });
 
   const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title) || isAliExpressBlockedTitle(parsed.title) || isAliExpressBlockedTitle(parsed.description) || isAliExpressPlaceholderText(parsed.title) || isAliExpressPlaceholderText(parsed.description)) || !parsed.image) {
+  if (
+    !hasUsefulPartialProductData(parsed) ||
+    /^aliexpress$/i.test(parsed.title) ||
+    isAliExpressBlockedTitle(parsed.title) ||
+    isAliExpressBlockedTitle(parsed.description) ||
+    isAliExpressPlaceholderText(parsed.title) ||
+    isAliExpressPlaceholderText(parsed.description)
+  ) {
     const error = new Error("HTTP fallback returned incomplete product data");
     error.partialData = {
       title: parsed.title,
@@ -2574,7 +2692,7 @@ async function scrapeWithHttp(url) {
       soldCount: parsed.soldCount,
       variants: parsed.variants
     };
-    if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
+    if (hasUsefulPartialProductData(parsed)) {
       error.nonRetryable = true;
     }
     throw error;
