@@ -1,4 +1,4 @@
-require("dotenv").config({ override: true });
+require("dotenv").config();
 
 const path = require("path");
 const fs = require("fs");
@@ -682,7 +682,7 @@ function getFutureIsoFromSeconds(seconds) {
 }
 
 function shouldUseAliExpressAffiliateApi() {
-  return ALIEXPRESS_ENABLE_AFFILIATE_API && /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD);
+  return ALIEXPRESS_ENABLE_AFFILIATE_API && /^aliexpress\.affiliate\./i.test(ALIEXPRESS_AFFILIATE_PRODUCT_METHOD);
 }
 
 function hasAliExpressDsAccessToken() {
@@ -2418,6 +2418,9 @@ async function getBrowser() {
         return browser;
       })
       .catch((error) => {
+        if (/spawn EPERM|executable doesn't exist|failed to launch|playwright is not installed/i.test(String(error?.message || ""))) {
+          error.nonRetryable = true;
+        }
         clearBrowserReference("browser-launch-failed", { error: error.message });
         throw error;
       });
@@ -2836,6 +2839,8 @@ async function scrapeWithHttp(url) {
     };
     if (hasUsefulPartialProductData(parsed)) {
       error.nonRetryable = true;
+    } else if (isAliExpressAntiBotSignal(response.data)) {
+      error.nonRetryable = true;
     }
     throw error;
   }
@@ -2892,6 +2897,7 @@ async function fetchProduct(url) {
       lastPageError = error;
       if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
       log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
+      if (error?.nonRetryable) break;
     }
   }
 
@@ -2904,6 +2910,7 @@ async function fetchProduct(url) {
         lastPageError = error;
         if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
         log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
+        if (error?.nonRetryable) break;
       }
     }
   }
