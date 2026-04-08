@@ -687,7 +687,7 @@ function signAliExpressRestRequest(apiPath, params, secret) {
     .sort()
     .map((key) => `${key}${params[key]}`)
     .join("");
-  return crypto.createHash("sha256").update(`${normalizedPath}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+  return crypto.createHash("sha256").update(`${normalizedPath}${sorted}`, "utf8").digest("hex").toUpperCase();
 }
 
 async function createAliExpressAccessToken(code) {
