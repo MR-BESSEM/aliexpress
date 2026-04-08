@@ -51,6 +51,7 @@ const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
 const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
 const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
 const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
+const ALIEXPRESS_ENABLE_AFFILIATE_API = process.env.ALIEXPRESS_ENABLE_AFFILIATE_API === "true";
 const ALIEXPRESS_OAUTH_AUTHORIZE_URL = process.env.ALIEXPRESS_OAUTH_AUTHORIZE_URL || "https://api-sg.aliexpress.com/oauth/authorize";
 const ALIEXPRESS_OAUTH_TOKEN_URL = process.env.ALIEXPRESS_OAUTH_TOKEN_URL || "https://api-sg.aliexpress.com/rest/auth/token/create";
 const ALIEXPRESS_AFFILIATE_API_BASE_URL = process.env.ALIEXPRESS_AFFILIATE_API_BASE_URL || "https://eco.taobao.com/router/rest";
@@ -678,6 +679,20 @@ function getFutureIsoFromSeconds(seconds) {
   const amount = Number(seconds || 0);
   if (!Number.isFinite(amount) || amount <= 0) return "";
   return new Date(Date.now() + amount * 1000).toISOString();
+}
+
+function shouldUseAliExpressAffiliateApi() {
+  return ALIEXPRESS_ENABLE_AFFILIATE_API && /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD);
+}
+
+function hasAliExpressDsAccessToken() {
+  return Boolean(sanitizeText(process.env.ALIEXPRESS_ACCESS_TOKEN || ""));
+}
+
+function getAliExpressApiMode() {
+  if (hasAliExpressDsAccessToken()) return "ds";
+  if (shouldUseAliExpressAffiliateApi()) return "affiliate";
+  return "scrape-only";
 }
 
 function signAliExpressRestRequest(apiPath, params, secret) {
@@ -2144,12 +2159,11 @@ async function withRetries(label, task) {
 }
 
 async function fetchAliExpressApiProduct(productId) {
-  const shouldUseAffiliateApi = /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN;
-  if (shouldUseAffiliateApi) {
+  if (shouldUseAliExpressAffiliateApi()) {
     return fetchAliExpressAffiliateProduct(productId);
   }
 
-  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !process.env.ALIEXPRESS_ACCESS_TOKEN) {
+  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !hasAliExpressDsAccessToken()) {
     return null;
   }
 
@@ -2161,7 +2175,7 @@ async function fetchAliExpressApiProduct(productId) {
     timestamp: formatTopTimestamp(),
     v: "2.0",
     product_id: productId,
-    access_token: process.env.ALIEXPRESS_ACCESS_TOKEN,
+    access_token: String(process.env.ALIEXPRESS_ACCESS_TOKEN || "").trim(),
     ship_to_country: "TN",
     target_currency: "USD",
     target_language: "en_US"
@@ -3185,16 +3199,17 @@ app.get("/aliexpress/oauth-callback", async (req, res, next) => {
 
 app.get("/api/health", (req, res) => {
   const scrapeProxy = getScrapeProxyConfig();
-  const affiliateMode = /^aliexpress\.affiliate\./i.test(ALIEXPRESS_PRODUCT_METHOD) || !process.env.ALIEXPRESS_ACCESS_TOKEN;
+  const apiMode = getAliExpressApiMode();
   res.json({
     success: true,
     status: "ok",
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
-    aliexpressApiTokenConfigured: Boolean(process.env.ALIEXPRESS_ACCESS_TOKEN),
-    aliexpressApiMode: affiliateMode ? "affiliate" : "ds",
+    aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
+    aliexpressApiMode: apiMode,
     affiliateApiConfigured: Boolean(ALIEXPRESS_AFFILIATE_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    affiliateApiEnabled: ALIEXPRESS_ENABLE_AFFILIATE_API,
     affiliateTrackingIdConfigured: Boolean(ALIEXPRESS_TRACKING_ID),
     scrapeProxyConfigured: Boolean(scrapeProxy),
     scrapeProxyProtocol: scrapeProxy?.protocol || "",
