@@ -2158,10 +2158,10 @@ async function withRetries(label, task) {
   throw lastError;
 }
 
-async function fetchAliExpressApiProduct(productId) {
-  if (shouldUseAliExpressAffiliateApi()) {
-    return fetchAliExpressAffiliateProduct(productId);
-  }
+async function fetchAliExpressApiProduct(productId, url) {
+  // 🚀 نستعمل scraping مباشرة
+  return await scrapeWithPlaywright(url);
+}
 
   if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !hasAliExpressDsAccessToken()) {
     return null;
@@ -2880,7 +2880,7 @@ async function fetchProduct(url) {
   let apiData = null;
   let apiError = null;
   try {
-    apiData = await fetchAliExpressApiProduct(productId);
+    apiData = await fetchAliExpressApiProduct(productId, url);
   } catch (error) {
     apiError = error;
     log("warn", "AliExpress API product fetch failed", { productId, error: error.message });
