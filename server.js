@@ -2505,9 +2505,9 @@ async function buildPlaywrightContext(browser) {
   return context;
 }
 
-async function scrapeWithPlaywright(url) {
+ywright(url) {
   const browser = await getBrowser();
-  const context = await buildPlaywrightContext(browser);
+  consasync function scrapeWithPlat context = await buildPlaywrightContext(browser);
   const page = await context.newPage();
   const responsePayloads = [];
   const responsePayloadTasks = [];
@@ -2805,46 +2805,58 @@ async function scrapeWithPlaywright(url) {
   }
 }
 
-async function scrapeWithHttp(url) {
-  const response = await axios.get(url, {
-    timeout: Math.min(SCRAPE_TIMEOUT_MS, 20_000),
-    ...getAxiosProxyOptions(),
-    headers: {
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      "accept-language": "en-US,en;q=0.9"
-    }
+async function scrapeWithPlaywright(url) {
+  const { chromium } = require("playwright");
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox"]
   });
 
-  const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (
-    !hasUsefulPartialProductData(parsed) ||
-    /^aliexpress$/i.test(parsed.title) ||
-    isAliExpressBlockedTitle(parsed.title) ||
-    isAliExpressBlockedTitle(parsed.description) ||
-    isAliExpressPlaceholderText(parsed.title) ||
-    isAliExpressPlaceholderText(parsed.description)
-  ) {
-    const error = new Error("HTTP fallback returned incomplete product data");
-    error.partialData = {
-      title: parsed.title,
-      description: parsed.description,
-      image: parsed.image,
-      price: parsed.price,
-      shipping: parsed.shipping,
-      deliveryEstimate: parsed.deliveryEstimate,
-      rating: parsed.rating,
-      reviewCount: parsed.reviewCount,
-      soldCount: parsed.soldCount,
-      variants: parsed.variants
-    };
-    if (hasUsefulPartialProductData(parsed)) {
-      error.nonRetryable = true;
-    } else if (isAliExpressAntiBotSignal(response.data)) {
-      error.nonRetryable = true;
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+  });
+
+  const page = await context.newPage();
+
+  try {
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000
+    });
+
+    await page.waitForTimeout(4000);
+
+    const html = await page.content();
+
+    // 🚨 detect block
+    if (html.includes("captcha") || html.includes("punish")) {
+      throw new Error("BLOCKED BY ALIEXPRESS");
     }
-    throw error;
+
+    const data = await page.evaluate(() => {
+      const text = (sel) =>
+        document.querySelector(sel)?.innerText?.trim() || "";
+
+      return {
+        title: text("h1"),
+        price:
+          text(".product-price-value") ||
+          text("[class*='price']"),
+        image:
+          document.querySelector("img")?.src || ""
+      };
+    });
+
+    return data;
+  } catch (err) {
+    throw err;
+  } finally {
+    await page.close().catch(() => {});
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
   }
-  return parsed;
 }
 
 async function fetchProduct(url) {
