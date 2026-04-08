@@ -18,7 +18,9 @@ try {
 
 const app = express();
 const ROOT = __dirname;
+const ENV_FILE_PATH = path.join(ROOT, ".env");
 const PORT = Number(process.env.PORT || 3000);
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/g, "");
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 900) * 1000;
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_SECONDS || 3600) * 1000;
 const SCRAPE_TIMEOUT_MS = Number(process.env.SCRAPE_TIMEOUT_MS || 30_000);
@@ -49,6 +51,8 @@ const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
 const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
 const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
 const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
+const ALIEXPRESS_OAUTH_AUTHORIZE_URL = process.env.ALIEXPRESS_OAUTH_AUTHORIZE_URL || "https://api-sg.aliexpress.com/oauth/authorize";
+const ALIEXPRESS_OAUTH_TOKEN_URL = process.env.ALIEXPRESS_OAUTH_TOKEN_URL || "https://api-sg.aliexpress.com/rest/auth/token/create";
 const ALIEXPRESS_AFFILIATE_API_BASE_URL = process.env.ALIEXPRESS_AFFILIATE_API_BASE_URL || "https://eco.taobao.com/router/rest";
 const ALIEXPRESS_AFFILIATE_PRODUCT_METHOD = process.env.ALIEXPRESS_AFFILIATE_PRODUCT_METHOD || "aliexpress.affiliate.productdetail.get";
 const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").trim();
@@ -631,6 +635,99 @@ function fileExists(targetPath) {
   } catch {
     return false;
   }
+}
+
+function getPublicBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+  const protocol = sanitizeText(req.headers["x-forwarded-proto"] || req.protocol || "https") || "https";
+  const host = sanitizeText(req.headers["x-forwarded-host"] || req.get("host") || "");
+  return host ? `${protocol}://${host}` : "";
+}
+
+function getAliExpressOAuthCallbackUrl(req) {
+  const baseUrl = getPublicBaseUrl(req);
+  return baseUrl ? `${baseUrl}/aliexpress/oauth-callback` : "";
+}
+
+function escapeEnvValue(value = "") {
+  const text = String(value ?? "");
+  if (!text) return "";
+  return /[\s#"'`]/.test(text) ? JSON.stringify(text) : text;
+}
+
+function upsertEnvEntries(filePath, updates = {}) {
+  const source = fileExists(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+  let contents = source.replace(/\r\n/g, "\n");
+
+  Object.entries(updates).forEach(([key, rawValue]) => {
+    const value = escapeEnvValue(rawValue);
+    const line = `${key}=${value}`;
+    const pattern = new RegExp(`^${key}=.*$`, "m");
+    if (pattern.test(contents)) {
+      contents = contents.replace(pattern, line);
+    } else {
+      contents = `${contents.replace(/\n*$/g, "")}\n${line}\n`;
+    }
+  });
+
+  fs.writeFileSync(filePath, contents.replace(/\n/g, newline), "utf8");
+}
+
+function getFutureIsoFromSeconds(seconds) {
+  const amount = Number(seconds || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  return new Date(Date.now() + amount * 1000).toISOString();
+}
+
+async function createAliExpressAccessToken(code) {
+  const trimmedCode = sanitizeText(code);
+  if (!trimmedCode) {
+    const error = new Error("Missing OAuth code");
+    error.status = 400;
+    throw error;
+  }
+  if (!ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET) {
+    const error = new Error("AliExpress app credentials are missing");
+    error.status = 500;
+    throw error;
+  }
+
+  const payloadVariants = [
+    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode, grantType: "authorization_code" },
+    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode, grant_type: "authorization_code" },
+    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode }
+  ];
+  let lastError = null;
+
+  for (const payload of payloadVariants) {
+    try {
+      const response = await axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, payload, {
+        timeout: 20_000,
+        proxy: false,
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json"
+        }
+      });
+      const data = response.data && typeof response.data === "object" ? response.data : {};
+      if (String(data.code ?? "0") !== "0" && !data.access_token) {
+        const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
+        const error = new Error(message);
+        error.status = 502;
+        error.meta = {
+          code: data.code ?? null,
+          requestId: data.request_id || data.requestId || null
+        };
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("AliExpress OAuth token exchange failed");
 }
 
 function detectPlaywrightExecutable() {
@@ -2979,6 +3076,80 @@ app.get("/", (req, res) => {
 
 app.get(["/admin", "/admin.html"], (req, res) => {
   res.sendFile(path.join(ROOT, "admin.html"));
+});
+
+app.get("/aliexpress/oauth/start", (req, res) => {
+  if (!ALIEXPRESS_APP_KEY) {
+    return res.status(500).json({ success: false, error: "AliExpress App Key غير مضبوط" });
+  }
+
+  const callbackUrl = getAliExpressOAuthCallbackUrl(req);
+  if (!callbackUrl) {
+    return res.status(500).json({ success: false, error: "رابط callback غير مضبوط" });
+  }
+
+  const authorizeUrl = new URL(ALIEXPRESS_OAUTH_AUTHORIZE_URL);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("force_auth", "true");
+  authorizeUrl.searchParams.set("client_id", ALIEXPRESS_APP_KEY);
+  authorizeUrl.searchParams.set("redirect_uri", callbackUrl);
+  if (req.query.state) {
+    authorizeUrl.searchParams.set("state", sanitizeText(req.query.state));
+  }
+
+  res.redirect(authorizeUrl.toString());
+});
+
+app.get("/aliexpress/oauth-callback", async (req, res, next) => {
+  try {
+    if (req.query.error) {
+      return res.status(400).send(`<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>AliExpress OAuth Failed</title>
+<body style="font-family:Arial,sans-serif;padding:24px">
+<h1>AliExpress authorization failed</h1>
+<p>${sanitizeText(req.query.error_description || req.query.error)}</p>
+</body></html>`);
+    }
+
+    const code = sanitizeText(req.query.code || "");
+    if (!code) {
+      return res.status(400).json({ success: false, error: "كود التفويض غير موجود" });
+    }
+
+    const tokenData = await createAliExpressAccessToken(code);
+    const accessToken = sanitizeText(tokenData.access_token || tokenData.accessToken || "");
+    const refreshToken = sanitizeText(tokenData.refresh_token || tokenData.refreshToken || "");
+    if (!accessToken) {
+      throw new Error("AliExpress OAuth did not return an access token");
+    }
+
+    upsertEnvEntries(ENV_FILE_PATH, {
+      ALIEXPRESS_ACCESS_TOKEN: accessToken,
+      ALIEXPRESS_REFRESH_TOKEN: refreshToken,
+      ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn),
+      ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn)
+    });
+    process.env.ALIEXPRESS_ACCESS_TOKEN = accessToken;
+    process.env.ALIEXPRESS_REFRESH_TOKEN = refreshToken;
+    process.env.ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn);
+    process.env.ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn);
+
+    log("log", "AliExpress OAuth token stored", {
+      account: sanitizeText(tokenData.account || ""),
+      expiresIn: Number(tokenData.expires_in || tokenData.expiresIn || 0),
+      refreshExpiresIn: Number(tokenData.refresh_expires_in || tokenData.refreshExpiresIn || 0)
+    });
+
+    res.send(`<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>AliExpress Connected</title>
+<body style="font-family:Arial,sans-serif;padding:24px">
+<h1>AliExpress connected</h1>
+<p>Access token saved successfully.</p>
+<p>You can now retry product fetching from your site.</p>
+</body></html>`);
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/api/health", (req, res) => {
