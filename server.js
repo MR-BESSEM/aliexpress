@@ -682,7 +682,7 @@ function getFutureIsoFromSeconds(seconds) {
 }
 
 function shouldUseAliExpressAffiliateApi() {
-  return ALIEXPRESS_ENABLE_AFFILIATE_API && /^aliexpress\.affiliate\./i.test(ALIEXPRESS_AFFILIATE_PRODUCT_METHOD);
+  return false; // 🚫 عطّلنا affiliate نهائياً
 }
 
 function hasAliExpressDsAccessToken() {
@@ -2159,7 +2159,6 @@ async function withRetries(label, task) {
 }
 
 async function fetchAliExpressApiProduct(productId, url) {
-  // 🚀 نستعمل scraping مباشرة
   return await scrapeWithPlaywright(url);
 }
 
@@ -2207,7 +2206,7 @@ async function fetchAliExpressApiProduct(productId, url) {
     variants: extracted.variants || [],
     source: "aliexpress-api"
   };
-}
+
 
 async function fetchAliExpressAffiliateProduct(productId) {
   if (!ALIEXPRESS_AFFILIATE_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId) {
@@ -3272,7 +3271,7 @@ app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-    const product = await fetchProduct(req.query.url);
+const product = await scrapeWithPlaywright(url);
     res.json(product);
   } catch (error) {
     next(error);
