@@ -2917,10 +2917,12 @@ async function fetchProduct(url) {
         alertText: affiliateAuthAlertText
       });
     }
-    const error = lastPageError || new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
-    error.status = 502;
-    error.message = "ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا";
-    throw error;
+    return buildUnavailableProductResponse({
+      canonicalUrl,
+      productId,
+      source: "scrape-unavailable",
+      alertText: "الجلب المباشر من AliExpress متعطل حاليا على السيرفر هذا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب حتى نثبتولك السعر."
+    });
   }
 
   if (!pageData) {
@@ -3022,9 +3024,12 @@ async function fetchProduct(url) {
   }
 
   if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
-    const error = new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
-    error.status = 502;
-    throw error;
+    return buildUnavailableProductResponse({
+      canonicalUrl,
+      productId,
+      source: "scrape-unavailable",
+      alertText: "الجلب المباشر من AliExpress متعطل حاليا على السيرفر هذا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب حتى نثبتولك السعر."
+    });
   }
 
   if (!isBadCachedProduct(product)) {
