@@ -680,6 +680,16 @@ function getFutureIsoFromSeconds(seconds) {
   return new Date(Date.now() + amount * 1000).toISOString();
 }
 
+function signAliExpressRestRequest(apiPath, params, secret) {
+  const normalizedPath = String(apiPath || "").trim() || "/";
+  const sorted = Object.keys(params)
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+    .sort()
+    .map((key) => `${key}${params[key]}`)
+    .join("");
+  return crypto.createHash("sha256").update(`${normalizedPath}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+}
+
 async function createAliExpressAccessToken(code) {
   const trimmedCode = sanitizeText(code);
   if (!trimmedCode) {
@@ -693,35 +703,56 @@ async function createAliExpressAccessToken(code) {
     throw error;
   }
 
+  const tokenPath = new URL(ALIEXPRESS_OAUTH_TOKEN_URL).pathname || "/auth/token/create";
+  const baseParams = {
+    app_key: ALIEXPRESS_APP_KEY,
+    sign_method: "sha256",
+    timestamp: String(Date.now())
+  };
   const payloadVariants = [
-    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode, grantType: "authorization_code" },
-    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode, grant_type: "authorization_code" },
-    { app_key: ALIEXPRESS_APP_KEY, app_secret: ALIEXPRESS_APP_SECRET, code: trimmedCode }
-  ];
+    { ...baseParams, code: trimmedCode, grant_type: "authorization_code" },
+    { ...baseParams, code: trimmedCode, grantType: "authorization_code" },
+    { ...baseParams, code: trimmedCode }
+  ].map((params) => ({
+    ...params,
+    sign: signAliExpressRestRequest(tokenPath, params, ALIEXPRESS_APP_SECRET)
+  }));
   let lastError = null;
 
   for (const payload of payloadVariants) {
     try {
-      const response = await axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, payload, {
-        timeout: 20_000,
-        proxy: false,
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json"
+      const attempts = [
+        () => axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, null, {
+          timeout: 20_000,
+          proxy: false,
+          params: payload,
+          headers: { accept: "application/json" }
+        }),
+        () => axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, new URLSearchParams(payload).toString(), {
+          timeout: 20_000,
+          proxy: false,
+          headers: {
+            "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+            accept: "application/json"
+          }
+        })
+      ];
+
+      for (const attempt of attempts) {
+        const response = await attempt();
+        const data = response.data && typeof response.data === "object" ? response.data : {};
+        if (String(data.code ?? "0") !== "0" && !data.access_token) {
+          const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
+          const error = new Error(message);
+          error.status = 502;
+          error.meta = {
+            code: data.code ?? null,
+            requestId: data.request_id || data.requestId || null
+          };
+          throw error;
         }
-      });
-      const data = response.data && typeof response.data === "object" ? response.data : {};
-      if (String(data.code ?? "0") !== "0" && !data.access_token) {
-        const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
-        const error = new Error(message);
-        error.status = 502;
-        error.meta = {
-          code: data.code ?? null,
-          requestId: data.request_id || data.requestId || null
-        };
-        throw error;
+        return data;
       }
-      return data;
     } catch (error) {
       lastError = error;
     }
