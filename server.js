@@ -21,10 +21,10 @@ const ROOT = __dirname;
 const ENV_FILE_PATH = path.join(ROOT, ".env");
 const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/g, "");
-const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 900) * 1000;
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 21600) * 1000;
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_SECONDS || 3600) * 1000;
 const SCRAPE_TIMEOUT_MS = Number(process.env.SCRAPE_TIMEOUT_MS || 30_000);
-const SCRAPE_RETRIES = Number(process.env.SCRAPE_RETRIES || 2);
+const SCRAPE_RETRIES = Number(process.env.SCRAPE_RETRIES || 1);
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 45);
 const CORS_ORIGINS = String(process.env.CORS_ORIGINS || "")
@@ -60,6 +60,10 @@ const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").
 const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
 const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
 const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
+const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scrapingdog.com/scrape";
+const SCRAPINGDOG_API_KEY = String(process.env.SCRAPINGDOG_API_KEY || "69d95cbc42a0285609b2ca72").trim();
+const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
+const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
 const ADMIN_PIN = String(process.env.ADMIN_PIN || "1920").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
 const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
@@ -2159,9 +2163,148 @@ async function withRetries(label, task) {
 }
 
 async function fetchAliExpressApiProduct(productId, url) {
-  return await scrapeWithPlaywright(url);
+  return null;
 }
 
+function buildAffiliateLink(url) {
+  return url;
+}
+
+function shouldRetryScrapingDogRequest(error) {
+  const status = Number(error?.response?.status || 0);
+  if (error?.code === "ECONNABORTED") return true;
+  if (!status) return true;
+  return status >= 500 || status === 429;
+}
+
+function normalizeScrapedProductData(product = {}, url, source) {
+  return {
+    success: true,
+    title: pickBestProductTitle(product.title, product.description) || "",
+    description: pickBestProductDescription([product.description], product.title || ""),
+    price: Number(product.price || 0),
+    shipping: product.shipping != null ? Number(product.shipping) : null,
+    deliveryEstimate: sanitizeText(product.deliveryEstimate || ""),
+    image: normalizeUrl(product.image || ""),
+    rating: normalizeRating(product.rating),
+    reviewCount: Number(product.reviewCount || 0),
+    soldCount: Number(product.soldCount || 0),
+    variants: Array.isArray(product.variants) ? product.variants : [],
+    url,
+    affiliateUrl: buildAffiliateLink(url),
+    source
+  };
+}
+
+function buildScrapePartialData(product = {}, url, source) {
+  const normalized = normalizeScrapedProductData(product, url, source);
+  return {
+    title: normalized.title,
+    description: normalized.description,
+    image: normalized.image,
+    price: normalized.price,
+    shipping: normalized.shipping,
+    deliveryEstimate: normalized.deliveryEstimate,
+    rating: normalized.rating,
+    reviewCount: normalized.reviewCount,
+    soldCount: normalized.soldCount,
+    variants: normalized.variants,
+    url: normalized.url
+  };
+}
+
+async function fetchScrapingDogHtml(url) {
+  if (!SCRAPINGDOG_API_KEY) {
+    const error = new Error("ScrapingDog API key is missing");
+    error.status = 500;
+    throw error;
+  }
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await axios.get(SCRAPINGDOG_API_URL, {
+        params: {
+          api_key: SCRAPINGDOG_API_KEY,
+          url,
+          dynamic: String(SCRAPINGDOG_DYNAMIC)
+        },
+        timeout: SCRAPE_TIMEOUT_MS,
+        responseType: "text",
+        headers: {
+          Accept: "text/html,application/xhtml+xml"
+        },
+        ...getAxiosProxyOptions()
+      });
+
+      const html = typeof response.data === "string" ? response.data : String(response.data || "");
+      if (!html.trim()) {
+        const error = new Error("ScrapingDog returned an empty HTML response");
+        error.status = 502;
+        error.nonRetryable = true;
+        throw error;
+      }
+
+      return html;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= SCRAPINGDOG_RETRY_COUNT || !shouldRetryScrapingDogRequest(error)) {
+        break;
+      }
+      await sleep(500 * (attempt + 1));
+    }
+  }
+
+  if (lastError?.response?.status) {
+    const status = Number(lastError.response.status);
+    const error = new Error(`ScrapingDog request failed with status ${status}`);
+    error.status = status >= 500 ? 502 : status;
+    error.nonRetryable = status < 500 && status !== 429;
+    throw error;
+  }
+
+  throw lastError || new Error("ScrapingDog request failed");
+}
+
+async function scrapeAliExpressWithScrapingDog(url, source = "scrapingdog") {
+  const html = await fetchScrapingDogHtml(url);
+  const parsed = extractHtmlProduct(html, url, source);
+  const product = normalizeScrapedProductData(parsed, url, source);
+
+  if (
+    isAliExpressBlockedTitle(product.title) ||
+    isAliExpressBlockedTitle(product.description) ||
+    isAliExpressPlaceholderLike(product.title) ||
+    isAliExpressPlaceholderLike(product.description)
+  ) {
+    const error = new Error("AliExpress blocked or masked the product page");
+    error.nonRetryable = true;
+    error.partialData = buildScrapePartialData(product, url, source);
+    throw error;
+  }
+
+  if (!product.title || !product.image || (!product.price && !product.description)) {
+    const error = new Error("ScrapingDog scrape returned incomplete product data");
+    error.partialData = buildScrapePartialData(product, url, source);
+    if (hasUsefulPartialProductData(error.partialData)) {
+      error.nonRetryable = true;
+    }
+    throw error;
+  }
+
+  return product;
+}
+
+async function legacyScrapeWithPlaywright(url) {
+  return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
+}
+
+async function scrapeWithHttp(url) {
+  return scrapeAliExpressWithScrapingDog(url, "scrapingdog-http");
+}
+
+async function fetchAliExpressApiProductLegacy(productId) {
   if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !hasAliExpressDsAccessToken()) {
     return null;
   }
@@ -2206,6 +2349,7 @@ async function fetchAliExpressApiProduct(productId, url) {
     variants: extracted.variants || [],
     source: "aliexpress-api"
   };
+}
 
 
 async function fetchAliExpressAffiliateProduct(productId) {
@@ -2504,9 +2648,9 @@ async function buildPlaywrightContext(browser) {
   return context;
 }
 
-ywright(url) {
+async function legacyScrapeWithCapturedResponses(url) {
   const browser = await getBrowser();
-  consasync function scrapeWithPlat context = await buildPlaywrightContext(browser);
+  const context = await buildPlaywrightContext(browser);
   const page = await context.newPage();
   const responsePayloads = [];
   const responsePayloadTasks = [];
@@ -3228,6 +3372,7 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
+    scrapingDogConfigured: Boolean(SCRAPINGDOG_API_KEY),
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
     aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
     aliexpressApiMode: apiMode,
@@ -3271,7 +3416,7 @@ app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-const product = await scrapeWithPlaywright(url);
+    const product = await fetchProduct(String(req.query.url || ""));
     res.json(product);
   } catch (error) {
     next(error);
