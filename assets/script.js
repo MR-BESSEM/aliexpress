@@ -526,7 +526,7 @@
         if (!text || text.length > 40) return false;
         if (/^https?:\/\//i.test(text)) return false;
         if (/^[0-9\s.,/+%-]+$/.test(text)) return false;
-        if (/all categories|search|download|welcome|sign in|register|click to|feedback|aliexpress|store|shipping|review|rating|buyer protection/i.test(text)) return false;
+        if (/all categories|search|download|welcome|sign in|register|click to|feedback|aliexpress|store|shipping|review|rating|buyer protection|automotive|appliances|women'?s clothing|men'?s clothing|beauty\s*&\s*health|toys\s*&\s*games/i.test(text)) return false;
         return true;
     }
 
