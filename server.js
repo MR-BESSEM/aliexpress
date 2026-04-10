@@ -897,12 +897,15 @@ function isAliExpressNavigationJunk(value) {
   if (!cleaned) return false;
   const keywordMatches = [
     /download the aliexpress app/i,
+    /you can click this button to search/i,
     /help center/i,
     /return(?:&| and )refund policy/i,
     /report ipr infringement/i,
     /transparency center/i,
     /submit report/i,
     /welcome\s*sign in/i,
+    /sign in\s*\/\s*register/i,
+    /welcome\s*sign in\s*\/\s*register/i,
     /search by image/i,
     /all categories/i,
     /\b0\s+cart\b/i,
@@ -2295,13 +2298,14 @@ function buildScrapePartialData(product = {}, url, source) {
   };
 }
 
-async function fetchScrapingDogHtml(url) {
+async function fetchScrapingDogHtml(url, options = {}) {
   if (!SCRAPINGDOG_API_KEY) {
     const error = new Error("ScrapingDog API key is missing");
     error.status = 500;
     throw error;
   }
 
+  const useDynamic = options.dynamic === true;
   let lastError = null;
 
   for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
@@ -2310,7 +2314,7 @@ async function fetchScrapingDogHtml(url) {
         params: {
           api_key: SCRAPINGDOG_API_KEY,
           url,
-          dynamic: String(SCRAPINGDOG_DYNAMIC)
+          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC)
         },
         timeout: SCRAPE_TIMEOUT_MS,
         responseType: "text",
@@ -2349,33 +2353,43 @@ async function fetchScrapingDogHtml(url) {
   throw lastError || new Error("ScrapingDog request failed");
 }
 
-async function scrapeAliExpressWithScrapingDog(url, source = "scrapingdog") {
-  const html = await fetchScrapingDogHtml(url);
-  const parsed = extractHtmlProduct(html, url, source);
-  const product = normalizeScrapedProductData(parsed, url, source);
-
-  if (
+function isIncompleteScrapedProduct(product = {}) {
+  return Boolean(
+    !product.title ||
+    !product.image ||
+    (!product.price && !product.description) ||
     isAliExpressBlockedTitle(product.title) ||
     isAliExpressBlockedTitle(product.description) ||
     isAliExpressPlaceholderLike(product.title) ||
     isAliExpressPlaceholderLike(product.description)
-  ) {
-    const error = new Error("AliExpress blocked or masked the product page");
+  );
+}
+
+async function scrapeAliExpressWithScrapingDog(url, source = "scrapingdog") {
+  const staticHtml = await fetchScrapingDogHtml(url, { dynamic: false });
+  const staticParsed = normalizeScrapedProductData(extractHtmlProduct(staticHtml, url, source), url, source);
+
+  if (!isIncompleteScrapedProduct(staticParsed)) {
+    return staticParsed;
+  }
+
+  const dynamicHtml = await fetchScrapingDogHtml(url, { dynamic: true });
+  const dynamicSource = `${source}-dynamic`;
+  const dynamicParsed = normalizeScrapedProductData(extractHtmlProduct(dynamicHtml, url, dynamicSource), url, dynamicSource);
+
+  if (!isIncompleteScrapedProduct(dynamicParsed)) {
+    return dynamicParsed;
+  }
+
+  const bestPartial = hasUsefulPartialProductData(buildScrapePartialData(dynamicParsed, url, dynamicSource))
+    ? dynamicParsed
+    : staticParsed;
+  const error = new Error("ScrapingDog scrape returned incomplete product data");
+  error.partialData = buildScrapePartialData(bestPartial, url, bestPartial.source || source);
+  if (hasUsefulPartialProductData(error.partialData)) {
     error.nonRetryable = true;
-    error.partialData = buildScrapePartialData(product, url, source);
-    throw error;
   }
-
-  if (!product.title || !product.image || (!product.price && !product.description)) {
-    const error = new Error("ScrapingDog scrape returned incomplete product data");
-    error.partialData = buildScrapePartialData(product, url, source);
-    if (hasUsefulPartialProductData(error.partialData)) {
-      error.nonRetryable = true;
-    }
-    throw error;
-  }
-
-  return product;
+  throw error;
 }
 
 async function legacyScrapeWithPlaywright(url) {
@@ -3030,7 +3044,7 @@ async function legacyScrapeWithCapturedResponses(url) {
   }
 }
 
-async function scrapeWithPlaywright(url) {
+async function legacyMinimalPlaywrightScrape(url) {
   const { chromium } = require("playwright");
 
   const browser = await chromium.launch({
@@ -3082,6 +3096,10 @@ async function scrapeWithPlaywright(url) {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
+}
+
+async function scrapeWithPlaywright(url) {
+  return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
 }
 
 async function fetchProduct(url) {
