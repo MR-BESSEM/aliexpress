@@ -1960,7 +1960,8 @@ function extractJsonObjectsFromHtml(html, $) {
     const assignmentPattern = /(?:window\.[\w$]+|[\w$]+)\s*=\s*[\[{]/g;
     let match = null;
     while ((match = assignmentPattern.exec(script)) !== null) {
-      const start = script.search(/[\[{]/, match.index);
+      const relativeStart = script.slice(match.index).search(/[\[{]/);
+      const start = relativeStart >= 0 ? match.index + relativeStart : -1;
       if (start < 0) continue;
       const jsonChunk = extractBalancedJson(script, start);
       if (!jsonChunk) continue;
@@ -1993,6 +1994,80 @@ function extractJsonObjectsFromHtml(html, $) {
     }
   }
   return objects;
+}
+
+function decodeAliExpressEscapes(value = "") {
+  return String(value || "")
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .replace(/\\\//g, "/")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#34;/g, "\"")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function pickFirstRegexValue(source, patterns = []) {
+  for (const pattern of patterns) {
+    const match = String(source || "").match(pattern);
+    if (!match?.[1]) continue;
+    const value = sanitizeText(decodeAliExpressEscapes(match[1]));
+    if (value) return value;
+  }
+  return "";
+}
+
+function extractProductFieldsFromRawHtml(html) {
+  const source = String(html || "");
+  const title = pickFirstRegexValue(source, [
+    /"subject"\s*:\s*"([^"]{6,500})"/i,
+    /"productTitle"\s*:\s*"([^"]{6,500})"/i,
+    /"seoTitle"\s*:\s*"([^"]{6,500})"/i,
+    /"title"\s*:\s*"([^"]{6,500}?)"\s*,\s*"tradeCount"/i,
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
+  ]);
+  const image = normalizeUrl(pickFirstRegexValue(source, [
+    /"imagePathList"\s*:\s*\[\s*"([^"]+)"/i,
+    /"productMainImageUrl"\s*:\s*"([^"]+)"/i,
+    /"mainImageUrl"\s*:\s*"([^"]+)"/i,
+    /"imageUrl"\s*:\s*"([^"]+)"/i,
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+  ]));
+  const priceText = pickFirstRegexValue(source, [
+    /"formatedActivityPrice"\s*:\s*"([^"]+)"/i,
+    /"formatedPrice"\s*:\s*"([^"]+)"/i,
+    /"skuCalPrice"\s*:\s*"([^"]+)"/i,
+    /"salePrice"\s*:\s*"([^"]+)"/i,
+    /"minPrice"\s*:\s*"([^"]+)"/i,
+    /"minActivityAmount"\s*:\s*"([^"]+)"/i,
+    /"price"\s*:\s*"((?:US\s*)?\$?\s*[0-9][^"]{0,24})"/i
+  ]);
+  const ratingText = pickFirstRegexValue(source, [
+    /"averageStar"\s*:\s*"([^"]+)"/i,
+    /"starRating"\s*:\s*"([^"]+)"/i,
+    /"rating"\s*:\s*"([0-5](?:[.,][0-9])?)"/i
+  ]);
+  const reviewText = pickFirstRegexValue(source, [
+    /"reviewerNum"\s*:\s*"([^"]+)"/i,
+    /"reviewCount"\s*:\s*"([^"]+)"/i,
+    /"feedbackRating"\s*:\s*"([^"]+)"/i
+  ]);
+  const soldText = pickFirstRegexValue(source, [
+    /"tradeCount"\s*:\s*"([^"]+)"/i,
+    /"formatTradeCount"\s*:\s*"([^"]+)"/i,
+    /"orders"\s*:\s*"([^"]+)"/i
+  ]);
+
+  return {
+    title,
+    image,
+    price: pickFirstPositive([parseMoney(priceText), ...extractUsdValuesFromText(priceText)]),
+    rating: normalizeRating(ratingText),
+    reviewCount: parseCompactCount(reviewText),
+    soldCount: parseCompactCount(soldText)
+  };
 }
 
 function extractProductFieldsFromObjectTree(source) {
@@ -2058,6 +2133,7 @@ function extractProductFieldsFromObjectTree(source) {
 
 function extractHtmlProduct(html, url, source) {
   const $ = cheerio.load(html);
+  const rawExtracted = extractProductFieldsFromRawHtml(html);
   const antiBotPage = isAliExpressAntiBotSignal([
     $("title").text(),
     $("body").text().slice(0, 5000),
@@ -2072,6 +2148,7 @@ function extractHtmlProduct(html, url, source) {
     ? embedded.title
     : "";
   const title =
+    rawExtracted.title ||
     safeEmbeddedTitle ||
     sanitizeText($("meta[property='og:title']").attr("content")) ||
     sanitizeText($("meta[name='twitter:title']").attr("content")) ||
@@ -2090,6 +2167,7 @@ function extractHtmlProduct(html, url, source) {
     title
   );
   const image =
+    rawExtracted.image ||
     embedded.image ||
     normalizeUrl($("meta[property='og:image']").attr("content")) ||
     normalizeUrl($("meta[name='twitter:image']").attr("content")) ||
@@ -2107,16 +2185,20 @@ function extractHtmlProduct(html, url, source) {
     parseMoney($("meta[property='product:price:amount']").attr("content")),
     parseMoney($("meta[name='twitter:data1']").attr("content")),
     parseMoney($("meta[itemprop='price']").attr("content")),
+    rawExtracted.price,
     selectorPrice,
     embedded.price,
     bodyPrice
   ]);
-  const rating = embedded.rating || extractRatingFromTextList([$("body").text()]);
-  const reviewCount = embedded.reviewCount || extractCountFromTextList([
+  const rating = rawExtracted.rating || embedded.rating || extractRatingFromTextList([
+    ...$("[class*='rating'], [class*='Rating'], [class*='star'], [class*='Star']").map((_, el) => $(el).text()).get(),
+    ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
+  ]);
+  const reviewCount = rawExtracted.reviewCount || embedded.reviewCount || extractCountFromTextList([
     $("body").text(),
     ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
   ], /review|feedback|ratings?|avis/i);
-  const soldCount = embedded.soldCount || extractCountFromTextList([
+  const soldCount = rawExtracted.soldCount || embedded.soldCount || extractCountFromTextList([
     $("body").text(),
     ...$("[class*='sold'], [class*='order'], [class*='trade']").map((_, el) => $(el).text()).get()
   ], /sold|orders?|commandes|ventes/i);
