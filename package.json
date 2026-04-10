@@ -2,24 +2,30 @@
   "name": "aliexpress-tunisia-saas",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-ready AliExpress Tunisia SaaS platform",
-  "main": "server.js",
+  "description": "Premium Tunisia-focused e-commerce storefront rebuilt with Next.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "render-build": "npm ci && PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium chromium-headless-shell",
-    "pm2:start": "pm2 start ecosystem.config.cjs --env production",
-    "pm2:reload": "pm2 reload ecosystem.config.cjs --env production",
-    "vps:update": "bash ./scripts/vps-update.sh"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "legacy:server": "node server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
     "axios": "^1.8.4",
     "cheerio": "^1.0.0",
+    "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "playwright": "^1.59.1"
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
+    "mongodb": "^7.1.1",
+    "next": "^16.2.3",
+    "playwright": "^1.59.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.2"
   }
 }
