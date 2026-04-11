@@ -2514,13 +2514,13 @@ async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
 
     const page = await context.newPage();
 
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: 60000
-    });
+await page.goto(url, {
+  waitUntil: "domcontentloaded",
+  timeout: 20000
+}).catch(() => {});
 
-    await page.waitForSelector("h1", { timeout: 15000 });
-    await page.waitForTimeout(3000);
+await page.waitForLoadState("domcontentloaded").catch(() => {});
+await page.waitForTimeout(3000).catch(() => {});
 
     const html = await page.content();
 
@@ -2973,20 +2973,18 @@ async function legacyScrapeWithCapturedResponses(url) {
     }).catch(() => {});
   });
 
-  try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: SCRAPE_TIMEOUT_MS });
-    await Promise.race([
-      page.waitForLoadState("load", { timeout: 8_000 }).catch(() => {}),
-      page.waitForSelector("h1, img, meta[property='og:title'], script", { timeout: 8_000 }).catch(() => {}),
-      page.waitForFunction(
-        () => Boolean(document?.body?.innerText?.trim()?.length > 120 || document?.querySelector("img")),
-        { timeout: 8_000 }
-      ).catch(() => {})
-    ]);
-    await page.waitForTimeout(1500);
-    if (responsePayloadTasks.length) {
-      await Promise.allSettled(responsePayloadTasks);
-    }
+try {
+  await page.goto(url, {
+    waitUntil: "domcontentloaded",
+    timeout: SCRAPE_TIMEOUT_MS || 20000
+  }).catch(() => {});
+
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  await page.waitForTimeout(2000).catch(() => {});
+
+  if (responsePayloadTasks.length) {
+    await Promise.allSettled(responsePayloadTasks);
+  }
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -3248,13 +3246,12 @@ async function legacyMinimalPlaywrightScrape(url) {
 
   const page = await context.newPage();
 
-  try {
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: 30000
-    });
+await page.goto(url, {
+  waitUntil: "domcontentloaded",
+  timeout: 20000
+}).catch(() => {});
 
-    await page.waitForTimeout(4000);
+await page.waitForTimeout(3000).catch(() => {});
 
     const html = await page.content();
 
