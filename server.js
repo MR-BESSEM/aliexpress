@@ -3709,7 +3709,12 @@ app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
-    const product = await fetchProduct(String(req.query.url || ""));
+const product = await Promise.race([
+  fetchProduct(String(req.query.url || "")),
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Scrape timeout")), 20000)
+  )
+]);
     res.json(product);
   } catch (error) {
     next(error);
