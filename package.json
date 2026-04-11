@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "legacy:server": "node server.js"
+    "next:start": "next start",
+    "start": "node server.js",
+    "legacy:server": "node server.js",
+    "render-build": "node -e \"console.log('No build step required for legacy server deployment.')\""
   },
   "engines": {
     "node": ">=20"
