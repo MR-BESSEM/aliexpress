@@ -3282,7 +3282,7 @@ await page.waitForTimeout(3000).catch(() => {});
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-
+} // ✅ THIS LINE FIXES EVERYTHING
 
 async function scrapeWithPlaywright(url) {
   return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
