@@ -3246,6 +3246,8 @@ async function legacyMinimalPlaywrightScrape(url) {
 
   const page = await context.newPage();
 
+  try {
+
 await page.goto(url, {
   waitUntil: "domcontentloaded",
   timeout: 20000
@@ -3281,8 +3283,8 @@ await page.waitForTimeout(3000).catch(() => {});
     await page.close().catch(() => {});
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
-  }
-} // ✅ THIS LINE FIXES EVERYTHING
+}
+}✅ THIS LINE FIXES EVERYTHING
 
 async function scrapeWithPlaywright(url) {
   return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
