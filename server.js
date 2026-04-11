@@ -3272,19 +3272,46 @@ await page.waitForTimeout(3000).catch(() => {});
       throw new Error("BLOCKED BY ALIEXPRESS");
     }
 
-    const data = await page.evaluate(() => {
-      const text = (sel) =>
-        document.querySelector(sel)?.innerText?.trim() || "";
+const data = await page.evaluate(() => {
+  const scripts = Array.from(document.querySelectorAll("script"));
 
-      return {
-        title: text("h1"),
-        price:
-          text(".product-price-value") ||
-          text("[class*='price']"),
-        image:
-          document.querySelector("img")?.src || ""
-      };
-    });
+  let jsonData = null;
+
+  for (const s of scripts) {
+    if (s.innerText.includes("runParams")) {
+      try {
+        const match = s.innerText.match(/runParams\s*=\s*(\{.*\})/);
+        if (match) {
+          jsonData = JSON.parse(match[1]);
+          break;
+        }
+      } catch {}
+    }
+  }
+
+  if (!jsonData) return null;
+
+  const product = jsonData?.data || {};
+
+  return {
+    title:
+      product.titleModule?.subject ||
+      product.title ||
+      "",
+
+    price:
+      product.priceModule?.formatedPrice ||
+      product.priceModule?.minActivityAmount?.value ||
+      "",
+
+    image:
+      product.imageModule?.imagePathList?.[0] || ""
+  };
+});
+
+if (!data) {
+  throw new Error("JSON extraction failed");
+}
 
     return data;
   } catch (err) {
