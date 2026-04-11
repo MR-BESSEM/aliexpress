@@ -3282,7 +3282,7 @@ await page.waitForTimeout(3000).catch(() => {});
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-}
+
 
 async function scrapeWithPlaywright(url) {
   return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
@@ -3694,30 +3694,56 @@ app.get("/api/promos", rateLimitMiddleware, (req, res) => {
   });
 });
 
-app.get("/api/settings", rateLimitMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    settings: getPublicSettings()
-  });
-});
+app.get("/api/product", rateLimitMiddleware, async (req, res) => {
+  const url = String(req.query.url || "");
 
-app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
-  try {
-    if (!req.query.url) {
-      return res.status(400).json({ success: false, error: "لازم تبعث رابط المنتج" });
+  if (!url) {
+    return res.status(400).json({
+      success: false,
+      error: "لازم تبعث رابط المنتج"
+    });
+  }
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  console.log("API HIT:", url);
+
+  let finished = false;
+
+  // 🔥 FORCE RESPONSE AFTER 20s (GUARANTEED)
+  const timeout = setTimeout(() => {
+    if (!finished) {
+      finished = true;
+      console.log("FORCED TIMEOUT");
+      res.status(500).json({
+        success: false,
+        error: "Scraper stuck (timeout)"
+      });
     }
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-const product = await Promise.race([
-  fetchProduct(String(req.query.url || "")),
-  new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Scrape timeout")), 20000)
-  )
-]);
-    res.json(product);
+  }, 20000);
+
+  try {
+    const product = await fetchProduct(url);
+
+    if (!finished) {
+      finished = true;
+      clearTimeout(timeout);
+      console.log("SCRAPE DONE");
+      return res.json(product);
+    }
+
   } catch (error) {
-    next(error);
+    if (!finished) {
+      finished = true;
+      clearTimeout(timeout);
+      console.error("ERROR:", error.message);
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
   }
 });
 
