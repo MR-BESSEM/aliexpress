@@ -3327,6 +3327,70 @@ async function scrapeWithPlaywright(url) {
   return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
 }
 
+
+async function fetchViaScrapingDog(url) {
+  if (!process.env.SCRAPINGDOG_API_KEY) {
+    throw new Error("ScrapingDog API key missing");
+  }
+
+  const params = new URLSearchParams({
+    api_key: process.env.SCRAPINGDOG_API_KEY,
+    url,
+    dynamic: "true",           // render JS
+    country: process.env.SCRAPINGDOG_COUNTRY || "us"
+  });
+
+  const endpoint = `${process.env.SCRAPINGDOG_API_URL}?${params.toString()}`;
+
+  const res = await axios.get(endpoint, { timeout: 30000 });
+  const html = res.data || "";
+
+  if (!html || html.length < 1000) {
+    throw new Error("Empty HTML from ScrapingDog");
+  }
+
+  return html;
+}
+
+
+function extractFromHtml(html) {
+  const $ = cheerio.load(html);
+
+  // try JSON first
+  let data = null;
+
+  $("script").each((_, el) => {
+    const txt = $(el).html() || "";
+    if (txt.includes("runParams")) {
+      try {
+        const match = txt.match(/runParams\s*=\s*(\{.*\})/);
+        if (match) {
+          const json = JSON.parse(match[1]);
+          data = json?.data || null;
+        }
+      } catch {}
+    }
+  });
+
+  if (data) {
+    return {
+      title: data.titleModule?.subject || "",
+      price:
+        data.priceModule?.formatedPrice ||
+        data.priceModule?.minActivityAmount?.value ||
+        "",
+      image: data.imageModule?.imagePathList?.[0] || ""
+    };
+  }
+
+  // fallback (meta tags)
+  return {
+    title: $("meta[property='og:title']").attr("content") || "",
+    image: $("meta[property='og:image']").attr("content") || "",
+    price: ""
+  };
+}
+  
 async function fetchProduct(url) {
   const urlCandidates = getProductUrlCandidates(url);
   const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
@@ -3343,80 +3407,30 @@ async function fetchProduct(url) {
 
   const cacheKey = `product:${productId}`;
   const cached = getCache(productCache, cacheKey);
+
   if (cached && !isBadCachedProduct(cached)) {
     return { ...cached, cached: true };
   }
 
-  // 🔥 FORCE MOBILE URL (ANTI-BLOCK)
-  const mobileUrl = canonicalUrl
-    .replace("www.aliexpress.com", "m.aliexpress.com")
-    .replace("aliexpress.com", "m.aliexpress.com");
-
-  console.log("📱 Mobile scraping:", mobileUrl);
-
   let pageData = null;
 
   try {
-    const browser = await getBrowser();
+    // 🔥 FETCH VIA SCRAPINGDOG (NO BLOCK)
+    const html = await fetchViaScrapingDog(canonicalUrl);
 
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
-      viewport: { width: 390, height: 844 },
-      locale: "en-US"
-    });
+    console.log("📦 HTML length:", html.length);
 
-    const page = await context.newPage();
+    // 🔥 EXTRACT DATA
+    pageData = extractFromHtml(html);
 
-    await page.setExtraHTTPHeaders({
-      "accept-language": "en-US,en;q=0.9"
-    });
+    console.log("🧠 Extracted:", pageData);
 
-    await page.goto(mobileUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000
-    });
-
-    await page.waitForTimeout(3000);
-
-    const html = await page.content();
-
-    // 🚨 BLOCK DETECTION
-    if (html.includes("captcha") || html.includes("punish")) {
-      throw new Error("Blocked by AliExpress");
+    if (!pageData || (!pageData.title && !pageData.price)) {
+      throw new Error("Failed to extract product");
     }
 
-    // 🔥 EXTRACT CLEAN DATA
-    pageData = await page.evaluate(() => {
-      const text = (sel) =>
-        document.querySelector(sel)?.innerText?.trim() || "";
-
-      return {
-        title:
-          text("h1") ||
-          text(".pdp-title") ||
-          text("[class*='title']"),
-
-        price:
-          text(".product-price-current") ||
-          text("[class*='price']") ||
-          text(".price--currentPrice"),
-
-        image:
-          document.querySelector("img")?.src || "",
-
-        description:
-          text(".product-description") ||
-          text("[class*='description']") ||
-          ""
-      };
-    });
-
-    await page.close();
-    await context.close();
-
   } catch (error) {
-    console.error("❌ Mobile scrape failed:", error.message);
+    console.error("❌ Scraping failed:", error.message);
 
     return {
       success: false,
@@ -3429,10 +3443,8 @@ async function fetchProduct(url) {
   const product = {
     success: true,
     title: pageData.title || "منتج AliExpress",
-    description: pageData.description || "",
-    price: Number(
-      (pageData.price || "").replace(/[^\d.]/g, "")
-    ) || 0,
+    description: "",
+    price: Number(String(pageData.price).replace(/[^\d.]/g, "")) || 0,
     shipping: null,
     image: pageData.image || "",
     rating: 0,
@@ -3440,14 +3452,13 @@ async function fetchProduct(url) {
     soldCount: 0,
     variants: [],
     url: canonicalUrl,
-    source: "mobile-scrape",
+    source: "scrapingdog",
     cached: false,
     fetchedAt: new Date().toISOString()
   };
 
   product.shippingLabel = "غير متوفر";
   product.deliveryEstimate = "من 12 حتى 25 يوم";
-
   product.priceUnavailable = product.price <= 0;
 
   if (!isBadCachedProduct(product)) {
@@ -3455,6 +3466,25 @@ async function fetchProduct(url) {
   }
 
   return product;
+}
+
+async function fetchViaScrapingDog(url) {
+  if (!process.env.SCRAPINGDOG_API_KEY) {
+    throw new Error("Missing ScrapingDog API key");
+  }
+
+  const params = new URLSearchParams({
+    api_key: process.env.SCRAPINGDOG_API_KEY,
+    url,
+    dynamic: "true",
+    country: "us"
+  });
+
+  const endpoint = `${process.env.SCRAPINGDOG_API_URL}?${params.toString()}`;
+
+  const res = await axios.get(endpoint, { timeout: 30000 });
+
+  return res.data;
 }
 
 async function fetchExchangeRate() {
