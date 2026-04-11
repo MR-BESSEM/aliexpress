@@ -64,6 +64,8 @@ const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scra
 const SCRAPINGDOG_API_KEY = String(process.env.SCRAPINGDOG_API_KEY || "69d95cbc42a0285609b2ca72").trim();
 const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
 const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
+const SCRAPINGDOG_COUNTRY = String(process.env.SCRAPINGDOG_COUNTRY || "tn").trim().toLowerCase();
+const SCRAPINGDOG_ACCEPT_LANGUAGE = String(process.env.SCRAPINGDOG_ACCEPT_LANGUAGE || "en-US,en;q=0.9,fr;q=0.8,ar;q=0.7").trim();
 const ADMIN_PIN = String(process.env.ADMIN_PIN || "1920").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
 const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
@@ -2347,12 +2349,15 @@ async function fetchScrapingDogHtml(url, options = {}) {
         params: {
           api_key: SCRAPINGDOG_API_KEY,
           url,
-          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC)
+          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC),
+          country: SCRAPINGDOG_COUNTRY || undefined
         },
         timeout: SCRAPE_TIMEOUT_MS,
         responseType: "text",
         headers: {
-          Accept: "text/html,application/xhtml+xml"
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
         },
         ...getAxiosProxyOptions()
       });
@@ -3721,3 +3726,36 @@ app.use((error, req, res, next) => {
 });
 
 setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of productCache.entries()) {
+    if (entry.expiresAt < now) productCache.delete(key);
+  }
+  for (const [key, entry] of fxCache.entries()) {
+    if (entry.expiresAt < now) fxCache.delete(key);
+  }
+  for (const [key, entry] of rateBuckets.entries()) {
+    if (entry.expiresAt < now) rateBuckets.delete(key);
+  }
+}, 60_000).unref();
+
+const server = app.listen(PORT, () => {
+  log("log", `AliExpress Tunisia server listening on port ${PORT}`, {
+    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
+  });
+});
+
+async function closeServer() {
+  await new Promise((resolve) => server.close(resolve));
+  if (browserPromise) {
+    try {
+      const browser = await browserPromise;
+      await browser.close();
+    } catch {
+      // ignore browser close errors
+    }
+  }
+  log("log", "HTTP server closed");
+}
+
+process.on("SIGINT", () => closeServer().finally(() => process.exit(0)));
+process.on("SIGTERM", () => closeServer().finally(() => process.exit(0)));
