@@ -128,20 +128,24 @@ function getScrapeProxyConfig() {
 }
 
 function getAxiosProxyOptions() {
-  const proxy = getScrapeProxyConfig();
-  if (!proxy || !/^https?$/i.test(proxy.protocol)) {
+  if (!process.env.SCRAPE_PROXY_SERVER) {
+    console.log("❌ No proxy for Axios");
     return { proxy: false };
   }
 
+  const proxyUrl = new URL(process.env.SCRAPE_PROXY_SERVER);
+
+  console.log("✅ Axios using proxy:", proxyUrl.href);
+
   return {
     proxy: {
-      protocol: proxy.protocol,
-      host: new URL(proxy.server).hostname,
-      port: Number(new URL(proxy.server).port || (proxy.protocol === "https" ? 443 : 80)),
-      auth: proxy.username
+      protocol: proxyUrl.protocol.replace(":", ""),
+      host: proxyUrl.hostname,
+      port: Number(proxyUrl.port || 80),
+      auth: process.env.SCRAPE_PROXY_USERNAME
         ? {
-            username: proxy.username,
-            password: proxy.password || ""
+            username: process.env.SCRAPE_PROXY_USERNAME,
+            password: process.env.SCRAPE_PROXY_PASSWORD || ""
           }
         : undefined
     }
