@@ -142,12 +142,10 @@ function getAxiosProxyOptions() {
       protocol: proxyUrl.protocol.replace(":", ""),
       host: proxyUrl.hostname,
       port: Number(proxyUrl.port || 80),
-      auth: process.env.SCRAPE_PROXY_USERNAME
-        ? {
-            username: process.env.SCRAPE_PROXY_USERNAME,
-            password: process.env.SCRAPE_PROXY_PASSWORD || ""
-          }
-        : undefined
+      auth: {
+        username: process.env.SCRAPE_PROXY_USERNAME,
+        password: process.env.SCRAPE_PROXY_PASSWORD
+      }
     }
   };
 }
@@ -2835,18 +2833,14 @@ async function getBrowser() {
       ]
     };
 
-    // 🔥 FORCE PROXY FROM ENV (MAIN FIX)
-    if (process.env.SCRAPE_PROXY_SERVER) {
-      launchOptions.proxy = {
-        server: process.env.SCRAPE_PROXY_SERVER,
-        username: process.env.SCRAPE_PROXY_USERNAME || undefined,
-        password: process.env.SCRAPE_PROXY_PASSWORD || undefined
-      };
+// 🔥 HARD FORCE PROXY (NO CONDITIONS)
+launchOptions.proxy = {
+  server: process.env.SCRAPE_PROXY_SERVER || "http://31.59.20.176:6754",
+  username: process.env.SCRAPE_PROXY_USERNAME || "zigdenj",
+  password: process.env.SCRAPE_PROXY_PASSWORD || "sb7fjm27bej6"
+};
 
-      console.log("✅ Using proxy:", process.env.SCRAPE_PROXY_SERVER);
-    } else {
-      console.log("❌ No proxy configured");
-    }
+console.log("🔥 PROXY FORCED:", launchOptions.proxy.server);
 
     // optional custom chromium path
     if (resolvedBrowserExecutable) {
