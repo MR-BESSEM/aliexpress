@@ -61,7 +61,7 @@ const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
 const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
 const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
 const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scrapingdog.com/scrape";
-const SCRAPINGDOG_API_KEY = String(process.env.SCRAPINGDOG_API_KEY || "69d95cbc42a0285609b2ca72").trim();
+const SCRAPINGDOG_API_KEY = (process.env.SCRAPINGDOG_API_KEY || "").trim();
 const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
 const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
 const SCRAPINGDOG_COUNTRY = String(process.env.SCRAPINGDOG_COUNTRY || "tn").trim().toLowerCase();
