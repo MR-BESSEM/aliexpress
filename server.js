@@ -2490,33 +2490,97 @@ function isIncompleteScrapedProduct(product = {}) {
   );
 }
 
-async function scrapeAliExpressWithScrapingDog(url, source = "scrapingdog") {
-  const staticHtml = await fetchScrapingDogHtml(url, { dynamic: false });
-  const staticParsed = normalizeScrapedProductData(extractHtmlProduct(staticHtml, url, source), url, source);
+async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
+  let browser;
 
-  if (!isIncompleteScrapedProduct(staticParsed)) {
-    return staticParsed;
+  try {
+    if (!playwright) {
+      throw new Error("Playwright not available");
+    }
+
+    browser = await playwright.chromium.launch({
+      headless: true,
+      args: ["--no-sandbox"],
+      proxy: process.env.SCRAPE_PROXY_URL
+        ? { server: process.env.SCRAPE_PROXY_URL }
+        : undefined
+    });
+
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      locale: "en-US"
+    });
+
+    const page = await context.newPage();
+
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000
+    });
+
+    await page.waitForSelector("h1", { timeout: 15000 });
+    await page.waitForTimeout(3000);
+
+    const html = await page.content();
+
+    // 🚨 BLOCK DETECTION
+    if (
+      html.includes("sk-container") ||
+      html.includes("captcha") ||
+      html.includes("verify")
+    ) {
+      throw new Error("Blocked by AliExpress");
+    }
+
+    const data = await page.evaluate(() => {
+      const clean = (el) => el?.innerText?.trim();
+
+      const title =
+        clean(document.querySelector("h1")) ||
+        clean(document.querySelector("[data-pl='product-title']"));
+
+      const price =
+        clean(document.querySelector("[class*='price']")) ||
+        document.body.innerText.match(/\$\d+(\.\d+)?/)?.[0];
+
+      const image =
+        document.querySelector("img[src*='alicdn']")?.src ||
+        document.querySelector("img")?.src;
+
+      return { title, price, image };
+    });
+
+    if (!data.title || !data.price) {
+      throw new Error("Invalid scraping result");
+    }
+
+    // ✅ IMPORTANT → keep your system format
+    return normalizeScrapedProductData(
+      {
+        title: data.title,
+        price: data.price,
+        image: data.image,
+        source: "playwright"
+      },
+      url,
+      "playwright"
+    );
+
+  } catch (error) {
+    const partial = {
+      title: "",
+      price: 0,
+      image: "",
+      source: "playwright-failed"
+    };
+
+    error.partialData = partial;
+    throw error;
+  } finally {
+    if (browser) await browser.close();
   }
-
-  const dynamicHtml = await fetchScrapingDogHtml(url, { dynamic: true });
-  const dynamicSource = `${source}-dynamic`;
-  const dynamicParsed = normalizeScrapedProductData(extractHtmlProduct(dynamicHtml, url, dynamicSource), url, dynamicSource);
-
-  if (!isIncompleteScrapedProduct(dynamicParsed)) {
-    return dynamicParsed;
-  }
-
-  const bestPartial = hasUsefulPartialProductData(buildScrapePartialData(dynamicParsed, url, dynamicSource))
-    ? dynamicParsed
-    : staticParsed;
-  const error = new Error("ScrapingDog scrape returned incomplete product data");
-  error.partialData = buildScrapePartialData(bestPartial, url, bestPartial.source || source);
-  if (hasUsefulPartialProductData(error.partialData)) {
-    error.nonRetryable = true;
-  }
-  throw error;
 }
-
 async function legacyScrapeWithPlaywright(url) {
   return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
 }
