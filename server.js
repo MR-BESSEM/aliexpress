@@ -3303,198 +3303,130 @@ async function scrapeWithPlaywright(url) {
 async function fetchProduct(url) {
   const urlCandidates = getProductUrlCandidates(url);
   const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
-  const affiliateAuthAlertText = "الجلب التلقائي عبر Affiliate API متوقف مؤقتًا لأن إعدادات AliExpress الحالية مرفوضة. اعتمدنا fallback من الصفحة مباشرة، وإذا السعر ما ظهرش استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب إلى حين تبديل الـ App Key.";
+
   if (!canonicalUrl) {
     const error = new Error("رابط AliExpress غير صالح");
     error.status = 400;
     throw error;
   }
 
-  const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
+  const productId =
+    extractProductId(canonicalUrl) ||
+    crypto.createHash("md5").update(canonicalUrl).digest("hex");
+
   const cacheKey = `product:${productId}`;
   const cached = getCache(productCache, cacheKey);
-  if (cached && !isBadCachedProduct(cached)) return { ...cached, cached: true };
-  if (cached && isBadCachedProduct(cached)) {
-    productCache.delete(cacheKey);
+  if (cached && !isBadCachedProduct(cached)) {
+    return { ...cached, cached: true };
   }
 
-  let apiData = null;
-  let apiError = null;
-  try {
-    apiData = await fetchAliExpressApiProduct(productId, url);
-  } catch (error) {
-    apiError = error;
-    log("warn", "AliExpress API product fetch failed", { productId, error: error.message });
-  }
-  const affiliateAuthFailed = isAffiliateAppKeyInvalidError(apiError);
+  // 🔥 FORCE MOBILE URL (ANTI-BLOCK)
+  const mobileUrl = canonicalUrl
+    .replace("www.aliexpress.com", "m.aliexpress.com")
+    .replace("aliexpress.com", "m.aliexpress.com");
 
-  if (false && affiliateAuthFailed) {
-    return buildUnavailableProductResponse({
-      canonicalUrl,
-      productId,
-      source: "affiliate-auth-error",
-      alertText: "الجلب التلقائي متوقف مؤقتًا لأن إعدادات Affiliate API الحالية مرفوضة من AliExpress. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب إلى حين تبديل الـ App Key."
-    });
-  }
+  console.log("📱 Mobile scraping:", mobileUrl);
 
   let pageData = null;
-  let lastPageError = null;
-  let partialPageData = null;
-  const canUsePartialData = () => Boolean(partialPageData && hasUsefulPartialProductData(partialPageData));
 
-  for (const candidateUrl of urlCandidates) {
-    try {
-      pageData = await withRetries("playwright-scrape", () => scrapeWithPlaywright(candidateUrl));
-      if (pageData) break;
-    } catch (error) {
-      lastPageError = error;
-      if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
-      log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
-      if (error?.nonRetryable) break;
-    }
-  }
+  try {
+    const browser = await getBrowser();
 
-  if (!pageData && !canUsePartialData()) {
-    for (const candidateUrl of urlCandidates) {
-      try {
-        pageData = await withRetries("http-scrape", () => scrapeWithHttp(candidateUrl));
-        if (pageData) break;
-      } catch (error) {
-        lastPageError = error;
-        if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
-        log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
-        if (error?.nonRetryable) break;
-      }
-    }
-  }
-
-  if (!pageData && !apiData && !canUsePartialData()) {
-    if (affiliateAuthFailed) {
-      return buildUnavailableProductResponse({
-        canonicalUrl,
-        productId,
-        source: "affiliate-auth-error",
-        alertText: affiliateAuthAlertText
-      });
-    }
-    return buildUnavailableProductResponse({
-      canonicalUrl,
-      productId,
-      source: "scrape-unavailable",
-      alertText: "الجلب المباشر من AliExpress متعطل حاليا على السيرفر هذا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب حتى نثبتولك السعر."
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15",
+      viewport: { width: 390, height: 844 },
+      locale: "en-US"
     });
-  }
 
-  if (!pageData) {
-    const safePartialData = canUsePartialData() ? partialPageData : null;
-    pageData = {
-      title: partialPageData?.title || `منتج AliExpress #${productId}`,
-      description: safePartialData?.description || "",
-      price: Number(safePartialData?.price || 0),
-      image: normalizeUrl(safePartialData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
-      rating: normalizeRating(safePartialData?.rating),
-      reviewCount: Number(safePartialData?.reviewCount || 0),
-      soldCount: Number(safePartialData?.soldCount || 0),
-      variants: Array.isArray(safePartialData?.variants) ? safePartialData.variants : [],
-      url: safePartialData?.url || canonicalUrl,
-      source: safePartialData ? "partial-fallback" : "api-fallback",
-      shipping: safePartialData?.shipping != null ? Number(safePartialData.shipping) : null,
-      deliveryEstimate: safePartialData?.deliveryEstimate || "",
-      priceUnavailable: true
+    const page = await context.newPage();
+
+    await page.setExtraHTTPHeaders({
+      "accept-language": "en-US,en;q=0.9"
+    });
+
+    await page.goto(mobileUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 20000
+    });
+
+    await page.waitForTimeout(3000);
+
+    const html = await page.content();
+
+    // 🚨 BLOCK DETECTION
+    if (html.includes("captcha") || html.includes("punish")) {
+      throw new Error("Blocked by AliExpress");
+    }
+
+    // 🔥 EXTRACT CLEAN DATA
+    pageData = await page.evaluate(() => {
+      const text = (sel) =>
+        document.querySelector(sel)?.innerText?.trim() || "";
+
+      return {
+        title:
+          text("h1") ||
+          text(".pdp-title") ||
+          text("[class*='title']"),
+
+        price:
+          text(".product-price-current") ||
+          text("[class*='price']") ||
+          text(".price--currentPrice"),
+
+        image:
+          document.querySelector("img")?.src || "",
+
+        description:
+          text(".product-description") ||
+          text("[class*='description']") ||
+          ""
+      };
+    });
+
+    await page.close();
+    await context.close();
+
+  } catch (error) {
+    console.error("❌ Mobile scrape failed:", error.message);
+
+    return {
+      success: false,
+      error: "Scraper failed or blocked",
+      url: canonicalUrl
     };
   }
 
-  const resolvedTitle = pickBestProductTitle(
-    apiData?.title,
-    pageData?.title,
-    partialPageData?.title
-  ) || "منتج AliExpress";
-  const resolvedDescription = pickBestProductDescription(
-    [apiData?.description, pageData?.description, partialPageData?.description],
-    resolvedTitle
-  );
-
+  // 🔥 FINAL NORMALIZED PRODUCT
   const product = {
     success: true,
-    title: resolvedTitle,
-    description: resolvedDescription,
-    price: Number(apiData?.price || pageData?.price || 0),
-    shipping: pageData?.shipping != null
-      ? Number(pageData.shipping)
-      : (apiData?.shipping != null ? Number(apiData.shipping) : null),
-    image: apiData?.image || pageData?.image || "",
-    rating: normalizeRating(apiData?.rating) || normalizeRating(pageData?.rating),
-    reviewCount: Number(apiData?.reviewCount || pageData?.reviewCount || 0),
-    soldCount: Number(apiData?.soldCount || pageData?.soldCount || 0),
-    variants: mergeVariantGroups(pageData?.variants, apiData?.variants),
+    title: pageData.title || "منتج AliExpress",
+    description: pageData.description || "",
+    price: Number(
+      (pageData.price || "").replace(/[^\d.]/g, "")
+    ) || 0,
+    shipping: null,
+    image: pageData.image || "",
+    rating: 0,
+    reviewCount: 0,
+    soldCount: 0,
+    variants: [],
     url: canonicalUrl,
-    source: apiData ? "api+scrape" : (pageData?.source || "scrape"),
+    source: "mobile-scrape",
     cached: false,
     fetchedAt: new Date().toISOString()
   };
 
-  product.shippingLabel = product.shipping == null
-    ? "غير متوفر"
-    : (product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`);
-  if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title) || isAliExpressPlaceholderLike(product.title)) {
-    product.title = product.description && !isAliExpressPlaceholderLike(product.description)
-      ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "منتج AliExpress"
-      : "منتج AliExpress";
-  }
+  product.shippingLabel = "غير متوفر";
+  product.deliveryEstimate = "من 12 حتى 25 يوم";
 
-  if (isLowValueProductTitle(product.title) || isAliExpressPlaceholderLike(product.title)) {
-    product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "منتج AliExpress";
-  }
-
-  product.title = pickBestProductTitle(product.title, pageData?.title, apiData?.title, partialPageData?.title) || "Ù…Ù†ØªØ¬ AliExpress";
-  product.description = pickBestProductDescription([product.description, pageData?.description, apiData?.description, partialPageData?.description], product.title);
-  product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
-  product.restrictions = classifyProductRestrictions(product);
-  product.alerts = buildProductAlerts(product);
-  product.errorHint = "";
-  product.trustScore = buildSellerTrustScore(product);
-  product.customsAdvisor = buildCustomsAdvisor(product);
-  product.deliveryTimeline = buildEstimatedTimeline(product);
-  product.manualQuoteRecommended = Boolean(
-    product.restrictions?.banned ||
-    product.restrictions?.restricted ||
-    (Number.isFinite(Number(product.shipping)) && Number(product.shipping) >= 8)
-  );
-  product.priceUnavailable = Boolean(
-    Number(product.price || 0) <= 0 ||
-    pageData?.priceUnavailable ||
-    isLowValueProductTitle(product.title) ||
-    isLowValueProductDescription(product.description)
-  );
-
-  if (product.priceUnavailable) {
-    if (isLowValueProductTitle(product.title)) {
-      product.title = "منتج AliExpress";
-    }
-    if (isLowValueProductDescription(product.description)) {
-      product.description = "";
-    }
-    if (product.reviewCount > 50000 && (!product.description || isLowValueProductTitle(product.title))) {
-      product.reviewCount = 0;
-    }
-    if (product.soldCount > 50000 && (!product.description || isLowValueProductTitle(product.title))) {
-      product.soldCount = 0;
-    }
-    product.manualQuoteRecommended = true;
-  }
-
-  if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
-    return buildUnavailableProductResponse({
-      canonicalUrl,
-      productId,
-      source: "scrape-unavailable",
-      alertText: "الجلب المباشر من AliExpress متعطل حاليا على السيرفر هذا. استعمل التسعيرة اليدوية أو ابعث الرابط على واتساب حتى نثبتولك السعر."
-    });
-  }
+  product.priceUnavailable = product.price <= 0;
 
   if (!isBadCachedProduct(product)) {
     setCache(productCache, cacheKey, product, CACHE_TTL_MS);
   }
+
   return product;
 }
 
