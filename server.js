@@ -3704,6 +3704,7 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
     });
   }
 
+  // headers
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -3712,24 +3713,50 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
 
   let finished = false;
 
-  // 🔥 FORCE RESPONSE AFTER 20s (GUARANTEED)
+  // 🔥 FORCE TIMEOUT (important)
   const timeout = setTimeout(() => {
     if (!finished) {
       finished = true;
       console.log("FORCED TIMEOUT");
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Scraper stuck (timeout)"
       });
     }
-  }, 20000);
+  }, 15000);
 
   try {
-    const product = await fetchProduct(url);
+    let product = null;
+
+    // 🔥 SAFE EXECUTION (no blocking)
+    await new Promise((resolve) => {
+      fetchProduct(url)
+        .then((data) => {
+          product = data;
+          resolve();
+        })
+        .catch((err) => {
+          console.error("FETCH ERROR:", err.message);
+          resolve();
+        });
+
+      setTimeout(() => {
+        console.log("INTERNAL TIMEOUT");
+        resolve();
+      }, 14000);
+    });
 
     if (!finished) {
       finished = true;
       clearTimeout(timeout);
+
+      if (!product) {
+        return res.status(500).json({
+          success: false,
+          error: "Scraper failed or blocked"
+        });
+      }
+
       console.log("SCRAPE DONE");
       return res.json(product);
     }
@@ -3738,10 +3765,12 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
     if (!finished) {
       finished = true;
       clearTimeout(timeout);
+
       console.error("ERROR:", error.message);
+
       return res.status(500).json({
         success: false,
-        error: error.message
+        error: error.message || "Internal error"
       });
     }
   }
