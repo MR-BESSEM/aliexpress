@@ -2802,7 +2802,11 @@ async function fetchAliExpressAffiliateProduct(productId) {
 }
 
 async function getBrowser() {
-  if (!playwright?.chromium) throw new Error("Playwright is not installed");
+  if (!playwright?.chromium) {
+    throw new Error("Playwright is not installed");
+  }
+
+  // reuse browser if alive
   if (browserPromise) {
     try {
       const existingBrowser = await browserPromise;
@@ -2817,19 +2821,30 @@ async function getBrowser() {
 
   if (!browserPromise) {
     resolvedBrowserExecutable = resolvedBrowserExecutable || detectPlaywrightExecutable();
+
     const launchOptions = {
       headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage"
+      ]
     };
-    const proxy = getScrapeProxyConfig();
-    if (proxy) {
+
+    // 🔥 FORCE PROXY FROM ENV (MAIN FIX)
+    if (process.env.SCRAPE_PROXY_SERVER) {
       launchOptions.proxy = {
-        server: proxy.server,
-        username: proxy.username || undefined,
-        password: proxy.password || undefined,
-        bypass: SCRAPE_PROXY_BYPASS || undefined
+        server: process.env.SCRAPE_PROXY_SERVER,
+        username: process.env.SCRAPE_PROXY_USERNAME || undefined,
+        password: process.env.SCRAPE_PROXY_PASSWORD || undefined
       };
+
+      console.log("✅ Using proxy:", process.env.SCRAPE_PROXY_SERVER);
+    } else {
+      console.log("❌ No proxy configured");
     }
+
+    // optional custom chromium path
     if (resolvedBrowserExecutable) {
       launchOptions.executablePath = resolvedBrowserExecutable;
     }
@@ -2840,19 +2855,16 @@ async function getBrowser() {
         browser.on("disconnected", () => {
           clearBrowserReference("browser-disconnected-event");
         });
-        if (resolvedBrowserExecutable) {
-          log("log", "Playwright browser ready", { executablePath: resolvedBrowserExecutable });
-        }
+
+        console.log("🚀 Browser launched");
         return browser;
       })
       .catch((error) => {
-        if (/spawn EPERM|executable doesn't exist|failed to launch|playwright is not installed/i.test(String(error?.message || ""))) {
-          error.nonRetryable = true;
-        }
         clearBrowserReference("browser-launch-failed", { error: error.message });
         throw error;
       });
   }
+
   return browserPromise;
 }
 
