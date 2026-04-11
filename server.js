@@ -699,14 +699,31 @@ function getAliExpressApiMode() {
   return "scrape-only";
 }
 
-function signAliExpressRestRequest(apiPath, params, secret) {
-  const normalizedPath = String(apiPath || "").trim() || "/";
-  const sorted = Object.keys(params)
+function buildAliExpressSortedParams(params = {}) {
+  return Object.keys(params)
     .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
     .sort()
     .map((key) => `${key}${params[key]}`)
     .join("");
-  return crypto.createHmac("sha256", secret).update(`${normalizedPath}${sorted}`, "utf8").digest("hex").toUpperCase();
+}
+
+function signAliExpressRestRequest(apiPath, params, secret, strategy = "hmac-sha256-path") {
+  const normalizedPath = String(apiPath || "").trim() || "/";
+  const sorted = buildAliExpressSortedParams(params);
+
+  switch (strategy) {
+    case "sha256-secret-wrap-path":
+      return crypto.createHash("sha256").update(`${secret}${normalizedPath}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "sha256-secret-wrap":
+      return crypto.createHash("sha256").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "md5-secret-wrap":
+      return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "hmac-sha256":
+      return crypto.createHmac("sha256", secret).update(sorted, "utf8").digest("hex").toUpperCase();
+    case "hmac-sha256-path":
+    default:
+      return crypto.createHmac("sha256", secret).update(`${normalizedPath}${sorted}`, "utf8").digest("hex").toUpperCase();
+  }
 }
 
 async function createAliExpressAccessToken(code) {
@@ -728,14 +745,30 @@ async function createAliExpressAccessToken(code) {
     sign_method: "sha256",
     timestamp: String(Date.now())
   };
-  const payloadVariants = [
+  const unsignedPayloadVariants = [
     { ...baseParams, code: trimmedCode, grant_type: "authorization_code" },
     { ...baseParams, code: trimmedCode, grantType: "authorization_code" },
     { ...baseParams, code: trimmedCode }
-  ].map((params) => ({
-    ...params,
-    sign: signAliExpressRestRequest(tokenPath, params, ALIEXPRESS_APP_SECRET)
-  }));
+  ];
+  const signStrategies = [
+    "hmac-sha256-path",
+    "hmac-sha256",
+    "sha256-secret-wrap-path",
+    "sha256-secret-wrap",
+    "md5-secret-wrap"
+  ];
+  const payloadVariants = [];
+
+  for (const params of unsignedPayloadVariants) {
+    for (const strategy of signStrategies) {
+      const signMethod = strategy === "md5-secret-wrap" ? "md5" : "sha256";
+      payloadVariants.push({
+        ...params,
+        sign_method: signMethod,
+        sign: signAliExpressRestRequest(tokenPath, { ...params, sign_method: signMethod }, ALIEXPRESS_APP_SECRET, strategy)
+      });
+    }
+  }
   let lastError = null;
 
   for (const payload of payloadVariants) {
@@ -3688,36 +3721,3 @@ app.use((error, req, res, next) => {
 });
 
 setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of productCache.entries()) {
-    if (entry.expiresAt < now) productCache.delete(key);
-  }
-  for (const [key, entry] of fxCache.entries()) {
-    if (entry.expiresAt < now) fxCache.delete(key);
-  }
-  for (const [key, entry] of rateBuckets.entries()) {
-    if (entry.expiresAt < now) rateBuckets.delete(key);
-  }
-}, 60_000).unref();
-
-const server = app.listen(PORT, () => {
-  log("log", `AliExpress Tunisia server listening on port ${PORT}`, {
-    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
-  });
-});
-
-async function closeServer() {
-  await new Promise((resolve) => server.close(resolve));
-  if (browserPromise) {
-    try {
-      const browser = await browserPromise;
-      await browser.close();
-    } catch {
-      // ignore browser close errors
-    }
-  }
-  log("log", "HTTP server closed");
-}
-
-process.on("SIGINT", () => closeServer().finally(() => process.exit(0)));
-process.on("SIGTERM", () => closeServer().finally(() => process.exit(0)));
