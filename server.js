@@ -728,6 +728,18 @@ function signAliExpressRestRequest(apiPath, params, secret, strategy = "hmac-sha
   }
 }
 
+function signAliExpressSystemParams(params = {}, secret, algorithm = "md5") {
+  const normalized = Object.keys(params)
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+    .sort()
+    .map((key) => `${key}${params[key]}`)
+    .join("");
+
+  const payload = `${secret}${normalized}${secret}`;
+  const algo = String(algorithm || "md5").toLowerCase() === "sha256" ? "sha256" : "md5";
+  return crypto.createHash(algo).update(payload, "utf8").digest("hex").toUpperCase();
+}
+
 async function createAliExpressAccessToken(code) {
   const trimmedCode = sanitizeText(code);
   if (!trimmedCode) {
@@ -741,72 +753,147 @@ async function createAliExpressAccessToken(code) {
     throw error;
   }
 
-  const tokenPath = new URL(ALIEXPRESS_OAUTH_TOKEN_URL).pathname || "/auth/token/create";
-  const baseParams = {
-    app_key: ALIEXPRESS_APP_KEY,
-    sign_method: "sha256",
-    timestamp: String(Date.now())
+  const tokenUrl = new URL(ALIEXPRESS_OAUTH_TOKEN_URL);
+  const tokenPath = tokenUrl.pathname || "/auth/token/create";
+  const systemTokenUrl = `${tokenUrl.origin}/sync`;
+  const callbackUrl = getAliExpressOAuthCallbackUrl({ headers: {}, query: {}, protocol: "" }) || String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/$/, "") + "/aliexpress/oauth-callback";
+  const timestampValues = [String(Date.now()), String(Math.floor(Date.now() / 1000))];
+  const unsignedPayloadVariants = [];
+
+  for (const timestamp of timestampValues) {
+    unsignedPayloadVariants.push(
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grantType: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl }
+    );
+  }
+
+  const requestVariants = [];
+  const seenVariants = new Set();
+  const addVariant = (variant) => {
+    const key = JSON.stringify(variant);
+    if (!seenVariants.has(key)) {
+      seenVariants.add(key);
+      requestVariants.push(variant);
+    }
   };
-  const unsignedPayloadVariants = [
-    { ...baseParams, code: trimmedCode, grant_type: "authorization_code" },
-    { ...baseParams, code: trimmedCode, grantType: "authorization_code" },
-    { ...baseParams, code: trimmedCode }
-  ];
-  const signStrategies = [
-    "hmac-sha256-path",
-    "hmac-sha256",
-    "sha256-secret-wrap-path",
-    "sha256-secret-wrap",
-    "md5-secret-wrap"
-  ];
-  const payloadVariants = [];
 
   for (const params of unsignedPayloadVariants) {
-    for (const strategy of signStrategies) {
-      const signMethod = strategy === "md5-secret-wrap" ? "md5" : "sha256";
-      payloadVariants.push({
+    const restSignStrategies = [
+      "hmac-sha256-path",
+      "hmac-sha256",
+      "sha256-secret-wrap-path",
+      "sha256-secret-wrap",
+      "md5-secret-wrap"
+    ];
+
+    for (const strategy of restSignStrategies) {
+      const signMethod = strategy === "md5-secret-wrap" ? "md5" : params.sign_method;
+      const signedParams = { ...params, sign_method: signMethod };
+      addVariant({
+        label: `rest:${strategy}:${signMethod}`,
+        type: "rest",
+        url: ALIEXPRESS_OAUTH_TOKEN_URL,
+        params: {
+          ...signedParams,
+          sign: signAliExpressRestRequest(tokenPath, signedParams, ALIEXPRESS_APP_SECRET, strategy)
+        }
+      });
+    }
+
+    for (const signMethod of ["md5", "sha256"]) {
+      const systemParams = {
         ...params,
         sign_method: signMethod,
-        sign: signAliExpressRestRequest(tokenPath, { ...params, sign_method: signMethod }, ALIEXPRESS_APP_SECRET, strategy)
+        method: tokenPath,
+        format: "json"
+      };
+      addVariant({
+        label: `system-post:${signMethod}`,
+        type: "system-post",
+        url: systemTokenUrl,
+        params: {
+          ...systemParams,
+          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
+        }
+      });
+      addVariant({
+        label: `system-get:${signMethod}`,
+        type: "system-get",
+        url: systemTokenUrl,
+        params: {
+          ...systemParams,
+          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
+        }
       });
     }
   }
   let lastError = null;
 
-  for (const payload of payloadVariants) {
+  for (const variant of requestVariants) {
     try {
-      const attempts = [
-        () => axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, null, {
+      let response;
+      if (variant.type === "system-get") {
+        response = await axios.get(variant.url, {
           timeout: 20_000,
           proxy: false,
-          params: payload,
+          params: variant.params,
           headers: { accept: "application/json" }
-        }),
-        () => axios.post(ALIEXPRESS_OAUTH_TOKEN_URL, new URLSearchParams(payload).toString(), {
+        });
+      } else if (variant.type === "system-post") {
+        response = await axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
           timeout: 20_000,
           proxy: false,
           headers: {
             "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
             accept: "application/json"
           }
-        })
-      ];
+        });
+      } else {
+        const attempts = [
+          () => axios.post(variant.url, null, {
+            timeout: 20_000,
+            proxy: false,
+            params: variant.params,
+            headers: { accept: "application/json" }
+          }),
+          () => axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
+            timeout: 20_000,
+            proxy: false,
+            headers: {
+              "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+              accept: "application/json"
+            }
+          })
+        ];
 
-      for (const attempt of attempts) {
-        const response = await attempt();
-        const data = response.data && typeof response.data === "object" ? response.data : {};
-        if (String(data.code ?? "0") !== "0" && !data.access_token) {
-          const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
-          const error = new Error(message);
-          error.status = 502;
-          error.meta = {
-            code: data.code ?? null,
-            requestId: data.request_id || data.requestId || null
-          };
-          throw error;
+        let localResponse = null;
+        for (const attempt of attempts) {
+          localResponse = await attempt();
+          const data = localResponse.data && typeof localResponse.data === "object" ? localResponse.data : {};
+          if (String(data.code ?? "0") === "0" || data.access_token) {
+            response = localResponse;
+            break;
+          }
         }
-        return data;
+        if (!response && localResponse) response = localResponse;
       }
+
+      const data = response?.data && typeof response.data === "object" ? response.data : {};
+      if (String(data.code ?? "0") !== "0" && !data.access_token) {
+        const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
+        const error = new Error(message);
+        error.status = 502;
+        error.meta = {
+          code: data.code ?? null,
+          requestId: data.request_id || data.requestId || null,
+          label: variant.label
+        };
+        throw error;
+      }
+      return data;
     } catch (error) {
       lastError = error;
     }
