@@ -3585,7 +3585,14 @@ app.get("/aliexpress/oauth-callback", async (req, res, next) => {
 <p>You can now retry product fetching from your site.</p>
 </body></html>`);
   } catch (error) {
-    next(error);
+    const response = {
+      success: false,
+      error: error.message,
+      requestId: error?.meta?.requestId || error?.requestId || undefined
+    };
+    if (error?.meta?.label) response.variant = error.meta.label;
+    if (error?.meta?.code != null) response.code = error.meta.code;
+    res.status(error?.status || 502).json(response);
   }
 });
 
