@@ -3791,16 +3791,16 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
   let finished = false;
 
   // 🔥 FORCE TIMEOUT (important)
-  const timeout = setTimeout(() => {
-    if (!finished) {
-      finished = true;
-      console.log("FORCED TIMEOUT");
-      return res.status(500).json({
-        success: false,
-        error: "Scraper stuck (timeout)"
-      });
-    }
-  }, 15000);
+const timeout = setTimeout(() => {
+  if (!finished) {
+    finished = true;
+    console.log("FORCED TIMEOUT");
+    return res.status(504).json({
+      success: false,
+      error: "Scraper stuck (timeout)"
+    });
+  }
+}, 45000);
 
   try {
     const product = await fetchProduct(url);
