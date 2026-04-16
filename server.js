@@ -1801,11 +1801,11 @@ function isAffiliateAppKeyInvalidError(error) {
   );
 }
 
-function buildUnavailableProductResponse({ canonicalUrl, productId, alertText = "" }) {
+function buildUnavailableProductResponse({ canonicalUrl, productId }) {
   return {
     success: true,
     title: "منتج AliExpress",
-    description: "السعر والمواصفات غير متوفرة حالياً. يمكننا طلب عرض سعر يدوي.",
+    description: "السعر غير متوفر حالياً. يمكننا طلب عرض سعر يدوي.",
     price: 0,
     shipping: null,
     image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
@@ -1820,67 +1820,8 @@ function buildUnavailableProductResponse({ canonicalUrl, productId, alertText = 
     deliveryEstimate: "من 12 حتى 25 يوم",
     manualQuoteRecommended: true,
     priceUnavailable: true,
-    errorHint: normalizedAlertText || "Unable to fetch live AliExpress product data right now. Try again later or handle this item manually.",
-    
-    shippingLabel: "Shipping unavailable",
-    
-    restrictions: {
-      banned: false,
-      restricted: false,
-      category: "",
-      reasons: []
-    },
-    
-    alerts: [
-      {
-        level: "warning",
-        text: normalizedAlertText || "AliExpress شدّ الـ anti-bot بقوة حالياً. السعر ما جاش أوتوماتيكي. نجمو نطلبو quote يدوي من البائع في أقل من 24 ساعة."
-      }
-    ],
-    
-    trustScore: {
-      score: 45,
-      label: "متوسط"
-    },
-    
-    customsAdvisor: {
-      level: "low",
-      category: "general",
-      docs: ["فاتورة البائع"],
-      note: "ما ثماش مانع ديوانة واضح حاليا.",
-      saferAlternative: "اختار منتجات بمواصفات واضحة وشحن عادي."
-    },
-    
-    deliveryTimeline: [
-      {
-        step: "تأكيد الطلب",
-        status: "current",
-        note: "كي يتأكد الدفع، نثبتو الطلب مع البائع."
-      },
-      {
-        step: "تجهيز البائع",
-        status: "upcoming",
-        note: "عادة بين نهار و4 أيام قبل الإرسال."
-      },
-      {
-        step: "الشحن الدولي",
-        status: "upcoming",
-        note: "من 12 حتى 25 يوم"
-      },
-      {
-        step: "الديوانة التونسية",
-        status: "upcoming",
-        note: "مراجعة ديوانية عادية."
-      },
-      {
-        step: "التسليم المحلي",
-        status: "upcoming",
-        note: "التسليم الأخير عبر الموزع المحلي أو البريد."
-      }
-    ]
+    alerts: [{ level: "warning", text: "AliExpress شدّ الـ anti-bot. السعر حالياً يدوي." }]
   };
-
-  return product;
 }
 
 function buildVariantOfferProduct(baseProduct, offer) {
@@ -3424,33 +3365,36 @@ async function fetchProduct(url) {
   const cacheKey = `product:${productId}`;
 
   const cached = productCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) return { ...cached.value, cached: true };
+  if (cached && Date.now() < cached.expiresAt) {
+    return { ...cached.value, cached: true };
+  }
 
   try {
-    let data = null;
+    let title = "", price = 0, image = "";
 
-    // Try ScrapingDog first
     if (SCRAPINGDOG_API_KEY) {
-      const html = await fetchViaScrapingDog(canonicalUrl);
+      const params = new URLSearchParams({
+        api_key: SCRAPINGDOG_API_KEY,
+        url: canonicalUrl,
+        dynamic: "true",
+        country: SCRAPINGDOG_COUNTRY
+      });
+
+      const res = await axios.get(`${SCRAPINGDOG_API_URL}?${params}`, { timeout: 30000 });
+      const html = res.data;
       const $ = cheerio.load(html);
-      const title = $("h1").first().text().trim() || "";
-      let price = 0;
+
+      title = $("h1").first().text().trim() || $("title").text().trim();
       const priceText = $("[class*='price']").first().text() || "";
-      if (priceText) price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
-
-      data = { title: sanitizeText(title), price, image: "" };
-    }
-
-    // Fallback to Playwright
-    if (!data || data.price <= 0) {
-      data = await scrapeWithPlaywright(canonicalUrl);
+      price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
+      image = $("img[src*='alicdn']").first().attr("src") || "";
     }
 
     const product = {
       success: true,
-      title: data.title || "منتج AliExpress",
-      price: data.price || 0,
-      image: data.image || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+      title: title || "منتج AliExpress",
+      price: price,
+      image: normalizeUrl(image),
       description: "",
       shipping: null,
       rating: 0,
@@ -3461,19 +3405,19 @@ async function fetchProduct(url) {
       source: SCRAPINGDOG_API_KEY ? "scrapingdog" : "playwright",
       fetchedAt: new Date().toISOString(),
       deliveryEstimate: "من 12 حتى 25 يوم",
-      manualQuoteRecommended: data.price <= 0,
-      priceUnavailable: data.price <= 0
+      manualQuoteRecommended: price <= 0,
+      priceUnavailable: price <= 0
     };
 
-    if (product.price > 0) {
-      productCache.set(cacheKey, { value: product, expiresAt: Date.now() + CACHE_TTL_MS });
+    if (price > 0) {
+      productCache.set(cacheKey, { value: product, expiresAt: Date.now() + 6*60*60*1000 });
     }
 
     return product;
 
   } catch (err) {
-    log("error", "fetchProduct failed", { url, err: err.message });
-    return buildUnavailableProductResponse({ canonicalUrl, productId, alertText: "تعذر جلب البيانات حالياً" });
+    log("error", "fetchProduct failed", { url, error: err.message });
+    return buildUnavailableProductResponse({ canonicalUrl, productId });
   }
 }
 
@@ -3734,7 +3678,7 @@ app.get("/api/promos", rateLimitMiddleware, (req, res) => {
 });
 
 app.get("/api/product", rateLimitMiddleware, async (req, res) => {
-  const url = String(req.query.url || "");
+  const url = String(req.query.url || "").trim();
 
   if (!url) {
     return res.status(400).json({
@@ -3743,75 +3687,34 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
     });
   }
 
-  // headers
+  // Anti-cache headers
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   console.log("API HIT:", url);
 
-  let finished = false;
-
-  // 🔥 FORCE TIMEOUT (important)
-  const timeout = setTimeout(() => {
-    if (!finished) {
-      finished = true;
-      console.log("FORCED TIMEOUT");
-      return res.status(500).json({
-        success: false,
-        error: "Scraper stuck (timeout)"
-      });
-    }
-  }, 15000);
-
   try {
-    let product = null;
+    const product = await fetchProduct(url);   // ← هنا الاستدعاء المباشر والآمن
 
-    // 🔥 SAFE EXECUTION (no blocking)
-    await new Promise((resolve) => {
-      fetchProduct(url)
-        .then((data) => {
-          product = data;
-          resolve();
-        })
-        .catch((err) => {
-          console.error("FETCH ERROR:", err.message);
-          resolve();
-        });
+    console.log("SCRAPE DONE | source:", product.source, "| price:", product.price);
 
-      setTimeout(() => {
-        console.log("INTERNAL TIMEOUT");
-        resolve();
-      }, 14000);
-    });
-
-    if (!finished) {
-      finished = true;
-      clearTimeout(timeout);
-
-      if (!product) {
-        return res.status(500).json({
-          success: false,
-          error: "Scraper failed or blocked"
-        });
-      }
-
-      console.log("SCRAPE DONE");
-      return res.json(product);
-    }
+    return res.json(product);
 
   } catch (error) {
-    if (!finished) {
-      finished = true;
-      clearTimeout(timeout);
+    console.error("FETCH ERROR:", error.message);
 
-      console.error("ERROR:", error.message);
+    // إذا حصل خطأ، نرجع الـ fallback الجميل
+    const canonicalUrl = getCanonicalProductUrl(url) || url;
+    const productId = extractProductId(canonicalUrl);
 
-      return res.status(500).json({
-        success: false,
-        error: error.message || "Internal error"
-      });
-    }
+    const fallback = buildUnavailableProductResponse({
+      canonicalUrl,
+      productId,
+      alertText: "تعذر جلب البيانات حالياً بسبب anti-bot"
+    });
+
+    return res.status(200).json(fallback);   // نرجع 200 حتى لو fallback
   }
 });
 
