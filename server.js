@@ -1801,18 +1801,11 @@ function isAffiliateAppKeyInvalidError(error) {
   );
 }
 
-function buildUnavailableProductResponse({ 
-  canonicalUrl, 
-  productId, 
-  source = "manual-quote-required", 
-  alertText = "" 
-}) {
-  const normalizedAlertText = sanitizeText(alertText);
-
-  const product = {
+function buildUnavailableProductResponse({ canonicalUrl, productId, alertText = "" }) {
+  return {
     success: true,
     title: "منتج AliExpress",
-    description: "السعر والمواصفات غير متوفرة حالياً بسبب تحديثات AliExpress. يمكننا طلب عرض سعر يدوي من البائع.",
+    description: "السعر والمواصفات غير متوفرة حالياً. يمكننا طلب عرض سعر يدوي.",
     price: 0,
     shipping: null,
     image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
@@ -1821,7 +1814,7 @@ function buildUnavailableProductResponse({
     soldCount: 0,
     variants: [],
     url: canonicalUrl || `https://m.aliexpress.com/item/${productId}.html`,
-    source,
+    source: "fallback",
     cached: false,
     fetchedAt: new Date().toISOString(),
     deliveryEstimate: "من 12 حتى 25 يوم",
@@ -3340,32 +3333,47 @@ if (!data) {
 }
 
 async function scrapeWithPlaywright(url) {
-  return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
+  if (!playwright?.chromium) throw new Error("Playwright not available");
+
+  const browser = await playwright.chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/135.0.0.0 Mobile Safari/537.36",
+    viewport: { width: 412, height: 915 }
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(2000);
+
+    const html = await page.content();
+    const $ = cheerio.load(html);
+
+    const title = $("h1").first().text().trim() || $("title").text().trim();
+    let price = 0;
+    const priceEl = $("[class*='price'], .product-price").first().text();
+    if (priceEl) price = parseFloat(priceEl.replace(/[^0-9.]/g, '')) || 0;
+
+    const image = $("img[src*='alicdn']").first().attr("src") || "";
+
+    return { title: sanitizeText(title), price, image: normalizeUrl(image) };
+  } finally {
+    await page.close();
+    await context.close();
+    await browser.close();
+  }
 }
 
-
 async function fetchViaScrapingDog(url) {
-  if (!process.env.SCRAPINGDOG_API_KEY) {
-    throw new Error("ScrapingDog API key missing");
-  }
-
+  if (!SCRAPINGDOG_API_KEY) throw new Error("No ScrapingDog key");
   const params = new URLSearchParams({
-    api_key: process.env.SCRAPINGDOG_API_KEY,
+    api_key: SCRAPINGDOG_API_KEY,
     url,
-    dynamic: "true",           // render JS
-    country: process.env.SCRAPINGDOG_COUNTRY || "tn"
+    dynamic: "true",
+    country: SCRAPINGDOG_COUNTRY
   });
-
-  const endpoint = `${process.env.SCRAPINGDOG_API_URL}?${params.toString()}`;
-
-  const res = await axios.get(endpoint, { timeout: 30000 });
-  const html = res.data || "";
-
-  if (!html || html.length < 1000) {
-    throw new Error("Empty HTML from ScrapingDog");
-  }
-
-  return html;
+  const res = await axios.get(`${SCRAPINGDOG_API_URL}?${params}`, { timeout: 30000 });
+  return res.data;
 }
 
 
@@ -3412,36 +3420,60 @@ async function fetchProduct(url) {
   const canonicalUrl = getCanonicalProductUrl(url);
   if (!canonicalUrl) return { success: false, error: "رابط غير صالح" };
 
-  const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
+  const productId = extractProductId(canonicalUrl);
   const cacheKey = `product:${productId}`;
 
-  const cached = getCache(productCache, cacheKey);
-  if (cached && !isBadCachedProduct(cached)) return { ...cached, cached: true };
+  const cached = productCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) return { ...cached.value, cached: true };
 
   try {
+    let data = null;
+
+    // Try ScrapingDog first
     if (SCRAPINGDOG_API_KEY) {
       const html = await fetchViaScrapingDog(canonicalUrl);
-      const extracted = extractHtmlProduct(html, canonicalUrl, "scrapingdog");
-      if (extracted.title) {
-        let product = normalizeScrapedProductData(extracted, canonicalUrl, "scrapingdog");
-        if (product.price <= 0) {
-          product = buildUnavailableProductResponse({ canonicalUrl, productId, source: "scrapingdog-partial" });
-          product.title = extracted.title;
-          product.image = extracted.image || product.image;
-        }
-        setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-        return product;
-      }
+      const $ = cheerio.load(html);
+      const title = $("h1").first().text().trim() || "";
+      let price = 0;
+      const priceText = $("[class*='price']").first().text() || "";
+      if (priceText) price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
+
+      data = { title: sanitizeText(title), price, image: "" };
     }
 
-    // Fallback
-    const product = await scrapeAliExpressWithScrapingDog(canonicalUrl);
-    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+    // Fallback to Playwright
+    if (!data || data.price <= 0) {
+      data = await scrapeWithPlaywright(canonicalUrl);
+    }
+
+    const product = {
+      success: true,
+      title: data.title || "منتج AliExpress",
+      price: data.price || 0,
+      image: data.image || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+      description: "",
+      shipping: null,
+      rating: 0,
+      reviewCount: 0,
+      soldCount: 0,
+      variants: [],
+      url: canonicalUrl,
+      source: SCRAPINGDOG_API_KEY ? "scrapingdog" : "playwright",
+      fetchedAt: new Date().toISOString(),
+      deliveryEstimate: "من 12 حتى 25 يوم",
+      manualQuoteRecommended: data.price <= 0,
+      priceUnavailable: data.price <= 0
+    };
+
+    if (product.price > 0) {
+      productCache.set(cacheKey, { value: product, expiresAt: Date.now() + CACHE_TTL_MS });
+    }
+
     return product;
 
-  } catch (e) {
-    log("error", "fetchProduct failed", { url, error: e.message });
-    return buildUnavailableProductResponse({ canonicalUrl, productId });
+  } catch (err) {
+    log("error", "fetchProduct failed", { url, err: err.message });
+    return buildUnavailableProductResponse({ canonicalUrl, productId, alertText: "تعذر جلب البيانات حالياً" });
   }
 }
 
@@ -3472,7 +3504,7 @@ async function fetchProduct(url) {
   }
 
   return product;
-}
+
 
 async function fetchViaScrapingDog(url) {
   if (!process.env.SCRAPINGDOG_API_KEY) {
