@@ -2547,7 +2547,6 @@ function isIncompleteScrapedProduct(product = {}) {
 
 async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
   let browser = null, context = null, page = null;
-
   try {
     if (!playwright?.chromium) throw new Error("Playwright not available");
 
@@ -2555,71 +2554,43 @@ async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
 
     browser = await playwright.chromium.launch({
       headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-blink-features=AutomationControlled",
-        "--disable-features=IsolateOrigins,site-per-process",
-        "--ignore-certificate-errors"
-      ],
-      proxy: proxyConfig ? {
-        server: proxyConfig.server,
-        username: proxyConfig.username,
-        password: proxyConfig.password
-      } : undefined
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      proxy: proxyConfig ? { server: proxyConfig.server, username: proxyConfig.username, password: proxyConfig.password } : undefined
     });
 
     context = await browser.newContext({
       userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
       viewport: { width: 412, height: 915 },
-      locale: "en-US",
       isMobile: true,
-      hasTouch: true,
-      deviceScaleFactor: 2
-    });
-
-    await context.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-      if (!window.chrome) window.chrome = { runtime: {}, app: {}, webstore: {} };
+      hasTouch: true
     });
 
     page = await context.newPage();
 
     await page.route('**/*', (route) => {
-      const type = route.request().resourceType();
-      if (['image', 'font', 'media', 'stylesheet'].includes(type)) return route.abort();
+      if (['image', 'font', 'media', 'stylesheet'].includes(route.request().resourceType())) return route.abort();
       return route.continue();
     });
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
 
-    await page.waitForTimeout(1500 + Math.random() * 1200);
-    await page.mouse.move(100 + Math.random() * 200, 200 + Math.random() * 300, { steps: 12 });
-    await page.waitForTimeout(800);
-    await page.evaluate(() => window.scrollBy(0, 500));
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1500);
+    await page.mouse.move(150, 250, { steps: 10 });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => window.scrollBy(0, 600));
 
     const html = await page.content();
 
-    if (html.includes("captcha") || html.includes("punish") || html.includes("verify you're human")) {
-      throw new Error("Blocked by AliExpress (captcha/punish)");
+    if (html.includes("captcha") || html.includes("punish")) {
+      throw new Error("Blocked by AliExpress");
     }
 
     const extracted = extractHtmlProduct(html, url, source);
 
-    if (!extracted.title || extracted.price <= 0) {
-      const error = new Error("Incomplete product data");
-      error.partialData = extracted;
-      throw error;
-    }
-
     return normalizeScrapedProductData(extracted, url, source);
 
   } catch (error) {
-    log("warn", "Playwright scrape failed", { url, error: error.message });
-    if (error.partialData) error.partialData = buildScrapePartialData(error.partialData, url, source + "-failed");
+    log("warn", "scrapeAliExpressWithScrapingDog failed", { url, error: error.message });
     throw error;
   } finally {
     if (page) await page.close().catch(() => {});
@@ -3382,7 +3353,7 @@ async function fetchViaScrapingDog(url) {
     api_key: process.env.SCRAPINGDOG_API_KEY,
     url,
     dynamic: "true",           // render JS
-    country: process.env.SCRAPINGDOG_COUNTRY || "us"
+    country: process.env.SCRAPINGDOG_COUNTRY || "tn"
   });
 
   const endpoint = `${process.env.SCRAPINGDOG_API_URL}?${params.toString()}`;
@@ -3439,67 +3410,39 @@ function extractFromHtml(html) {
 // ====================== IMPROVED FETCH PRODUCT ======================
 async function fetchProduct(url) {
   const canonicalUrl = getCanonicalProductUrl(url);
-  if (!canonicalUrl) {
-    return { success: false, error: "رابط AliExpress غير صالح" };
-  }
+  if (!canonicalUrl) return { success: false, error: "رابط غير صالح" };
 
   const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
   const cacheKey = `product:${productId}`;
 
   const cached = getCache(productCache, cacheKey);
-  if (cached && !isBadCachedProduct(cached)) {
-    return { ...cached, cached: true };
-  }
-
-  let product = null;
+  if (cached && !isBadCachedProduct(cached)) return { ...cached, cached: true };
 
   try {
-    // 1. Try ScrapingDog (most stable)
     if (SCRAPINGDOG_API_KEY) {
-      log("log", "Trying ScrapingDog API", { url: canonicalUrl });
       const html = await fetchViaScrapingDog(canonicalUrl);
       const extracted = extractHtmlProduct(html, canonicalUrl, "scrapingdog");
-
       if (extracted.title) {
-        product = normalizeScrapedProductData(extracted, canonicalUrl, "scrapingdog");
-        
-        // If price is still 0, force unavailable response but keep the title & image
+        let product = normalizeScrapedProductData(extracted, canonicalUrl, "scrapingdog");
         if (product.price <= 0) {
-          log("warn", "ScrapingDog returned title but no price", { title: product.title });
-          product = buildUnavailableProductResponse({
-            canonicalUrl,
-            productId,
-            source: "scrapingdog-partial",
-            alertText: "السعر ما جاش أوتوماتيكي حالياً. نجمو نطلبو quote يدوي."
-          });
-          // Keep the good title and image we got
+          product = buildUnavailableProductResponse({ canonicalUrl, productId, source: "scrapingdog-partial" });
           product.title = extracted.title;
           product.image = extracted.image || product.image;
         }
+        setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+        return product;
       }
     }
 
-    // 2. Fallback to Playwright if ScrapingDog failed or gave no price
-    if (!product || product.price <= 0) {
-      log("log", "Falling back to Playwright", { url: canonicalUrl });
-      product = await scrapeAliExpressWithScrapingDog(canonicalUrl, "playwright");
-    }
+    // Fallback
+    const product = await scrapeAliExpressWithScrapingDog(canonicalUrl);
+    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+    return product;
 
-    if (product && product.price > 0) {
-      setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-      return product;
-    }
-
-  } catch (error) {
-    log("error", "FetchProduct failed", { url, error: error.message });
+  } catch (e) {
+    log("error", "fetchProduct failed", { url, error: e.message });
+    return buildUnavailableProductResponse({ canonicalUrl, productId });
   }
-
-  // Final fallback
-  return buildUnavailableProductResponse({
-    canonicalUrl,
-    productId,
-    alertText: "Unable to fetch live price right now. We recommend manual quote for this item."
-  });
 }
 
   // 🔥 FINAL NORMALIZED PRODUCT
@@ -3529,6 +3472,7 @@ async function fetchProduct(url) {
   }
 
   return product;
+}
 
 async function fetchViaScrapingDog(url) {
   if (!process.env.SCRAPINGDOG_API_KEY) {
