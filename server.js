@@ -3436,53 +3436,71 @@ function extractFromHtml(html) {
   };
 }
   
+// ====================== IMPROVED FETCH PRODUCT ======================
 async function fetchProduct(url) {
-  const urlCandidates = getProductUrlCandidates(url);
-  const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
-
+  const canonicalUrl = getCanonicalProductUrl(url);
   if (!canonicalUrl) {
-    const error = new Error("رابط AliExpress غير صالح");
-    error.status = 400;
-    throw error;
+    return { success: false, error: "رابط AliExpress غير صالح" };
   }
 
-  const productId =
-    extractProductId(canonicalUrl) ||
-    crypto.createHash("md5").update(canonicalUrl).digest("hex");
-
+  const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
   const cacheKey = `product:${productId}`;
-  const cached = getCache(productCache, cacheKey);
 
+  const cached = getCache(productCache, cacheKey);
   if (cached && !isBadCachedProduct(cached)) {
     return { ...cached, cached: true };
   }
 
-  let pageData = null;
+  let product = null;
 
   try {
-    // 🔥 FETCH VIA SCRAPINGDOG (NO BLOCK)
-    const html = await fetchViaScrapingDog(canonicalUrl);
+    // 1. Try ScrapingDog (most stable)
+    if (SCRAPINGDOG_API_KEY) {
+      log("log", "Trying ScrapingDog API", { url: canonicalUrl });
+      const html = await fetchViaScrapingDog(canonicalUrl);
+      const extracted = extractHtmlProduct(html, canonicalUrl, "scrapingdog");
 
-    console.log("📦 HTML length:", html.length);
+      if (extracted.title) {
+        product = normalizeScrapedProductData(extracted, canonicalUrl, "scrapingdog");
+        
+        // If price is still 0, force unavailable response but keep the title & image
+        if (product.price <= 0) {
+          log("warn", "ScrapingDog returned title but no price", { title: product.title });
+          product = buildUnavailableProductResponse({
+            canonicalUrl,
+            productId,
+            source: "scrapingdog-partial",
+            alertText: "السعر ما جاش أوتوماتيكي حالياً. نجمو نطلبو quote يدوي."
+          });
+          // Keep the good title and image we got
+          product.title = extracted.title;
+          product.image = extracted.image || product.image;
+        }
+      }
+    }
 
-    // 🔥 EXTRACT DATA
-    pageData = extractFromHtml(html);
+    // 2. Fallback to Playwright if ScrapingDog failed or gave no price
+    if (!product || product.price <= 0) {
+      log("log", "Falling back to Playwright", { url: canonicalUrl });
+      product = await scrapeAliExpressWithScrapingDog(canonicalUrl, "playwright");
+    }
 
-    console.log("🧠 Extracted:", pageData);
-
-    if (!pageData || (!pageData.title && !pageData.price)) {
-      throw new Error("Failed to extract product");
+    if (product && product.price > 0) {
+      setCache(productCache, cacheKey, product, CACHE_TTL_MS);
+      return product;
     }
 
   } catch (error) {
-    console.error("❌ Scraping failed:", error.message);
-
-    return {
-      success: false,
-      error: "Scraper failed or blocked",
-      url: canonicalUrl
-    };
+    log("error", "FetchProduct failed", { url, error: error.message });
   }
+
+  // Final fallback
+  return buildUnavailableProductResponse({
+    canonicalUrl,
+    productId,
+    alertText: "Unable to fetch live price right now. We recommend manual quote for this item."
+  });
+}
 
   // 🔥 FINAL NORMALIZED PRODUCT
   const product = {
@@ -3511,7 +3529,6 @@ async function fetchProduct(url) {
   }
 
   return product;
-}
 
 async function fetchViaScrapingDog(url) {
   if (!process.env.SCRAPINGDOG_API_KEY) {
