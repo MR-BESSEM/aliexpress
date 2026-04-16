@@ -1,4 +1,4 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const path = require("path");
 const fs = require("fs");
@@ -36,15 +36,15 @@ const FX_FALLBACK_URL = process.env.FX_FALLBACK_URL || "https://api.exchangerate
 const FX_FALLBACK_RATE = Number(process.env.FX_FALLBACK_RATE || 3.8);
 const DEFAULT_SHIPPING_USD = Number(process.env.DEFAULT_SHIPPING_USD || 2);
 const RESTRICTED_RULES = [
-  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|طيارة بدون طيار|طائرة بدون طيار/i, message: "المنتج هذا ينجم يكون ممنوع في الديوانة التونسية." },
-  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|سيجارة إلكترونية/i, message: "السيجارة الإلكترونية ومشتقاتها فيها خطر حجز كبير." },
-  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|كاميرا تجسس/i, message: "الكاميرات المخفية والتجسس غالبا ممنوعة." },
-  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|جهاز تتبع/i, message: "أجهزة التتبع فيها خطر قانوني مرتفع." },
-  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|هاتف|telephone portable/i, message: "الهواتف تنجم تتطلب إجراءات أو تصريح قبل الإدخال." },
-  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|لاسلكي|transceiver/i, message: "الأجهزة اللاسلكية تنجم تتطلب ترخيص." },
-  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|رسيفر/i, message: "أجهزة الاستقبال تنجم تتطلب تصريح أو تتعرض للحجز." },
-  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|دواء|مكمل غذائي/i, message: "الأدوية والمكملات الغذائية يلزمهم تثبت إضافي قبل الطلب." },
-  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|سكين|خنجر|سيف/i, message: "الأدوات الحادة أو الصيد فيها خطر رفض أو حجز." }
+  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|Ø·ÙŠØ§Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±|Ø·Ø§Ø¦Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±/i, message: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠÙƒÙˆÙ† Ù…Ù…Ù†ÙˆØ¹ ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©." },
+  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|Ø³ÙŠØ¬Ø§Ø±Ø© Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ©/i, message: "Ø§Ù„Ø³ÙŠØ¬Ø§Ø±Ø© Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ© ÙˆÙ…Ø´ØªÙ‚Ø§ØªÙ‡Ø§ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ±." },
+  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|ÙƒØ§Ù…ÙŠØ±Ø§ ØªØ¬Ø³Ø³/i, message: "Ø§Ù„ÙƒØ§Ù…ÙŠØ±Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© ÙˆØ§Ù„ØªØ¬Ø³Ø³ ØºØ§Ù„Ø¨Ø§ Ù…Ù…Ù†ÙˆØ¹Ø©." },
+  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|Ø¬Ù‡Ø§Ø² ØªØªØ¨Ø¹/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„ØªØªØ¨Ø¹ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ù‚Ø§Ù†ÙˆÙ†ÙŠ Ù…Ø±ØªÙØ¹." },
+  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|Ù‡Ø§ØªÙ|telephone portable/i, message: "Ø§Ù„Ù‡ÙˆØ§ØªÙ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø¯Ø®Ø§Ù„." },
+  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|Ù„Ø§Ø³Ù„ÙƒÙŠ|transceiver/i, message: "Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù„Ø§Ø³Ù„ÙƒÙŠØ© ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØ±Ø®ÙŠØµ." },
+  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|Ø±Ø³ÙŠÙØ±/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ø§Ø³ØªÙ‚Ø¨Ø§Ù„ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØµØ±ÙŠØ­ Ø£Ùˆ ØªØªØ¹Ø±Ø¶ Ù„Ù„Ø­Ø¬Ø²." },
+  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|Ø¯ÙˆØ§Ø¡|Ù…ÙƒÙ…Ù„ ØºØ°Ø§Ø¦ÙŠ/i, message: "Ø§Ù„Ø£Ø¯ÙˆÙŠØ© ÙˆØ§Ù„Ù…ÙƒÙ…Ù„Ø§Øª Ø§Ù„ØºØ°Ø§Ø¦ÙŠØ© ÙŠÙ„Ø²Ù…Ù‡Ù… ØªØ«Ø¨Øª Ø¥Ø¶Ø§ÙÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." },
+  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|Ø³ÙƒÙŠÙ†|Ø®Ù†Ø¬Ø±|Ø³ÙŠÙ/i, message: "Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø­Ø§Ø¯Ø© Ø£Ùˆ Ø§Ù„ØµÙŠØ¯ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø±ÙØ¶ Ø£Ùˆ Ø­Ø¬Ø²." }
 ];
 
 const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
@@ -128,14 +128,32 @@ function getScrapeProxyConfig() {
 }
 
 function getAxiosProxyOptions() {
+  const proxyConfig = getScrapeProxyConfig();
+  if (proxyConfig) {
+    log("log", "Axios using configured proxy", { server: proxyConfig.server });
+    return {
+      proxy: {
+        protocol: proxyConfig.protocol,
+        host: new URL(proxyConfig.server).hostname,
+        port: Number(new URL(proxyConfig.server).port || 80),
+        auth: proxyConfig.username || proxyConfig.password
+          ? {
+              username: proxyConfig.username,
+              password: proxyConfig.password
+            }
+          : undefined
+      }
+    };
+  }
+
   if (!process.env.SCRAPE_PROXY_SERVER) {
-    console.log("❌ No proxy for Axios");
+    log("warn", "No proxy configured for Axios");
     return { proxy: false };
   }
 
   const proxyUrl = new URL(process.env.SCRAPE_PROXY_SERVER);
 
-  console.log("✅ Axios using proxy:", proxyUrl.href);
+  log("log", "Axios using SCRAPE_PROXY_SERVER", { server: proxyUrl.href });
 
   return {
     proxy: {
@@ -633,7 +651,7 @@ function getBearerToken(req) {
 function requireAdminAuth(req, res, next) {
   const token = getBearerToken(req);
   if (!verifyAdminToken(token)) {
-    return res.status(401).json({ success: false, error: "جلسة الإدارة غير صالحة" });
+    return res.status(401).json({ success: false, error: "Ø¬Ù„Ø³Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
   }
   next();
 }
@@ -690,7 +708,7 @@ function getFutureIsoFromSeconds(seconds) {
 }
 
 function shouldUseAliExpressAffiliateApi() {
-  return false; // 🚫 عطّلنا affiliate نهائياً
+  return false; // ðŸš« Ø¹Ø·Ù‘Ù„Ù†Ø§ affiliate Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹
 }
 
 function hasAliExpressDsAccessToken() {
@@ -1005,7 +1023,7 @@ function getProductUrlCandidates(input) {
 }
 
 function isAliExpressBlockedTitle(title) {
-  return /封禁|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
+  return /å°ç¦|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
 }
 
 function isGenericAliExpressTitle(title) {
@@ -1048,7 +1066,7 @@ function isAliExpressAntiBotSignal(value) {
     /secdata/i.test(cleaned) ||
     /captcha/i.test(cleaned) ||
     /verify (?:you'?re|you are) human/i.test(cleaned) ||
-    /浙公网安备|增值电信业务经营许可证/.test(cleaned)
+    /æµ™å…¬ç½‘å®‰å¤‡|å¢žå€¼ç”µä¿¡ä¸šåŠ¡ç»è¥è®¸å¯è¯/.test(cleaned)
   );
 }
 
@@ -1078,7 +1096,7 @@ function isLowValueProductTitle(title) {
   if (!cleaned) return true;
   return Boolean(
     isGenericAliExpressTitle(cleaned) ||
-    /^منتج\s+aliexpress\s*#\d+$/i.test(cleaned) ||
+    /^Ù…Ù†ØªØ¬\s+aliexpress\s*#\d+$/i.test(cleaned) ||
     /^aliexpress\s+product\s*#\d+$/i.test(cleaned) ||
     /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
@@ -1211,11 +1229,11 @@ function extractUsdValuesFromText(text) {
 }
 
 function hasShippingKeyword(text) {
-  return /shipping|delivery|freight|logistics|postage|livraison|شحن|توصيل/i.test(text);
+  return /shipping|delivery|freight|logistics|postage|livraison|Ø´Ø­Ù†|ØªÙˆØµÙŠÙ„/i.test(text);
 }
 
 function hasFreeShippingKeyword(text) {
-  return /free shipping|free delivery|livraison gratuite|شحن مجاني|توصيل مجاني/i.test(text);
+  return /free shipping|free delivery|livraison gratuite|Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ|ØªÙˆØµÙŠÙ„ Ù…Ø¬Ø§Ù†ÙŠ/i.test(text);
 }
 
 function parseShippingTexts(texts = []) {
@@ -1241,9 +1259,9 @@ function parseShippingTexts(texts = []) {
 function extractDeliveryEstimateFromTexts(texts = []) {
   const patterns = [
     /\b(\d{1,2})\s*(?:-|to|~)\s*(\d{1,2})\s*(?:business\s*)?(?:days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:حتى|الى|إلى)\s*(\d{1,2})\s*(?:يوم|أيام)/i,
+    /(\d{1,2})\s*(?:Ø­ØªÙ‰|Ø§Ù„Ù‰|Ø¥Ù„Ù‰)\s*(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i,
     /\b(\d{1,2})\s*(?:business\s*)?(days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:يوم|أيام)/i
+    /(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i
   ];
 
   for (const raw of texts) {
@@ -1259,11 +1277,11 @@ function extractDeliveryEstimateFromTexts(texts = []) {
 
 function inferDeliveryEstimate(shippingValue) {
   const shipping = Number(shippingValue);
-  if (!Number.isFinite(shipping) || shipping < 0) return "غير متوفر";
-  if (shipping === 0) return "من 12 حتى 25 يوم";
-  if (shipping <= 3) return "من 10 حتى 20 يوم";
-  if (shipping <= 8) return "من 8 حتى 16 يوم";
-  return "من 7 حتى 14 يوم";
+  if (!Number.isFinite(shipping) || shipping < 0) return "ØºÙŠØ± Ù…ØªÙˆÙØ±";
+  if (shipping === 0) return "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…";
+  if (shipping <= 3) return "Ù…Ù† 10 Ø­ØªÙ‰ 20 ÙŠÙˆÙ…";
+  if (shipping <= 8) return "Ù…Ù† 8 Ø­ØªÙ‰ 16 ÙŠÙˆÙ…";
+  return "Ù…Ù† 7 Ø­ØªÙ‰ 14 ÙŠÙˆÙ…";
 }
 
 function parseCompactCount(value) {
@@ -1319,15 +1337,15 @@ function buildProductAlerts(product) {
   const alerts = [];
 
   if (product.restrictions?.banned) {
-    alerts.push({ level: "danger", text: "هذا المنتج عندو خطر حجز كبير في تونس. كلمنا قبل ما تأكد الطلب." });
+    alerts.push({ level: "danger", text: "Ù‡Ø°Ø§ Ø§Ù„Ù…Ù†ØªØ¬ Ø¹Ù†Ø¯Ùˆ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ± ÙÙŠ ØªÙˆÙ†Ø³. ÙƒÙ„Ù…Ù†Ø§ Ù‚Ø¨Ù„ Ù…Ø§ ØªØ£ÙƒØ¯ Ø§Ù„Ø·Ù„Ø¨." });
   } else if (product.restrictions?.restricted) {
-    alerts.push({ level: "warning", text: "المنتج هذا ينجم يحتاج تثبت أو تصريح قبل الطلب." });
+    alerts.push({ level: "warning", text: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠØ­ØªØ§Ø¬ ØªØ«Ø¨Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." });
   }
 
   if (product.shipping != null && Number(product.shipping) === 0) {
-    alerts.push({ level: "info", text: "الشحن مجاني في العرض الحالي." });
+    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ ÙÙŠ Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø­Ø§Ù„ÙŠ." });
   } else if (product.shipping != null && Number(product.shipping) >= 8) {
-    alerts.push({ level: "info", text: "الشحن مرتفع شوية، إذا تحب نعملولك تسعيرة يدوية أفضل." });
+    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø±ØªÙØ¹ Ø´ÙˆÙŠØ©ØŒ Ø¥Ø°Ø§ ØªØ­Ø¨ Ù†Ø¹Ù…Ù„ÙˆÙ„Ùƒ ØªØ³Ø¹ÙŠØ±Ø© ÙŠØ¯ÙˆÙŠØ© Ø£ÙØ¶Ù„." });
   }
 
   return alerts;
@@ -1745,10 +1763,10 @@ function buildSellerTrustScore(product) {
   if (product.priceUnavailable) score -= 5;
 
   const finalScore = Math.max(15, Math.min(98, Math.round(score)));
-  let label = "متوسط";
-  if (finalScore >= 85) label = "ممتاز";
-  else if (finalScore >= 72) label = "قوي";
-  else if (finalScore >= 58) label = "مليح";
+  let label = "Ù…ØªÙˆØ³Ø·";
+  if (finalScore >= 85) label = "Ù…Ù…ØªØ§Ø²";
+  else if (finalScore >= 72) label = "Ù‚ÙˆÙŠ";
+  else if (finalScore >= 58) label = "Ù…Ù„ÙŠØ­";
 
   return { score: finalScore, label };
 }
@@ -1757,27 +1775,27 @@ function buildCustomsAdvisor(product) {
   const category = product.restrictions?.category || "general";
   const riskLevel = product.restrictions?.banned ? "high" : (product.restrictions?.restricted ? "medium" : "low");
   const docsMap = {
-    phone: ["إثبات IMEI أو المطابقة", "فاتورة البائع"],
-    radio: ["ترخيص توريد", "فاتورة البائع"],
-    "tv-box": ["مرجع تقني للمنتج", "فاتورة البائع"],
-    supplements: ["قائمة المكونات", "فاتورة البائع"],
-    knife: ["مراجعة يدوية قبل الطلب"],
-    general: ["فاتورة البائع"]
+    phone: ["Ø¥Ø«Ø¨Ø§Øª IMEI Ø£Ùˆ Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    radio: ["ØªØ±Ø®ÙŠØµ ØªÙˆØ±ÙŠØ¯", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    "tv-box": ["Ù…Ø±Ø¬Ø¹ ØªÙ‚Ù†ÙŠ Ù„Ù„Ù…Ù†ØªØ¬", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    supplements: ["Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    knife: ["Ù…Ø±Ø§Ø¬Ø¹Ø© ÙŠØ¯ÙˆÙŠØ© Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨"],
+    general: ["ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"]
   };
   const saferAlternativeMap = {
-    phone: "الأفضل تختار إكسسوارات أو قطع غيار بدل هاتف كامل.",
-    radio: "الأفضل تختار إكسسوارات Bluetooth من غير تجهيزات إرسال راديو.",
-    "tv-box": "الأفضل تختار إكسسوارات ستريمنغ بمواصفات وشهادات واضحة.",
-    supplements: "الأفضل تختار إكسسوارات عناية أو رفاهة غير قابلة للاستهلاك.",
-    knife: "الأفضل تختار أدوات مطبخ أقل حساسية في الديوانة.",
-    general: "اختار منتجات بمواصفات واضحة وشحن عادي."
+    phone: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø£Ùˆ Ù‚Ø·Ø¹ ØºÙŠØ§Ø± Ø¨Ø¯Ù„ Ù‡Ø§ØªÙ ÙƒØ§Ù…Ù„.",
+    radio: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Bluetooth Ù…Ù† ØºÙŠØ± ØªØ¬Ù‡ÙŠØ²Ø§Øª Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¯ÙŠÙˆ.",
+    "tv-box": "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø³ØªØ±ÙŠÙ…Ù†Øº Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ´Ù‡Ø§Ø¯Ø§Øª ÙˆØ§Ø¶Ø­Ø©.",
+    supplements: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø¹Ù†Ø§ÙŠØ© Ø£Ùˆ Ø±ÙØ§Ù‡Ø© ØºÙŠØ± Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ.",
+    knife: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø£Ø¯ÙˆØ§Øª Ù…Ø·Ø¨Ø® Ø£Ù‚Ù„ Ø­Ø³Ø§Ø³ÙŠØ© ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø©.",
+    general: "Ø§Ø®ØªØ§Ø± Ù…Ù†ØªØ¬Ø§Øª Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ§Ø¶Ø­Ø© ÙˆØ´Ø­Ù† Ø¹Ø§Ø¯ÙŠ."
   };
 
   return {
     level: riskLevel,
     category,
     docs: docsMap[category] || docsMap.general,
-    note: product.restrictions?.reasons?.[0] || "ما ثماش مانع ديوانة واضح حاليا.",
+    note: product.restrictions?.reasons?.[0] || "Ù…Ø§ Ø«Ù…Ø§Ø´ Ù…Ø§Ù†Ø¹ Ø¯ÙŠÙˆØ§Ù†Ø© ÙˆØ§Ø¶Ø­ Ø­Ø§Ù„ÙŠØ§.",
     saferAlternative: saferAlternativeMap[category] || saferAlternativeMap.general
   };
 }
@@ -1785,11 +1803,11 @@ function buildCustomsAdvisor(product) {
 function buildEstimatedTimeline(product) {
   const estimate = inferDeliveryEstimate(product.shipping);
   return [
-    { step: "تأكيد الطلب", status: "current", note: "كي يتأكد الدفع، نثبتو الطلب مع البائع." },
-    { step: "تجهيز البائع", status: "upcoming", note: "عادة بين نهار و4 أيام قبل الإرسال." },
-    { step: "الشحن الدولي", status: "upcoming", note: estimate },
-    { step: "الديوانة التونسية", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "مراجعة ديوانية عادية." },
-    { step: "التسليم المحلي", status: "upcoming", note: "التسليم الأخير عبر الموزع المحلي أو البريد." }
+    { step: "ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨", status: "current", note: "ÙƒÙŠ ÙŠØªØ£ÙƒØ¯ Ø§Ù„Ø¯ÙØ¹ØŒ Ù†Ø«Ø¨ØªÙˆ Ø§Ù„Ø·Ù„Ø¨ Ù…Ø¹ Ø§Ù„Ø¨Ø§Ø¦Ø¹." },
+    { step: "ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ø¨Ø§Ø¦Ø¹", status: "upcoming", note: "Ø¹Ø§Ø¯Ø© Ø¨ÙŠÙ† Ù†Ù‡Ø§Ø± Ùˆ4 Ø£ÙŠØ§Ù… Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„." },
+    { step: "Ø§Ù„Ø´Ø­Ù† Ø§Ù„Ø¯ÙˆÙ„ÙŠ", status: "upcoming", note: estimate },
+    { step: "Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "Ù…Ø±Ø§Ø¬Ø¹Ø© Ø¯ÙŠÙˆØ§Ù†ÙŠØ© Ø¹Ø§Ø¯ÙŠØ©." },
+    { step: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ù…Ø­Ù„ÙŠ", status: "upcoming", note: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø£Ø®ÙŠØ± Ø¹Ø¨Ø± Ø§Ù„Ù…ÙˆØ²Ø¹ Ø§Ù„Ù…Ø­Ù„ÙŠ Ø£Ùˆ Ø§Ù„Ø¨Ø±ÙŠØ¯." }
   ];
 }
 
@@ -1804,8 +1822,8 @@ function isAffiliateAppKeyInvalidError(error) {
 function buildUnavailableProductResponse({ canonicalUrl, productId }) {
   return {
     success: true,
-    title: "منتج AliExpress",
-    description: "السعر غير متوفر حالياً. يمكننا طلب عرض سعر يدوي.",
+    title: "Ù…Ù†ØªØ¬ AliExpress",
+    description: "Ø§Ù„Ø³Ø¹Ø± ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹. ÙŠÙ…ÙƒÙ†Ù†Ø§ Ø·Ù„Ø¨ Ø¹Ø±Ø¶ Ø³Ø¹Ø± ÙŠØ¯ÙˆÙŠ.",
     price: 0,
     shipping: null,
     image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
@@ -1817,10 +1835,10 @@ function buildUnavailableProductResponse({ canonicalUrl, productId }) {
     source: "fallback",
     cached: false,
     fetchedAt: new Date().toISOString(),
-    deliveryEstimate: "من 12 حتى 25 يوم",
+    deliveryEstimate: "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…",
     manualQuoteRecommended: true,
     priceUnavailable: true,
-    alerts: [{ level: "warning", text: "AliExpress شدّ الـ anti-bot. السعر حالياً يدوي." }]
+    alerts: [{ level: "warning", text: "AliExpress Ø´Ø¯Ù‘ Ø§Ù„Ù€ anti-bot. Ø§Ù„Ø³Ø¹Ø± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙŠØ¯ÙˆÙŠ." }]
   };
 }
 
@@ -1835,7 +1853,7 @@ function buildVariantOfferProduct(baseProduct, offer) {
   const selectionLabel = Object.values(attributes).filter(Boolean).join(" / ");
 
   const variantProduct = {
-    title: baseProduct?.title || "منتج AliExpress",
+    title: baseProduct?.title || "Ù…Ù†ØªØ¬ AliExpress",
     description: baseProduct?.description || "",
     price,
     shipping,
@@ -1851,8 +1869,8 @@ function buildVariantOfferProduct(baseProduct, offer) {
   };
 
   variantProduct.shippingLabel = variantProduct.shipping == null
-    ? "غير متوفر"
-    : (variantProduct.shipping === 0 ? "شحن مجاني" : `${variantProduct.shipping.toFixed(2)} USD`);
+    ? "ØºÙŠØ± Ù…ØªÙˆÙØ±"
+    : (variantProduct.shipping === 0 ? "Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ" : `${variantProduct.shipping.toFixed(2)} USD`);
   variantProduct.restrictions = classifyProductRestrictions(variantProduct);
   variantProduct.alerts = buildProductAlerts(variantProduct);
   variantProduct.trustScore = buildSellerTrustScore(variantProduct);
@@ -1898,7 +1916,7 @@ function cleanupProductDescription(text, fallbackTitle = "") {
 
   if (!cleaned) return "";
   if (isLowValueProductDescription(cleaned)) return "";
-  if (/^ae.+ip.+模板/i.test(cleaned)) return "";
+  if (/^ae.+ip.+æ¨¡æ¿/i.test(cleaned)) return "";
   if (isAliExpressPlaceholderText(cleaned)) return "";
   if (fallbackTitle && cleaned.toLowerCase() === String(fallbackTitle).trim().toLowerCase()) return "";
   return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
@@ -2435,7 +2453,7 @@ async function fetchScrapingDogHtml(url, options = {}) {
           "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
         },
-        ...getAxiosProxyOptions()
+        proxy: false
       });
 
       const html = typeof response.data === "string" ? response.data : String(response.data || "");
@@ -2783,14 +2801,15 @@ async function getBrowser() {
       ]
     };
 
-// 🔥 HARD FORCE PROXY (NO CONDITIONS)
-launchOptions.proxy = {
-  server: process.env.SCRAPE_PROXY_SERVER || "http://31.59.20.176:6754",
-  username: process.env.SCRAPE_PROXY_USERNAME || "zigdenj",
-  password: process.env.SCRAPE_PROXY_PASSWORD || "sb7fjm27bej6"
-};
-
-console.log("🔥 PROXY FORCED:", launchOptions.proxy.server);
+    const proxyConfig = getScrapeProxyConfig();
+    if (proxyConfig) {
+      launchOptions.proxy = {
+        server: proxyConfig.server,
+        username: proxyConfig.username || undefined,
+        password: proxyConfig.password || undefined
+      };
+      log("log", "Using configured Playwright proxy", { server: proxyConfig.server });
+    }
 
     // optional custom chromium path
     if (resolvedBrowserExecutable) {
@@ -2804,7 +2823,7 @@ console.log("🔥 PROXY FORCED:", launchOptions.proxy.server);
           clearBrowserReference("browser-disconnected-event");
         });
 
-        console.log("🚀 Browser launched");
+        console.log("ðŸš€ Browser launched");
         return browser;
       })
       .catch((error) => {
@@ -3193,11 +3212,17 @@ try {
 
 async function legacyMinimalPlaywrightScrape(url) {
   const { chromium } = require("playwright");
+  const executablePath = detectPlaywrightExecutable();
 
-  const browser = await chromium.launch({
+  const launchOptions = {
     headless: true,
     args: ["--no-sandbox"]
-  });
+  };
+  if (executablePath) {
+    launchOptions.executablePath = executablePath;
+  }
+
+  const browser = await chromium.launch(launchOptions);
 
   const context = await browser.newContext({
     userAgent:
@@ -3217,7 +3242,7 @@ await page.waitForTimeout(3000).catch(() => {});
 
     const html = await page.content();
 
-    // 🚨 detect block
+    // ðŸš¨ detect block
     if (html.includes("captcha") || html.includes("punish")) {
       throw new Error("BLOCKED BY ALIEXPRESS");
     }
@@ -3260,7 +3285,9 @@ const data = await page.evaluate(() => {
 });
 
 if (!data) {
-  throw new Error("JSON extraction failed");
+  const error = new Error("JSON extraction failed");
+  error.nonRetryable = true;
+  throw error;
 }
 
     return data;
@@ -3305,168 +3332,128 @@ async function scrapeWithPlaywright(url) {
   }
 }
 
-async function fetchViaScrapingDog(url) {
-  if (!SCRAPINGDOG_API_KEY) throw new Error("No ScrapingDog key");
-  const params = new URLSearchParams({
-    api_key: SCRAPINGDOG_API_KEY,
-    url,
-    dynamic: "true",
-    country: SCRAPINGDOG_COUNTRY
-  });
-  const res = await axios.get(`${SCRAPINGDOG_API_URL}?${params}`, { timeout: 30000 });
-  return res.data;
-}
-
-
-function extractFromHtml(html) {
-  const $ = cheerio.load(html);
-
-  // try JSON first
-  let data = null;
-
-  $("script").each((_, el) => {
-    const txt = $(el).html() || "";
-    if (txt.includes("runParams")) {
-      try {
-        const match = txt.match(/runParams\s*=\s*(\{.*\})/);
-        if (match) {
-          const json = JSON.parse(match[1]);
-          data = json?.data || null;
-        }
-      } catch {}
-    }
-  });
-
-  if (data) {
-    return {
-      title: data.titleModule?.subject || "",
-      price:
-        data.priceModule?.formatedPrice ||
-        data.priceModule?.minActivityAmount?.value ||
-        "",
-      image: data.imageModule?.imagePathList?.[0] || ""
-    };
-  }
-
-  // fallback (meta tags)
+function finalizeFetchedProduct(product, canonicalUrl) {
+  const normalized = normalizeScrapedProductData(product, canonicalUrl, product?.source || "scrape");
   return {
-    title: $("meta[property='og:title']").attr("content") || "",
-    image: $("meta[property='og:image']").attr("content") || "",
-    price: ""
+    ...normalized,
+    success: true,
+    fetchedAt: new Date().toISOString(),
+    cached: false,
+    deliveryEstimate: normalized.deliveryEstimate || "12 to 25 days",
+    manualQuoteRecommended: Number(normalized.price || 0) <= 0,
+    priceUnavailable: Number(normalized.price || 0) <= 0
   };
 }
-  
-// ====================== IMPROVED FETCH PRODUCT ======================
+
 async function fetchProduct(url) {
   const canonicalUrl = getCanonicalProductUrl(url);
-  if (!canonicalUrl) return { success: false, error: "رابط غير صالح" };
+  if (!canonicalUrl) return { success: false, error: "Invalid product URL" };
 
   const productId = extractProductId(canonicalUrl);
   const cacheKey = `product:${productId}`;
+  const cached = getCache(productCache, cacheKey);
 
-  const cached = productCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return { ...cached.value, cached: true };
+  if (cached && !isBadCachedProduct(cached)) {
+    return { ...cached, cached: true };
   }
 
-  try {
-    let title = "", price = 0, image = "";
+  let partialProduct = cached && hasUsefulPartialProductData(cached)
+    ? mergePartialProductData(null, cached, canonicalUrl)
+    : null;
 
-    if (SCRAPINGDOG_API_KEY) {
-      const params = new URLSearchParams({
-        api_key: SCRAPINGDOG_API_KEY,
-        url: canonicalUrl,
-        dynamic: "true",
-        country: SCRAPINGDOG_COUNTRY
-      });
-
-      const res = await axios.get(`${SCRAPINGDOG_API_URL}?${params}`, { timeout: 30000 });
-      const html = res.data;
-      const $ = cheerio.load(html);
-
-      title = $("h1").first().text().trim() || $("title").text().trim();
-      const priceText = $("[class*='price']").first().text() || "";
-      price = parseFloat(priceText.replace(/[^0-9.]/g, '')) || 0;
-      image = $("img[src*='alicdn']").first().attr("src") || "";
-    }
-
-    const product = {
-      success: true,
-      title: title || "منتج AliExpress",
-      price: price,
-      image: normalizeUrl(image),
-      description: "",
-      shipping: null,
-      rating: 0,
-      reviewCount: 0,
-      soldCount: 0,
-      variants: [],
-      url: canonicalUrl,
-      source: SCRAPINGDOG_API_KEY ? "scrapingdog" : "playwright",
-      fetchedAt: new Date().toISOString(),
-      deliveryEstimate: "من 12 حتى 25 يوم",
-      manualQuoteRecommended: price <= 0,
-      priceUnavailable: price <= 0
-    };
-
-    if (price > 0) {
-      productCache.set(cacheKey, { value: product, expiresAt: Date.now() + 6*60*60*1000 });
-    }
-
-    return product;
-
-  } catch (err) {
-    log("error", "fetchProduct failed", { url, error: err.message });
-    return buildUnavailableProductResponse({ canonicalUrl, productId });
-  }
-}
-
-  // 🔥 FINAL NORMALIZED PRODUCT
-  const product = {
-    success: true,
-    title: pageData.title || "منتج AliExpress",
-    description: "",
-    price: Number(String(pageData.price).replace(/[^\d.]/g, "")) || 0,
-    shipping: null,
-    image: pageData.image || "",
-    rating: 0,
-    reviewCount: 0,
-    soldCount: 0,
-    variants: [],
-    url: canonicalUrl,
-    source: "scrapingdog",
-    cached: false,
-    fetchedAt: new Date().toISOString()
+  const rememberPartial = (candidate, source = "") => {
+    if (!hasUsefulPartialProductData(candidate)) return;
+    partialProduct = mergePartialProductData(partialProduct, { ...candidate, source }, canonicalUrl);
   };
 
-  product.shippingLabel = "غير متوفر";
-  product.deliveryEstimate = "من 12 حتى 25 يوم";
-  product.priceUnavailable = product.price <= 0;
+  const tryCandidate = async (label, task) => {
+    try {
+      const candidate = await task();
+      if (!candidate) return null;
 
-  if (!isBadCachedProduct(product)) {
-    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-  }
+      const finalized = finalizeFetchedProduct(
+        { ...candidate, source: candidate.source || label },
+        canonicalUrl
+      );
 
-  return product;
+      rememberPartial(finalized, finalized.source);
 
+      if (!isBadCachedProduct(finalized) && !isIncompleteScrapedProduct(finalized)) {
+        setCache(productCache, cacheKey, finalized, CACHE_TTL_MS);
+        return finalized;
+      }
+    } catch (error) {
+      rememberPartial(error?.partialData, label);
+      log("warn", `${label} product fetch failed`, {
+        url: canonicalUrl,
+        error: error.message
+      });
+    }
 
-async function fetchViaScrapingDog(url) {
-  if (!process.env.SCRAPINGDOG_API_KEY) {
-    throw new Error("Missing ScrapingDog API key");
-  }
+    return null;
+  };
 
-  const params = new URLSearchParams({
-    api_key: process.env.SCRAPINGDOG_API_KEY,
-    url,
-    dynamic: "true",
-    country: "us"
+  const affiliateProduct =
+    ALIEXPRESS_ENABLE_AFFILIATE_API &&
+    await tryCandidate("aliexpress-affiliate-api", async () => {
+      const product = await fetchAliExpressAffiliateProduct(productId);
+      return product ? { ...product, source: product.source || "aliexpress-affiliate-api" } : null;
+    });
+  if (affiliateProduct) return affiliateProduct;
+
+  const dsApiProduct = await tryCandidate("aliexpress-api", async () => {
+    const product = await fetchAliExpressApiProductLegacy(productId);
+    return product ? { ...product, source: product.source || "aliexpress-api" } : null;
   });
+  if (dsApiProduct) return dsApiProduct;
 
-  const endpoint = `${process.env.SCRAPINGDOG_API_URL}?${params.toString()}`;
+  const scrapingDogProduct =
+    SCRAPINGDOG_API_KEY &&
+    await tryCandidate("scrapingdog", async () => {
+      const html = await withRetries("scrapingdog-html", () =>
+        fetchScrapingDogHtml(canonicalUrl, { dynamic: true })
+      );
+      return {
+        ...extractHtmlProduct(html, canonicalUrl, "scrapingdog"),
+        source: "scrapingdog"
+      };
+    });
+  if (scrapingDogProduct) return scrapingDogProduct;
 
-  const res = await axios.get(endpoint, { timeout: 30000 });
+  const playwrightCapturedProduct =
+    playwright?.chromium &&
+    await tryCandidate("playwright-captured", async () => {
+      const product = await withRetries("playwright-captured", () =>
+        legacyScrapeWithCapturedResponses(canonicalUrl)
+      );
+      return { ...product, source: product?.source || "playwright" };
+    });
+  if (playwrightCapturedProduct) return playwrightCapturedProduct;
 
-  return res.data;
+  const playwrightMinimalProduct =
+    playwright?.chromium &&
+    await tryCandidate("playwright-minimal", async () => {
+      const product = await withRetries("playwright-minimal", () =>
+        legacyMinimalPlaywrightScrape(canonicalUrl)
+      );
+      return { ...product, source: "playwright-minimal" };
+    });
+  if (playwrightMinimalProduct) return playwrightMinimalProduct;
+
+  if (hasUsefulPartialProductData(partialProduct)) {
+    const partialResponse = finalizeFetchedProduct(
+      { ...partialProduct, source: partialProduct.source || "partial-fallback" },
+      canonicalUrl
+    );
+
+    if (!isBadCachedProduct(partialResponse)) {
+      setCache(productCache, cacheKey, partialResponse, Math.min(CACHE_TTL_MS, 15 * 60 * 1000));
+    }
+
+    return partialResponse;
+  }
+
+  return buildUnavailableProductResponse({ canonicalUrl, productId });
 }
 
 async function fetchExchangeRate() {
@@ -3528,7 +3515,7 @@ function rateLimitMiddleware(req, res, next) {
   bucket.count += 1;
   rateBuckets.set(ip, bucket);
   if (bucket.count > RATE_LIMIT_MAX) {
-    return res.status(429).json({ success: false, error: "برشا طلبات، عاود بعد شوية." });
+    return res.status(429).json({ success: false, error: "Ø¨Ø±Ø´Ø§ Ø·Ù„Ø¨Ø§ØªØŒ Ø¹Ø§ÙˆØ¯ Ø¨Ø¹Ø¯ Ø´ÙˆÙŠØ©." });
   }
   next();
 }
@@ -3561,12 +3548,12 @@ app.get(["/admin", "/admin.html"], (req, res) => {
 
 app.get("/aliexpress/oauth/start", (req, res) => {
   if (!ALIEXPRESS_APP_KEY) {
-    return res.status(500).json({ success: false, error: "AliExpress App Key غير مضبوط" });
+    return res.status(500).json({ success: false, error: "AliExpress App Key ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
   }
 
   const callbackUrl = getAliExpressOAuthCallbackUrl(req);
   if (!callbackUrl) {
-    return res.status(500).json({ success: false, error: "رابط callback غير مضبوط" });
+    return res.status(500).json({ success: false, error: "Ø±Ø§Ø¨Ø· callback ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
   }
 
   const authorizeUrl = new URL(ALIEXPRESS_OAUTH_AUTHORIZE_URL);
@@ -3594,7 +3581,7 @@ app.get("/aliexpress/oauth-callback", async (req, res, next) => {
 
     const code = sanitizeText(req.query.code || "");
     if (!code) {
-      return res.status(400).json({ success: false, error: "كود التفويض غير موجود" });
+      return res.status(400).json({ success: false, error: "ÙƒÙˆØ¯ Ø§Ù„ØªÙÙˆÙŠØ¶ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
     }
 
     const tokenData = await createAliExpressAccessToken(code);
@@ -3683,7 +3670,7 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
   if (!url) {
     return res.status(400).json({
       success: false,
-      error: "لازم تبعث رابط المنتج"
+      error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù†ØªØ¬"
     });
   }
 
@@ -3695,7 +3682,7 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
   console.log("API HIT:", url);
 
   try {
-    const product = await fetchProduct(url);   // ← هنا الاستدعاء المباشر والآمن
+    const product = await fetchProduct(url);   // â† Ù‡Ù†Ø§ Ø§Ù„Ø§Ø³ØªØ¯Ø¹Ø§Ø¡ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± ÙˆØ§Ù„Ø¢Ù…Ù†
 
     console.log("SCRAPE DONE | source:", product.source, "| price:", product.price);
 
@@ -3704,17 +3691,17 @@ app.get("/api/product", rateLimitMiddleware, async (req, res) => {
   } catch (error) {
     console.error("FETCH ERROR:", error.message);
 
-    // إذا حصل خطأ، نرجع الـ fallback الجميل
+    // Ø¥Ø°Ø§ Ø­ØµÙ„ Ø®Ø·Ø£ØŒ Ù†Ø±Ø¬Ø¹ Ø§Ù„Ù€ fallback Ø§Ù„Ø¬Ù…ÙŠÙ„
     const canonicalUrl = getCanonicalProductUrl(url) || url;
     const productId = extractProductId(canonicalUrl);
 
     const fallback = buildUnavailableProductResponse({
       canonicalUrl,
       productId,
-      alertText: "تعذر جلب البيانات حالياً بسبب anti-bot"
+      alertText: "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¨Ø³Ø¨Ø¨ anti-bot"
     });
 
-    return res.status(200).json(fallback);   // نرجع 200 حتى لو fallback
+    return res.status(200).json(fallback);   // Ù†Ø±Ø¬Ø¹ 200 Ø­ØªÙ‰ Ù„Ùˆ fallback
   }
 });
 
@@ -3724,7 +3711,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
     const previousOrder = payload.orderRef ? getOrderByRef(payload.orderRef) : null;
     const order = upsertOrderRecord(payload);
     if (!order) {
-      return res.status(400).json({ success: false, error: "لازم تبعث orderRef" });
+      return res.status(400).json({ success: false, error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« orderRef" });
     }
 
     const promoCode = sanitizeText(payload.promoCode || "").toUpperCase();
@@ -3747,7 +3734,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
 app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
   const order = getOrderByRef(req.params.orderRef);
   if (!order) {
-    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
+    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
   }
 
   res.json({ success: true, order });
@@ -3756,7 +3743,7 @@ app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
 app.post("/api/admin/login", rateLimitMiddleware, (req, res) => {
   const pin = sanitizeText(req.body?.pin || "");
   if (!pin || pin !== ADMIN_PIN) {
-    return res.status(401).json({ success: false, error: "PIN الإدارة غير صحيح" });
+    return res.status(401).json({ success: false, error: "PIN Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ­ÙŠØ­" });
   }
 
   const store = loadAdminStore();
@@ -3821,7 +3808,7 @@ app.post("/api/admin/promos", rateLimitMiddleware, requireAdminAuth, (req, res) 
   const store = loadAdminStore();
   const promo = normalizePromoRecord(req.body || {});
   if (!promo || promo.value <= 0) {
-    return res.status(400).json({ success: false, error: "بيانات البرومو غير صالحة" });
+    return res.status(400).json({ success: false, error: "Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¨Ø±ÙˆÙ…Ùˆ ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
   }
 
   const index = store.promos.findIndex((entry) => entry.code === promo.code);
@@ -3851,7 +3838,7 @@ app.delete("/api/admin/promos/:code", rateLimitMiddleware, requireAdminAuth, (re
 app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (req, res) => {
   const current = getOrderByRef(req.params.orderRef);
   if (!current) {
-    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
+    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
   }
 
   const updated = upsertOrderRecord({
@@ -3865,7 +3852,7 @@ app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (r
 });
 
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: "المسار غير موجود" });
+  res.status(404).json({ success: false, error: "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
 });
 
 app.use((error, req, res, next) => {
@@ -3877,7 +3864,7 @@ app.use((error, req, res, next) => {
   });
   res.status(status).json({
     success: false,
-    error: status === 500 ? "خطأ داخلي في السيرفر" : error.message,
+    error: status === 500 ? "Ø®Ø·Ø£ Ø¯Ø§Ø®Ù„ÙŠ ÙÙŠ Ø§Ù„Ø³ÙŠØ±ÙØ±" : error.message,
     requestId: res.locals.requestId
   });
 });
