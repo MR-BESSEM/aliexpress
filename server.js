@@ -59,16 +59,12 @@ const ALIEXPRESS_AFFILIATE_PRODUCT_METHOD = process.env.ALIEXPRESS_AFFILIATE_PRO
 const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").trim();
 const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
 const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
-const SCRAPE_PROXY_SERVER = String(process.env.SCRAPE_PROXY_SERVER || "").trim();
-const SCRAPE_PROXY_USERNAME = String(process.env.SCRAPE_PROXY_USERNAME || "").trim();
-const SCRAPE_PROXY_PASSWORD = String(process.env.SCRAPE_PROXY_PASSWORD || "").trim();
+const SCRAPE_PROXY_SERVER = String(process.env.PROXY_SERVER || process.env.SCRAPE_PROXY_SERVER || "http://gw.dataimpulse.com:823").trim();
+const SCRAPE_PROXY_USERNAME = String(process.env.PROXY_USER || process.env.SCRAPE_PROXY_USERNAME || "").trim();
+const SCRAPE_PROXY_PASSWORD = String(process.env.PROXY_PASS || process.env.SCRAPE_PROXY_PASSWORD || "").trim();
 const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
-const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scrapingdog.com/scrape";
-const SCRAPINGDOG_API_KEY = (process.env.SCRAPINGDOG_API_KEY || "").trim();
-const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
-const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
-const SCRAPINGDOG_COUNTRY = String(process.env.SCRAPINGDOG_COUNTRY || "tn").trim().toLowerCase();
-const SCRAPINGDOG_ACCEPT_LANGUAGE = String(process.env.SCRAPINGDOG_ACCEPT_LANGUAGE || "en-US,en;q=0.9,fr;q=0.8,ar;q=0.7").trim();
+const MOBILE_SCRAPE_TIMEOUT_MS = Math.min(10_000, Math.max(4_000, Number(process.env.SCRAPE_TIMEOUT_MS || 10_000)));
+const MOBILE_SCRAPE_RETRIES = Math.min(3, Math.max(1, Number(process.env.SCRAPE_RETRIES || 3)));
 const ADMIN_PIN = String(process.env.ADMIN_PIN || "1920").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
 const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
@@ -81,6 +77,38 @@ const rateBuckets = new Map();
 let browserPromise = null;
 let resolvedBrowserExecutable = "";
 let adminStoreCache = null;
+
+const MOBILE_ALIEXPRESS_PROFILES = [
+  {
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+    secChUa:
+      "\"Chromium\";v=\"135\", \"Google Chrome\";v=\"135\", \"Not.A/Brand\";v=\"24\"",
+    secChUaMobile: "?1",
+    secChUaPlatform: "\"Android\"",
+    viewport: { width: 412, height: 915 },
+    locale: "en-US"
+  },
+  {
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
+    secChUa: "\"Not.A/Brand\";v=\"24\", \"Mobile Safari\";v=\"18\", \"Safari\";v=\"18\"",
+    secChUaMobile: "?1",
+    secChUaPlatform: "\"iOS\"",
+    viewport: { width: 393, height: 852 },
+    locale: "en-US"
+  },
+  {
+    userAgent:
+      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36",
+    secChUa:
+      "\"Chromium\";v=\"134\", \"Google Chrome\";v=\"134\", \"Not.A/Brand\";v=\"24\"",
+    secChUaMobile: "?1",
+    secChUaPlatform: "\"Android\"",
+    viewport: { width: 412, height: 892 },
+    locale: "en-US"
+  }
+];
 
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
@@ -148,13 +176,12 @@ function getScrapeProxyConfig() {
 function getAxiosProxyOptions() {
   const proxyConfig = getScrapeProxyConfig();
   if (!proxyConfig) {
-    console.log("❌ No proxy for Axios");
+    log("warn", "Axios proxy disabled");
     return { proxy: false };
   }
 
   const proxyUrl = new URL(proxyConfig.server);
-
-  console.log("✅ Axios using proxy:", proxyUrl.href);
+  log("log", "Axios proxy configured", { server: proxyUrl.href, authenticated: Boolean(proxyConfig.username) });
 
   return {
     proxy: {
@@ -169,6 +196,96 @@ function getAxiosProxyOptions() {
         : undefined
     }
   };
+}
+
+function createProxySessionId() {
+  return crypto.randomBytes(4).toString("hex");
+}
+
+function applyProxySessionToUsername(username, sessionId) {
+  const cleaned = sanitizeText(username);
+  if (!cleaned) return "";
+  if (/session-[a-z0-9_-]+/i.test(cleaned)) {
+    return cleaned.replace(/session-[a-z0-9_-]+/i, `session-${sessionId}`);
+  }
+  return `${cleaned}-session-${sessionId}`;
+}
+
+function buildProxyConfigForAttempt(attempt, sessionId = createProxySessionId()) {
+  const proxyConfig = getScrapeProxyConfig();
+  if (!proxyConfig) return null;
+  return {
+    ...proxyConfig,
+    username: applyProxySessionToUsername(proxyConfig.username, sessionId),
+    password: proxyConfig.password || "",
+    sessionId,
+    attempt
+  };
+}
+
+function getRandomMobileProfile() {
+  return MOBILE_ALIEXPRESS_PROFILES[Math.floor(Math.random() * MOBILE_ALIEXPRESS_PROFILES.length)];
+}
+
+function buildMobileAliExpressUrl(input) {
+  const productId = extractProductId(input);
+  if (!productId) return null;
+  return `https://m.aliexpress.com/item/${productId}.html`;
+}
+
+function buildAliExpressRequestHeaders(profile) {
+  return {
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": `${profile.locale},en;q=0.9`,
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+    "Sec-CH-UA": profile.secChUa,
+    "Sec-CH-UA-Mobile": profile.secChUaMobile,
+    "Sec-CH-UA-Platform": profile.secChUaPlatform,
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": profile.userAgent
+  };
+}
+
+function isAliExpressBlockedContent(html = "", price = 0) {
+  const cleaned = String(html || "").toLowerCase();
+  if (cleaned.includes("captcha") || cleaned.includes("punish") || cleaned.includes("bxpunish")) return true;
+  if (cleaned.includes("verify") && !price) return true;
+  return false;
+}
+
+function shouldRetryAliExpressAttempt(error) {
+  const message = String(error?.message || error || "");
+  return /blocked|captcha|punish|missing price|timeout|socket hang up|ERR_|ECONN|abort/i.test(message);
+}
+
+function normalizeAliExpressScrapeResult(product, url, source, meta = {}) {
+  const normalized = {
+    success: true,
+    title: pickBestProductTitle(product?.title, product?.description) || "",
+    price: Number(product?.price || 0),
+    shipping: product?.shipping != null ? Number(product.shipping) : null,
+    rating: normalizeRating(product?.rating),
+    reviewCount: Number(product?.reviewCount || 0),
+    image: normalizeUrl(product?.image || ""),
+    variants: Array.isArray(product?.variants) ? product.variants : [],
+    description: pickBestProductDescription([product?.description], product?.title || ""),
+    url,
+    source,
+    proxyUsed: Boolean(meta.proxyUsed)
+  };
+
+  if (!normalized.title || !normalized.image || normalized.price <= 0 || isLowValueProductTitle(normalized.title)) {
+    const error = new Error("Missing price or usable product fields");
+    error.partialData = normalized;
+    throw error;
+  }
+
+  return normalized;
 }
 
 function normalizeUrl(value = "") {
@@ -3482,207 +3599,348 @@ function extractFromHtml(html) {
   };
 }
   
-async function fetchProduct(url) {
-  const urlCandidates = getProductUrlCandidates(url);
-  const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
+async function waitForAliExpressPrice(page) {
+  const selectors = [
+    ".price--currentPrice",
+    ".product-price-value",
+    "[class*='price']"
+  ];
 
-  if (!canonicalUrl) {
-    const error = new Error("???? AliExpress ??? ????");
+  for (const selector of selectors) {
+    try {
+      await page.waitForFunction(
+        (currentSelector) => {
+          const node = document.querySelector(currentSelector);
+          const text = node?.textContent?.replace(/\s+/g, " ").trim() || "";
+          return /\d/.test(text);
+        },
+        selector,
+        { timeout: 2_500 }
+      );
+      log("log", "AliExpress price selector matched", { selector });
+      return selector;
+    } catch {
+      // try next selector
+    }
+  }
+
+  throw new Error("Missing price selector");
+}
+
+async function extractAliExpressMobileDom(page) {
+  return page.evaluate(() => {
+    const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+    const collectTexts = (selectors) => {
+      const values = [];
+      selectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((node) => {
+          const text = clean(node.textContent || node.innerText || "");
+          if (text) values.push(text);
+        });
+      });
+      return Array.from(new Set(values)).slice(0, 80);
+    };
+
+    const titleSelectors = ["h1", "[data-pl='product-title']", "[class*='title']"];
+    const imageSelectors = [
+      "img[src*='alicdn']",
+      "img[src*='aliexpress-media.com']",
+      "img"
+    ];
+
+    const title =
+      titleSelectors
+        .map((selector) => document.querySelector(selector)?.textContent || "")
+        .map(clean)
+        .find(Boolean) || "";
+
+    const image =
+      imageSelectors
+        .map((selector) => document.querySelector(selector)?.getAttribute("src") || document.querySelector(selector)?.getAttribute("data-src") || "")
+        .map(clean)
+        .find(Boolean) || "";
+
+    const variantGroups = Array.from(document.querySelectorAll("[class*='sku'], [class*='variant'], [class*='property']"))
+      .map((group) => {
+        const name = clean(
+          group.querySelector("[class*='title'], [class*='name'], [class*='label']")?.textContent || "Option"
+        );
+        const values = Array.from(group.querySelectorAll("button, li, [role='button'], [class*='item'], [class*='value']"))
+          .map((node) => clean(node.textContent || ""))
+          .filter(Boolean);
+        return { name, values: Array.from(new Set(values)).slice(0, 12) };
+      })
+      .filter((group) => group.values.length >= 2)
+      .slice(0, 6);
+
+    return {
+      title,
+      image,
+      priceTexts: collectTexts([".price--currentPrice", ".product-price-value", "[class*='price']"]),
+      shippingTexts: collectTexts(["[class*='shipping']", "[class*='delivery']", "[class*='logistics']"]),
+      ratingTexts: collectTexts(["[class*='rating']", "[class*='star']", "[class*='score']"]),
+      reviewTexts: collectTexts(["[class*='review']", "[class*='feedback']", "[class*='sold']"]),
+      descriptionTexts: collectTexts(["[class*='description']", "[class*='product-desc']", "[class*='summary']"]),
+      variantGroups,
+      bodyText: clean(document.body?.innerText || "")
+    };
+  });
+}
+
+async function scrapeAliExpressMobileWithAxios(url, attempt, proxyConfig, profile) {
+  log("log", "AliExpress axios attempt", {
+    attempt,
+    url,
+    proxyUsed: Boolean(proxyConfig),
+    sessionId: proxyConfig?.sessionId || null
+  });
+
+  const response = await axios.get(url, {
+    timeout: MOBILE_SCRAPE_TIMEOUT_MS,
+    responseType: "text",
+    headers: buildAliExpressRequestHeaders(profile),
+    ...(proxyConfig
+      ? {
+          proxy: {
+            protocol: new URL(proxyConfig.server).protocol.replace(":", ""),
+            host: new URL(proxyConfig.server).hostname,
+            port: Number(new URL(proxyConfig.server).port || 80),
+            auth: proxyConfig.username || proxyConfig.password
+              ? {
+                  username: proxyConfig.username,
+                  password: proxyConfig.password
+                }
+              : undefined
+          }
+        }
+      : { proxy: false })
+  });
+
+  const html = typeof response.data === "string" ? response.data : String(response.data || "");
+  const parsed = extractHtmlProduct(html, url, "axios-mobile");
+  const candidate = {
+    ...parsed,
+    price: parsed.price || extractPriceFromTextList([html]),
+    shipping: parsed.shipping ?? parseShippingTexts([html]),
+    rating: parsed.rating || extractRatingFromTextList([html]),
+    reviewCount: parsed.reviewCount || extractCountFromTextList([html], /review|ratings?|feedback/i),
+    variants: Array.isArray(parsed.variants) ? parsed.variants : []
+  };
+
+  if (isAliExpressBlockedContent(html, candidate.price) || candidate.price <= 0) {
+    const error = new Error("Axios mobile response blocked or missing price");
+    error.html = html;
+    throw error;
+  }
+
+  return normalizeAliExpressScrapeResult(candidate, url, "axios-mobile", { proxyUsed: Boolean(proxyConfig) });
+}
+
+async function scrapeAliExpressMobileWithPlaywright(url, attempt, proxyConfig, profile) {
+  if (!playwright?.chromium) {
+    throw new Error("Playwright is not installed");
+  }
+
+  let browser;
+  let context;
+  let page;
+
+  try {
+    log("log", "AliExpress Playwright attempt", {
+      attempt,
+      url,
+      proxyUsed: Boolean(proxyConfig),
+      proxyServer: proxyConfig?.server || "",
+      sessionId: proxyConfig?.sessionId || null,
+      userAgent: profile.userAgent
+    });
+
+    const launchOptions = {
+      headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-features=IsolateOrigins,site-per-process,AutomationControlled"
+      ]
+    };
+
+    if (resolvedBrowserExecutable) {
+      launchOptions.executablePath = resolvedBrowserExecutable;
+    } else {
+      resolvedBrowserExecutable = detectPlaywrightExecutable();
+      if (resolvedBrowserExecutable) launchOptions.executablePath = resolvedBrowserExecutable;
+    }
+
+    if (proxyConfig) {
+      launchOptions.proxy = {
+        server: proxyConfig.server,
+        username: proxyConfig.username || undefined,
+        password: proxyConfig.password || undefined
+      };
+    }
+
+    browser = await playwright.chromium.launch(launchOptions);
+    context = await browser.newContext({
+      userAgent: profile.userAgent,
+      locale: profile.locale,
+      viewport: profile.viewport,
+      deviceScaleFactor: 2,
+      hasTouch: true,
+      isMobile: true
+    });
+
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+      Object.defineProperty(navigator, "platform", { get: () => "Linux armv8l" });
+      Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] });
+      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      window.chrome = window.chrome || { runtime: {} };
+      const originalQuery = window.navigator.permissions?.query;
+      if (originalQuery) {
+        window.navigator.permissions.query = (parameters) =>
+          parameters?.name === "notifications"
+            ? Promise.resolve({ state: Notification.permission })
+            : originalQuery(parameters);
+      }
+    });
+
+    page = await context.newPage();
+    await page.setExtraHTTPHeaders(buildAliExpressRequestHeaders(profile));
+    await page.route("**/*", (route) => {
+      const type = route.request().resourceType();
+      if (type === "image" || type === "font" || type === "media") {
+        return route.abort();
+      }
+      return route.continue();
+    });
+
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: MOBILE_SCRAPE_TIMEOUT_MS
+    });
+    await page.waitForLoadState("domcontentloaded").catch(() => {});
+    await page.waitForTimeout(1200 + Math.floor(Math.random() * 600));
+    await page.mouse.move(120 + Math.random() * 120, 220 + Math.random() * 160, { steps: 8 });
+    await page.mouse.wheel(0, 400 + Math.floor(Math.random() * 300)).catch(() => {});
+
+    const selectorUsed = await waitForAliExpressPrice(page);
+    const html = await page.content();
+    const htmlProduct = extractHtmlProduct(html, url, "playwright-mobile-html");
+    const domData = await extractAliExpressMobileDom(page);
+    const merged = mergePartialProductData(htmlProduct, {
+      title: domData.title,
+      description: domData.descriptionTexts.join(" ").slice(0, 600),
+      image: domData.image,
+      price: extractPriceFromTextList(domData.priceTexts),
+      shipping: parseShippingTexts(domData.shippingTexts),
+      rating: extractRatingFromTextList(domData.ratingTexts),
+      reviewCount: extractCountFromTextList(domData.reviewTexts, /review|ratings?|feedback/i),
+      soldCount: extractCountFromTextList(domData.reviewTexts, /sold|orders?/i),
+      variants: mergeVariantGroups(htmlProduct.variants, domData.variantGroups),
+      deliveryEstimate: extractDeliveryEstimateFromTexts(domData.shippingTexts)
+    }, url);
+
+    if (
+      isAliExpressBlockedContent(html, merged.price) ||
+      isLowValueProductTitle(merged.title) ||
+      merged.price <= 0
+    ) {
+      log("warn", "AliExpress block detected", {
+        attempt,
+        selectorUsed,
+        hasTitle: Boolean(merged.title),
+        price: merged.price || 0
+      });
+      const error = new Error("Playwright mobile response blocked or missing price");
+      error.html = html;
+      error.partialData = merged;
+      throw error;
+    }
+
+    return normalizeAliExpressScrapeResult(merged, url, "playwright-mobile", { proxyUsed: Boolean(proxyConfig) });
+  } finally {
+    await page?.close().catch(() => {});
+    await context?.close().catch(() => {});
+    await browser?.close().catch(() => {});
+  }
+}
+
+async function fetchProduct(url) {
+  const mobileUrl = buildMobileAliExpressUrl(url);
+
+  if (!mobileUrl) {
+    const error = new Error("Invalid AliExpress product URL");
     error.status = 400;
     throw error;
   }
 
   const productId =
-    extractProductId(canonicalUrl) ||
-    crypto.createHash("md5").update(canonicalUrl).digest("hex");
-
+    extractProductId(mobileUrl) ||
+    crypto.createHash("md5").update(mobileUrl).digest("hex");
   const cacheKey = `product:${productId}`;
   const cached = getCache(productCache, cacheKey);
   if (cached && !isBadCachedProduct(cached)) {
     return { ...cached, cached: true };
   }
 
-  console.log("AliExpress scrape start:", canonicalUrl);
+  log("log", "AliExpress scrape start", { mobileUrl, retries: MOBILE_SCRAPE_RETRIES });
 
-  try {
-    const response = await axios.get(canonicalUrl, {
-      timeout: Math.min(SCRAPE_TIMEOUT_MS, 20_000),
-      responseType: "text",
-      headers: {
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
-      },
-      ...getAxiosProxyOptions()
-    });
+  let lastError = null;
 
-    const html = typeof response.data === "string" ? response.data : String(response.data || "");
-    const axiosProduct = normalizeScrapedProductData(
-      extractHtmlProduct(html, canonicalUrl, "axios-proxy-html"),
-      canonicalUrl,
-      "axios-proxy-html"
-    );
+  for (let attempt = 1; attempt <= MOBILE_SCRAPE_RETRIES; attempt += 1) {
+    const proxyConfig = buildProxyConfigForAttempt(attempt);
+    const profile = getRandomMobileProfile();
 
-    if (!isBadCachedProduct(axiosProduct)) {
-      const product = {
-        ...axiosProduct,
-        cached: false,
-        fetchedAt: new Date().toISOString()
-      };
-      setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-      return product;
-    }
-  } catch (error) {
-    console.error("Axios proxy scrape failed:", error.message);
-  }
-
-  let pageData = null;
-
-  try {
-    const browser = await getBrowser();
-
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-      viewport: { width: 1440, height: 900 },
-      locale: "en-US"
-    });
-
-    const page = await context.newPage();
-
-    await page.setExtraHTTPHeaders({
-      "accept-language": "en-US,en;q=0.9"
-    });
-
-    await page.goto(canonicalUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 15000
-    });
-
-    await page.waitForTimeout(2000);
-
-    const html = await page.content();
-    const htmlProduct = normalizeScrapedProductData(
-      extractHtmlProduct(html, canonicalUrl, "playwright-html"),
-      canonicalUrl,
-      "playwright-html"
-    );
-
-    if (!isBadCachedProduct(htmlProduct)) {
-      const product = {
-        ...htmlProduct,
-        cached: false,
-        fetchedAt: new Date().toISOString()
-      };
-      await page.close();
-      await context.close();
-      setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-      return product;
-    }
-
-    if ((html.includes("captcha") || html.includes("punish")) && !htmlProduct.image) {
-      throw new Error("Blocked by AliExpress");
-    }
-
-    const domData = await page.evaluate(() => {
-      const text = (sel) =>
-        document.querySelector(sel)?.innerText?.trim() || "";
-
-      return {
-        title:
-          text("h1") ||
-          text(".pdp-title") ||
-          text("[class*='title']"),
-        price:
-          text(".product-price-current") ||
-          text("[class*='price']") ||
-          text(".price--currentPrice"),
-        image:
-          document.querySelector("img")?.src || "",
-        description:
-          text(".product-description") ||
-          text("[class*='description']") ||
-          ""
-      };
-    });
-
-    pageData = {
-      title: domData.title || htmlProduct.title || "",
-      description: domData.description || htmlProduct.description || "",
-      price: domData.price || (htmlProduct.price ? String(htmlProduct.price) : ""),
-      image: domData.image || htmlProduct.image || "",
-      rating: htmlProduct.rating || 0,
-      reviewCount: htmlProduct.reviewCount || 0,
-      soldCount: htmlProduct.soldCount || 0,
-      shipping: htmlProduct.shipping,
-      deliveryEstimate: domData.deliveryEstimate || htmlProduct.deliveryEstimate || "",
-      variants: Array.isArray(htmlProduct.variants) ? htmlProduct.variants : []
-    };
-
-    await page.close();
-    await context.close();
-  } catch (error) {
-    console.error("Playwright scrape failed:", error.message);
-  }
-
-  if (!pageData?.title || !pageData?.image) {
     try {
-      const html = await fetchScrapingDogHtml(canonicalUrl, { dynamic: false });
-      const fallbackProduct = normalizeScrapedProductData(
-        extractHtmlProduct(html, canonicalUrl, "scrapingdog-html"),
-        canonicalUrl,
-        "scrapingdog-html"
-      );
+      const product = await scrapeAliExpressMobileWithPlaywright(mobileUrl, attempt, proxyConfig, profile);
+      const normalized = {
+        ...product,
+        cached: false,
+        fetchedAt: new Date().toISOString(),
+        url: mobileUrl
+      };
+      setCache(productCache, cacheKey, normalized, CACHE_TTL_MS);
+      return normalized;
+    } catch (playwrightError) {
+      lastError = playwrightError;
+      log("warn", "Playwright mobile scrape failed", {
+        attempt,
+        error: playwrightError.message,
+        retrying: attempt < MOBILE_SCRAPE_RETRIES
+      });
+    }
 
-      if (!isBadCachedProduct(fallbackProduct)) {
-        const product = {
-          ...fallbackProduct,
-          cached: false,
-          fetchedAt: new Date().toISOString()
-        };
-        setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-        return product;
+    try {
+      const product = await scrapeAliExpressMobileWithAxios(mobileUrl, attempt, proxyConfig, profile);
+      const normalized = {
+        ...product,
+        cached: false,
+        fetchedAt: new Date().toISOString(),
+        url: mobileUrl
+      };
+      setCache(productCache, cacheKey, normalized, CACHE_TTL_MS);
+      return normalized;
+    } catch (axiosError) {
+      lastError = axiosError;
+      log("warn", "Axios mobile scrape failed", {
+        attempt,
+        error: axiosError.message,
+        retrying: attempt < MOBILE_SCRAPE_RETRIES
+      });
+      if (!shouldRetryAliExpressAttempt(axiosError) && !shouldRetryAliExpressAttempt(lastError)) {
+        break;
       }
-    } catch (fallbackError) {
-      console.error("ScrapingDog fallback failed:", fallbackError.message);
     }
   }
 
-  if (!pageData) {
-    return buildUnavailableProductResponse({
-      canonicalUrl,
-      productId,
-      source: "manual-quote-required",
-      alertText: "Unable to fetch live AliExpress product data right now. Try again later or handle this item manually."
-    });
-  }
-
-  const product = {
-    success: true,
-    title: pageData.title || "AliExpress Product",
-    description: pageData.description || "",
-    price: Number((pageData.price || "").replace(/[^\d.]/g, "")) || 0,
-    shipping: pageData.shipping != null ? Number(pageData.shipping) : null,
-    image: pageData.image || "",
-    rating: Number(pageData.rating || 0),
-    reviewCount: Number(pageData.reviewCount || 0),
-    soldCount: Number(pageData.soldCount || 0),
-    variants: Array.isArray(pageData.variants) ? pageData.variants : [],
-    url: canonicalUrl,
-    source: "playwright-www",
-    cached: false,
-    fetchedAt: new Date().toISOString()
-  };
-
-  product.shippingLabel = "Shipping unavailable";
-  product.deliveryEstimate = pageData.deliveryEstimate || "12 to 25 days";
-  product.priceUnavailable = product.price <= 0;
-
-  if (!isBadCachedProduct(product)) {
-    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-  }
-
-  return product;
+  return buildUnavailableProductResponse({
+    canonicalUrl: mobileUrl,
+    productId,
+    source: "manual-quote-required",
+    alertText: "Unable to fetch live AliExpress product data right now. Try again later or handle this item manually."
+  });
 }
 
 async function fetchExchangeRate() {
@@ -3864,7 +4122,6 @@ app.get("/api/health", (req, res) => {
     status: "ok",
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
-    scrapingDogConfigured: Boolean(SCRAPINGDOG_API_KEY),
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
     aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
     aliexpressApiMode: apiMode,
