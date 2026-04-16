@@ -2451,42 +2451,105 @@ async function fetchScrapingDogHtml(url, options = {}) {
   }
 
   const useDynamic = options.dynamic === true;
-  let lastError = null;
+  const requestedDynamic = String(useDynamic ? true : SCRAPINGDOG_DYNAMIC);
+  const variants = [];
+  const seenVariants = new Set();
+  const pushVariant = (params, reason) => {
+    const key = JSON.stringify(params);
+    if (seenVariants.has(key)) return;
+    seenVariants.add(key);
+    variants.push({ params, reason });
+  };
 
-  for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
-    try {
-      const response = await axios.get(SCRAPINGDOG_API_URL, {
-        params: {
+  pushVariant(
+    {
+      api_key: SCRAPINGDOG_API_KEY,
+      url,
+      dynamic: requestedDynamic,
+      country: SCRAPINGDOG_COUNTRY || undefined
+    },
+    "default"
+  );
+
+  if (SCRAPINGDOG_COUNTRY) {
+    pushVariant(
+      {
+        api_key: SCRAPINGDOG_API_KEY,
+        url,
+        dynamic: requestedDynamic
+      },
+      "without-country"
+    );
+  }
+
+  if (requestedDynamic !== "true") {
+    pushVariant(
+      {
+        api_key: SCRAPINGDOG_API_KEY,
+        url,
+        dynamic: "true",
+        country: SCRAPINGDOG_COUNTRY || undefined
+      },
+      "dynamic-true"
+    );
+
+    if (SCRAPINGDOG_COUNTRY) {
+      pushVariant(
+        {
           api_key: SCRAPINGDOG_API_KEY,
           url,
-          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC),
-          country: SCRAPINGDOG_COUNTRY || undefined
+          dynamic: "true"
         },
-        timeout: SCRAPE_TIMEOUT_MS,
-        responseType: "text",
-        headers: {
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
-        },
-        proxy: false
-      });
+        "dynamic-true-without-country"
+      );
+    }
+  }
 
-      const html = typeof response.data === "string" ? response.data : String(response.data || "");
-      if (!html.trim()) {
-        const error = new Error("ScrapingDog returned an empty HTML response");
-        error.status = 502;
-        error.nonRetryable = true;
-        throw error;
-      }
+  let lastError = null;
 
-      return html;
-    } catch (error) {
-      lastError = error;
-      if (attempt >= SCRAPINGDOG_RETRY_COUNT || !shouldRetryScrapingDogRequest(error)) {
-        break;
+  for (const variant of variants) {
+    for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
+      try {
+        if (variant.reason !== "default") {
+          console.warn(`ScrapingDog retry variant: ${variant.reason}`);
+        }
+
+        const response = await axios.get(SCRAPINGDOG_API_URL, {
+          params: variant.params,
+          timeout: SCRAPE_TIMEOUT_MS,
+          responseType: "text",
+          headers: {
+            Accept: "text/html,application/xhtml+xml",
+            "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+          },
+          proxy: false
+        });
+
+        const html = typeof response.data === "string" ? response.data : String(response.data || "");
+        if (!html.trim()) {
+          const error = new Error("ScrapingDog returned an empty HTML response");
+          error.status = 502;
+          error.nonRetryable = true;
+          throw error;
+        }
+
+        return html;
+      } catch (error) {
+        lastError = error;
+        const status = Number(error?.response?.status || 0);
+        const isRejectedVariant = status === 400 && variant.reason !== variants[variants.length - 1].reason;
+
+        if (isRejectedVariant) {
+          break;
+        }
+
+        if (attempt >= SCRAPINGDOG_RETRY_COUNT || !shouldRetryScrapingDogRequest(error)) {
+          break;
+        }
+
+        await sleep(500 * (attempt + 1));
       }
-      await sleep(500 * (attempt + 1));
     }
   }
 
