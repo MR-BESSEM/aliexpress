@@ -917,6 +917,15 @@ async function createAliExpressAccessToken(code) {
       }
       return data;
     } catch (error) {
+      log("warn", "AliExpress OAuth token variant failed", {
+        label: variant.label,
+        error: error.message,
+        code: error?.meta?.code ?? error?.response?.data?.code ?? null,
+        requestId: error?.meta?.requestId ?? error?.response?.data?.request_id ?? error?.response?.data?.requestId ?? null,
+        responsePreview:
+          error?.meta?.responsePreview ||
+          (error?.response?.data ? previewValue(error.response.data) : "")
+      });
       lastError = error;
     }
   }
@@ -3675,6 +3684,13 @@ app.get("/aliexpress/oauth-callback", async (req, res, next) => {
 <p>You can now retry product fetching from your site.</p>
 </body></html>`);
   } catch (error) {
+    log("warn", "AliExpress OAuth callback failed", {
+      error: error.message,
+      code: error?.meta?.code ?? null,
+      requestId: error?.meta?.requestId || error?.requestId || null,
+      variant: error?.meta?.label || null,
+      responsePreview: error?.meta?.responsePreview || ""
+    });
     const response = {
       success: false,
       error: error.message,
