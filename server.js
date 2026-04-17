@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 
 const path = require("path");
 const fs = require("fs");
@@ -3410,13 +3410,29 @@ async function fetchProduct(url) {
   const scrapingDogProduct =
     SCRAPINGDOG_API_KEY &&
     await tryCandidate("scrapingdog", async () => {
-      const html = await withRetries("scrapingdog-html", () =>
-        fetchScrapingDogHtml(canonicalUrl, { dynamic: true })
-      );
-      return {
-        ...extractHtmlProduct(html, canonicalUrl, "scrapingdog"),
-        source: "scrapingdog"
-      };
+      const modesToTry = SCRAPINGDOG_DYNAMIC ? [true, false] : [false, true];
+      let lastError = null;
+
+      for (const dynamic of modesToTry) {
+        try {
+          const html = await withRetries(`scrapingdog-html-${dynamic ? "dynamic" : "static"}`, () =>
+            fetchScrapingDogHtml(canonicalUrl, { dynamic })
+          );
+          return {
+            ...extractHtmlProduct(html, canonicalUrl, dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"),
+            source: dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"
+          };
+        } catch (error) {
+          lastError = error;
+          log("warn", "ScrapingDog mode failed", {
+            url: canonicalUrl,
+            dynamic,
+            error: error.message
+          });
+        }
+      }
+
+      throw lastError || new Error("ScrapingDog failed in both static and dynamic modes");
     });
   if (scrapingDogProduct) return scrapingDogProduct;
 
@@ -3636,6 +3652,7 @@ app.get("/api/health", (req, res) => {
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
     scrapingDogConfigured: Boolean(SCRAPINGDOG_API_KEY),
+    scrapingDogDynamicPreferred: SCRAPINGDOG_DYNAMIC,
     aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
     aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
     aliexpressApiMode: apiMode,
