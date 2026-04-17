@@ -901,15 +901,17 @@ async function createAliExpressAccessToken(code) {
         if (!response && localResponse) response = localResponse;
       }
 
-      const data = response?.data && typeof response.data === "object" ? response.data : {};
-      if (String(data.code ?? "0") !== "0" && !data.access_token) {
-        const message = data.message || data.msg || data.error_message || data.error || "AliExpress OAuth token exchange failed";
+      const rawData = response?.data && typeof response.data === "object" ? response.data : {};
+      const data = extractAliExpressOAuthTokenPayload(rawData);
+      if (String(rawData.code ?? data.code ?? "0") !== "0" && !data.access_token && !data.accessToken) {
+        const message = rawData.message || rawData.msg || rawData.error_message || rawData.error || data.message || data.msg || "AliExpress OAuth token exchange failed";
         const error = new Error(message);
         error.status = 502;
         error.meta = {
-          code: data.code ?? null,
-          requestId: data.request_id || data.requestId || null,
-          label: variant.label
+          code: rawData.code ?? data.code ?? null,
+          requestId: rawData.request_id || rawData.requestId || data.request_id || data.requestId || null,
+          label: variant.label,
+          responsePreview: previewValue(rawData)
         };
         throw error;
       }
@@ -3343,6 +3345,47 @@ function finalizeFetchedProduct(product, canonicalUrl) {
     manualQuoteRecommended: Number(normalized.price || 0) <= 0,
     priceUnavailable: Number(normalized.price || 0) <= 0
   };
+}
+
+function extractAliExpressOAuthTokenPayload(responseData) {
+  const parsedRoot = parseMaybeJson(responseData);
+  const candidates = [
+    parsedRoot,
+    parseMaybeJson(parsedRoot?.data),
+    parseMaybeJson(parsedRoot?.result),
+    parseMaybeJson(parsedRoot?.response),
+    parseMaybeJson(parsedRoot?.resp_result),
+    parseMaybeJson(parsedRoot?.respResult),
+    parseMaybeJson(parsedRoot?.aliexpress_auth_token_create_response),
+    parseMaybeJson(parsedRoot?.aliexpress_oauth_token_create_response)
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const direct =
+      candidate.access_token ||
+      candidate.accessToken ||
+      candidate.refresh_token ||
+      candidate.refreshToken;
+    if (direct) return candidate;
+
+    const nested = [
+      parseMaybeJson(candidate.data),
+      parseMaybeJson(candidate.result),
+      parseMaybeJson(candidate.response),
+      parseMaybeJson(candidate.token_result),
+      parseMaybeJson(candidate.tokenResult)
+    ];
+
+    for (const value of nested) {
+      if (!value || typeof value !== "object") continue;
+      if (value.access_token || value.accessToken || value.refresh_token || value.refreshToken) {
+        return value;
+      }
+    }
+  }
+
+  return parsedRoot && typeof parsedRoot === "object" ? parsedRoot : {};
 }
 
 async function fetchProduct(url) {
