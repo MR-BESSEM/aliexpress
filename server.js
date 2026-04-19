@@ -1,3981 +1,4379 @@
-require("dotenv").config();
-
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
-const crypto = require("crypto");
-const { URL } = require("url");
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-
-let playwright = null;
-try {
-  playwright = require("playwright");
-} catch {
-  playwright = null;
-}
-
-const app = express();
-const ROOT = __dirname;
-const ENV_FILE_PATH = path.join(ROOT, ".env");
-const PORT = Number(process.env.PORT || 3000);
-const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/g, "");
-const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 21600) * 1000;
-const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_SECONDS || 3600) * 1000;
-const SCRAPE_TIMEOUT_MS = Number(process.env.SCRAPE_TIMEOUT_MS || 30_000);
-const SCRAPE_RETRIES = Number(process.env.SCRAPE_RETRIES || 1);
-const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
-const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 45);
-const CORS_ORIGINS = String(process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((value) => value.trim())
-  .filter(Boolean);
-const FX_API_URL = process.env.FX_API_URL || "https://open.er-api.com/v6/latest/USD";
-const FX_FALLBACK_URL = process.env.FX_FALLBACK_URL || "https://api.exchangerate.host/latest?base=USD&symbols=TND";
-const FX_FALLBACK_RATE = Number(process.env.FX_FALLBACK_RATE || 3.8);
-const DEFAULT_SHIPPING_USD = Number(process.env.DEFAULT_SHIPPING_USD || 2);
-const RESTRICTED_RULES = [
-  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|Ø·ÙŠØ§Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±|Ø·Ø§Ø¦Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±/i, message: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠÙƒÙˆÙ† Ù…Ù…Ù†ÙˆØ¹ ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©." },
-  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|Ø³ÙŠØ¬Ø§Ø±Ø© Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ©/i, message: "Ø§Ù„Ø³ÙŠØ¬Ø§Ø±Ø© Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ© ÙˆÙ…Ø´ØªÙ‚Ø§ØªÙ‡Ø§ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ±." },
-  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|ÙƒØ§Ù…ÙŠØ±Ø§ ØªØ¬Ø³Ø³/i, message: "Ø§Ù„ÙƒØ§Ù…ÙŠØ±Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© ÙˆØ§Ù„ØªØ¬Ø³Ø³ ØºØ§Ù„Ø¨Ø§ Ù…Ù…Ù†ÙˆØ¹Ø©." },
-  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|Ø¬Ù‡Ø§Ø² ØªØªØ¨Ø¹/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„ØªØªØ¨Ø¹ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ù‚Ø§Ù†ÙˆÙ†ÙŠ Ù…Ø±ØªÙØ¹." },
-  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|Ù‡Ø§ØªÙ|telephone portable/i, message: "Ø§Ù„Ù‡ÙˆØ§ØªÙ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø¯Ø®Ø§Ù„." },
-  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|Ù„Ø§Ø³Ù„ÙƒÙŠ|transceiver/i, message: "Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù„Ø§Ø³Ù„ÙƒÙŠØ© ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØ±Ø®ÙŠØµ." },
-  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|Ø±Ø³ÙŠÙØ±/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ø§Ø³ØªÙ‚Ø¨Ø§Ù„ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØµØ±ÙŠØ­ Ø£Ùˆ ØªØªØ¹Ø±Ø¶ Ù„Ù„Ø­Ø¬Ø²." },
-  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|Ø¯ÙˆØ§Ø¡|Ù…ÙƒÙ…Ù„ ØºØ°Ø§Ø¦ÙŠ/i, message: "Ø§Ù„Ø£Ø¯ÙˆÙŠØ© ÙˆØ§Ù„Ù…ÙƒÙ…Ù„Ø§Øª Ø§Ù„ØºØ°Ø§Ø¦ÙŠØ© ÙŠÙ„Ø²Ù…Ù‡Ù… ØªØ«Ø¨Øª Ø¥Ø¶Ø§ÙÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." },
-  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|Ø³ÙƒÙŠÙ†|Ø®Ù†Ø¬Ø±|Ø³ÙŠÙ/i, message: "Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø­Ø§Ø¯Ø© Ø£Ùˆ Ø§Ù„ØµÙŠØ¯ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø±ÙØ¶ Ø£Ùˆ Ø­Ø¬Ø²." }
-];
-
-const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
-const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
-const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
-const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
-const ALIEXPRESS_ENABLE_AFFILIATE_API = process.env.ALIEXPRESS_ENABLE_AFFILIATE_API === "true";
-const ALIEXPRESS_OAUTH_AUTHORIZE_URL = process.env.ALIEXPRESS_OAUTH_AUTHORIZE_URL || "https://api-sg.aliexpress.com/oauth/authorize";
-const ALIEXPRESS_OAUTH_TOKEN_URL = process.env.ALIEXPRESS_OAUTH_TOKEN_URL || "https://api-sg.aliexpress.com/rest/auth/token/create";
-const ALIEXPRESS_AFFILIATE_API_BASE_URL = process.env.ALIEXPRESS_AFFILIATE_API_BASE_URL || "https://eco.taobao.com/router/rest";
-const ALIEXPRESS_AFFILIATE_PRODUCT_METHOD = process.env.ALIEXPRESS_AFFILIATE_PRODUCT_METHOD || "aliexpress.affiliate.productdetail.get";
-const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").trim();
-const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
-const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
-const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
-const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scrapingdog.com/scrape";
-const SCRAPINGDOG_API_KEY = (process.env.SCRAPINGDOG_API_KEY || "").trim();
-const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
-const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
-const SCRAPINGDOG_COUNTRY = String(process.env.SCRAPINGDOG_COUNTRY || "tn").trim().toLowerCase();
-const SCRAPINGDOG_ACCEPT_LANGUAGE = String(process.env.SCRAPINGDOG_ACCEPT_LANGUAGE || "en-US,en;q=0.9,fr;q=0.8,ar;q=0.7").trim();
-const ADMIN_PIN = String(process.env.ADMIN_PIN || "1920").trim();
-const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
-const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
-const DATA_DIR = path.join(ROOT, "data");
-const ADMIN_STORE_PATH = path.join(DATA_DIR, "admin-store.json");
-
-const productCache = new Map();
-const fxCache = new Map();
-const rateBuckets = new Map();
-let browserPromise = null;
-let resolvedBrowserExecutable = "";
-let adminStoreCache = null;
-
-app.disable("x-powered-by");
-app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
-app.use(express.json({ limit: "1mb" }));
-app.use("/assets", express.static(path.join(ROOT, "assets"), { maxAge: "7d", etag: true }));
-
-function log(level, message, meta = {}) {
-  const payload = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
-  console[level](`[${new Date().toISOString()}] ${message}${payload}`);
-}
-
-function clearBrowserReference(reason, meta = {}) {
-  if (browserPromise) {
-    log("warn", "Clearing Playwright browser reference", { reason, ...meta });
-  }
-  browserPromise = null;
-}
-
-function isRecoverablePlaywrightError(error) {
-  const message = String(error?.message || error || "");
-  return /Target page, context or browser has been closed|Target closed|Browser has been closed|Connection closed|browser has disconnected|Execution context was destroyed|net::ERR_|browserType\.launch/i.test(message);
-}
-
-function sanitizeText(value = "") {
-  return String(value).replace(/\s+/g, " ").trim();
-}
-
-function parseProxyUrl(rawValue = "") {
-  const input = String(rawValue || "").trim();
-  if (!input) return null;
-  try {
-    const parsed = new URL(input);
-    if (!/^https?:$/i.test(parsed.protocol) && !/^socks5?:$/i.test(parsed.protocol)) return null;
-    const server = `${parsed.protocol}//${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`;
-    return {
-      server,
-      username: parsed.username ? decodeURIComponent(parsed.username) : "",
-      password: parsed.password ? decodeURIComponent(parsed.password) : "",
-      protocol: parsed.protocol.replace(":", "").toLowerCase()
+(() => {
+    const API_BASE_URL = "";
+    const FX_FALLBACK_RATE = 4.5;
+    const FX_MARKUP = 0;
+    const SERVICE_FEE_PERCENT = 0.08;
+    const SERVICE_FEE_MIN_TND = 0;
+    const RATE_REFRESH_MS = 15 * 60 * 1000;
+    const WHATSAPP_NUMBER = "21627498276";
+    const RECENT_LINKS_KEY = "alex_recent_links_v1";
+    const ACCOUNT_PREFS_KEY = "alex_account_prefs_v1";
+    const LOCAL_STATS_KEY = "alex_local_stats_v1";
+    const BUDGET_PREFS_KEY = "alex_budget_prefs_v1";
+    const SAVED_PACKS_KEY = "alex_saved_packs_v1";
+    const PRICE_ALERTS_KEY = "alex_price_alerts_v1";
+    const REFERRAL_STATE_KEY = "alex_referral_state_v1";
+    const ADMIN_PROMOS_KEY = "alex_admin_promos_v1";
+    const ADMIN_PIN_KEY = "alex_admin_pin_v1";
+    const ADMIN_TOKEN_KEY = "alex_admin_token_v1";
+    const ACTIVITY_LOG_KEY = "alex_activity_log_v1";
+    const DEFAULT_PUBLIC_CALCULATOR_SETTINGS = {
+        thresholds: { low: 10, mid: 50, high: 150 },
+        rates: { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 },
+        serviceFeeTnd: 0
     };
-  } catch {
-    return null;
-  }
-}
 
-function getScrapeProxyConfig() {
-  return parseProxyUrl(SCRAPE_PROXY_URL);
-}
+    const dom = {
+        calcLink: document.getElementById("calc-link"),
+        calcName: document.getElementById("calc-name"),
+        calcNote: document.getElementById("calc-note"),
+        calcImage: document.getElementById("calc-image"),
+        usdPrice: document.getElementById("usd-price"),
+        usdShip: document.getElementById("usd-ship"),
+        tndResult: document.getElementById("tnd-result"),
+        rateBadge: document.getElementById("rate-badge"),
+        liveRateDisplay: document.getElementById("live-rate-display"),
+        scrapeBtn: document.getElementById("runtime-scrape-btn"),
+        scrapeLoader: document.getElementById("runtime-scrape-loader"),
+        scrapeError: document.getElementById("runtime-scrape-error"),
+        previewSkeleton: document.getElementById("runtime-preview-skeleton"),
+        previewCard: document.getElementById("runtime-preview-card"),
+        previewImage: document.getElementById("runtime-preview-image"),
+        previewTitle: document.getElementById("runtime-preview-title"),
+        previewMeta: document.getElementById("runtime-preview-meta"),
+        previewDescription: document.getElementById("runtime-preview-description"),
+        previewPrice: document.getElementById("runtime-preview-price"),
+        previewLink: document.getElementById("runtime-preview-link"),
+        previewSource: document.getElementById("runtime-preview-source"),
+        previewTrust: document.getElementById("runtime-preview-trust"),
+        previewSold: document.getElementById("runtime-preview-sold"),
+        previewRisk: document.getElementById("runtime-preview-risk"),
+        previewShipping: document.getElementById("runtime-preview-shipping"),
+        previewDelivery: document.getElementById("runtime-preview-delivery"),
+        previewRating: document.getElementById("runtime-preview-rating"),
+        previewReviews: document.getElementById("runtime-preview-reviews"),
+        previewVariantSummary: document.getElementById("runtime-preview-variant-summary"),
+        createAlertBtn: document.getElementById("runtime-create-alert"),
+        shareReferralBtn: document.getElementById("runtime-copy-referral-share"),
+        trustCard: document.getElementById("runtime-trust-card"),
+        trustBadge: document.getElementById("runtime-trust-badge"),
+        trustRating: document.getElementById("runtime-trust-rating"),
+        trustReviews: document.getElementById("runtime-trust-reviews"),
+        trustSold: document.getElementById("runtime-trust-sold"),
+        trustNote: document.getElementById("runtime-trust-note"),
+        variantsCard: document.getElementById("runtime-variants-card"),
+        variantGroups: document.getElementById("runtime-variant-groups"),
+        metricOrders: document.getElementById("runtime-metric-orders"),
+        metricPromos: document.getElementById("runtime-metric-promos"),
+        metricFetches: document.getElementById("runtime-metric-fetches"),
+        metricRate: document.getElementById("runtime-metric-rate"),
+        recentLinksCard: document.getElementById("runtime-recent-links-card"),
+        recentLinks: document.getElementById("runtime-recent-links"),
+        clearLinksBtn: document.getElementById("runtime-clear-links"),
+        breakdownCard: document.getElementById("runtime-breakdown-card"),
+        breakdownProduct: document.getElementById("runtime-breakdown-product"),
+        breakdownShipping: document.getElementById("runtime-breakdown-shipping"),
+        breakdownServiceLabel: document.getElementById("runtime-breakdown-service-label"),
+        breakdownService: document.getElementById("runtime-breakdown-service"),
+        breakdownTotal: document.getElementById("runtime-breakdown-total"),
+        budgetCard: document.getElementById("runtime-budget-card"),
+        budgetInput: document.getElementById("runtime-budget-input"),
+        budgetBuffer: document.getElementById("runtime-budget-buffer"),
+        budgetStatus: document.getElementById("runtime-budget-status"),
+        budgetRemaining: document.getElementById("runtime-budget-remaining"),
+        budgetSafeTotal: document.getElementById("runtime-budget-safe-total"),
+        budgetMaxUsd: document.getElementById("runtime-budget-max-usd"),
+        budgetNote: document.getElementById("runtime-budget-note"),
+        customsCard: document.getElementById("runtime-customs-card"),
+        customsLevel: document.getElementById("runtime-customs-level"),
+        customsNote: document.getElementById("runtime-customs-note"),
+        customsDocs: document.getElementById("runtime-customs-docs"),
+        customsAlt: document.getElementById("runtime-customs-alt"),
+        quoteCompareCard: document.getElementById("runtime-quote-compare-card"),
+        quoteCompareStatus: document.getElementById("runtime-quote-compare-status"),
+        quoteAuto: document.getElementById("runtime-quote-auto"),
+        quoteSimilar: document.getElementById("runtime-quote-similar"),
+        quoteManual: document.getElementById("runtime-quote-manual"),
+        quoteNote: document.getElementById("runtime-quote-note"),
+        resellerCard: document.getElementById("runtime-reseller-card"),
+        resellerStatus: document.getElementById("runtime-reseller-status"),
+        resellerPrice: document.getElementById("runtime-reseller-price"),
+        resellerQty: document.getElementById("runtime-reseller-qty"),
+        profitUnit: document.getElementById("runtime-profit-unit"),
+        profitTotal: document.getElementById("runtime-profit-total"),
+        profitRoi: document.getElementById("runtime-profit-roi"),
+        profitBreakEven: document.getElementById("runtime-profit-break-even"),
+        insightsCard: document.getElementById("runtime-insights-card"),
+        deliveryEstimate: document.getElementById("runtime-delivery-estimate"),
+        riskBadge: document.getElementById("runtime-risk-badge"),
+        alerts: document.getElementById("runtime-alerts"),
+        bannedError: document.getElementById("banned-error"),
+        bannedErrorText: document.querySelector("#banned-error p"),
+        manualQuoteBtn: document.getElementById("runtime-manual-quote"),
+        quickOrderBtn: document.getElementById("runtime-quick-order"),
+        imagePreviewCard: document.getElementById("runtime-image-preview-card"),
+        imagePreview: document.getElementById("runtime-image-preview"),
+        imageClearBtn: document.getElementById("runtime-image-clear"),
+        historyList: document.getElementById("history-items-list"),
+        historySearch: document.getElementById("runtime-history-search"),
+        historyStatus: document.getElementById("runtime-history-status"),
+        repeatOrders: document.getElementById("runtime-repeat-orders"),
+        trackResult: document.getElementById("search-result"),
+        notifications: document.getElementById("runtime-notifications"),
+        cartInsightsCard: document.getElementById("runtime-cart-insights-card"),
+        cartHealth: document.getElementById("runtime-cart-health"),
+        cartUnits: document.getElementById("runtime-cart-units"),
+        cartService: document.getElementById("runtime-cart-service"),
+        cartFreeShip: document.getElementById("runtime-cart-free-ship"),
+        cartRisk: document.getElementById("runtime-cart-risk"),
+        cartEta: document.getElementById("runtime-cart-eta"),
+        cartRecommendation: document.getElementById("runtime-cart-recommendation"),
+        bundleCard: document.getElementById("runtime-bundle-card"),
+        bundleBadge: document.getElementById("runtime-bundle-badge"),
+        bundleSavings: document.getElementById("runtime-bundle-savings"),
+        bundleTitle: document.getElementById("runtime-bundle-title"),
+        bundleNote: document.getElementById("runtime-bundle-note"),
+        voiceCard: document.getElementById("runtime-voice-card"),
+        voiceRecordBtn: document.getElementById("runtime-voice-record"),
+        voiceStopBtn: document.getElementById("runtime-voice-stop"),
+        voiceUpload: document.getElementById("runtime-voice-upload"),
+        voicePlayer: document.getElementById("runtime-voice-player"),
+        voiceStatus: document.getElementById("runtime-voice-status"),
+        voiceNote: document.getElementById("runtime-voice-note"),
+        downloadQuoteBtn: document.getElementById("runtime-download-quote"),
+        exportCsvBtn: document.getElementById("runtime-export-csv"),
+        accountPhone: document.getElementById("account-phone"),
+        accountCity: document.getElementById("account-city"),
+        accountAddress: document.getElementById("account-address"),
+        accountContactMethod: document.getElementById("account-contact-method"),
+        accountSavePrefs: document.getElementById("account-save-prefs"),
+        accountPrefsStatus: document.getElementById("account-prefs-status"),
+        langSwitch: document.getElementById("lang-switch"),
+        packName: document.getElementById("runtime-pack-name"),
+        savePackBtn: document.getElementById("runtime-save-pack"),
+        packCount: document.getElementById("runtime-pack-count"),
+        savedPacks: document.getElementById("runtime-saved-packs"),
+        alertCount: document.getElementById("runtime-alert-count"),
+        alertWatchlist: document.getElementById("runtime-alert-watchlist"),
+        referralTier: document.getElementById("runtime-referral-tier"),
+        referralCode: document.getElementById("runtime-referral-code"),
+        referralCredits: document.getElementById("runtime-referral-credits"),
+        referralInput: document.getElementById("runtime-referral-input"),
+        referralApply: document.getElementById("runtime-referral-apply"),
+        referralCopy: document.getElementById("runtime-referral-copy"),
+        referralNote: document.getElementById("runtime-referral-note"),
+        accountOrders: document.getElementById("acc-stat-orders"),
+        accountWish: document.getElementById("acc-stat-wish"),
+        accountFetches: document.getElementById("acc-stat-fetches"),
+        accountQuotes: document.getElementById("acc-stat-quotes"),
+        customerTier: document.getElementById("runtime-customer-tier"),
+        loyaltyPoints: document.getElementById("runtime-loyalty-points"),
+        customerTagCount: document.getElementById("runtime-customer-tag-count"),
+        customerTags: document.getElementById("runtime-customer-tags"),
+        trackRef: document.getElementById("runtime-track-ref"),
+        trackSearchBtn: document.getElementById("runtime-track-search-btn"),
+        trackStatusCard: document.getElementById("runtime-track-status-card"),
+        trackStatusRef: document.getElementById("runtime-track-status-ref"),
+        trackStatusBadge: document.getElementById("runtime-track-status-badge"),
+        trackStatusNote: document.getElementById("runtime-track-status-note"),
+        trackStatusExtra: document.getElementById("runtime-track-status-extra"),
+        trackTimeline: document.getElementById("runtime-track-timeline"),
+        adminPin: document.getElementById("admin-pin"),
+        adminUnlockBtn: document.getElementById("admin-unlock-btn"),
+        adminLockBtn: document.getElementById("admin-lock-btn"),
+        adminUnlockStatus: document.getElementById("admin-unlock-status"),
+        adminPanel: document.getElementById("runtime-admin-panel"),
+        adminPromoCode: document.getElementById("admin-promo-code"),
+        adminPromoType: document.getElementById("admin-promo-type"),
+        adminPromoValue: document.getElementById("admin-promo-value"),
+        adminPromoLimit: document.getElementById("admin-promo-limit"),
+        adminPromoExpiry: document.getElementById("admin-promo-expiry"),
+        adminPromoSave: document.getElementById("admin-promo-save"),
+        adminPromos: document.getElementById("runtime-admin-promos"),
+        adminOrderRef: document.getElementById("admin-order-ref"),
+        adminOrderStatus: document.getElementById("admin-order-status"),
+        adminOrderTracking: document.getElementById("admin-order-tracking"),
+        adminOrderUpdate: document.getElementById("admin-order-update"),
+        adminOrders: document.getElementById("runtime-admin-orders"),
+        adminActivity: document.getElementById("runtime-admin-activity"),
+        adminAnalytics: document.getElementById("runtime-admin-analytics")
+    };
 
-function getAxiosProxyOptions() {
-  const proxyConfig = getScrapeProxyConfig();
-  if (proxyConfig) {
-    log("log", "Axios using configured proxy", { server: proxyConfig.server });
-    return {
-      proxy: {
-        protocol: proxyConfig.protocol,
-        host: new URL(proxyConfig.server).hostname,
-        port: Number(new URL(proxyConfig.server).port || 80),
-        auth: proxyConfig.username || proxyConfig.password
-          ? {
-              username: proxyConfig.username,
-              password: proxyConfig.password
+    const state = {
+        liveRate: FX_FALLBACK_RATE,
+        baseProduct: null,
+        currentProduct: null,
+        activeVariantOffer: null,
+        recentLinks: [],
+        accountPrefs: null,
+        budgetPrefs: null,
+        savedPacks: [],
+        priceAlerts: [],
+        referral: null,
+        voiceNote: null,
+        mediaRecorder: null,
+        audioChunks: [],
+        adminAnalytics: null,
+        adminUnlocked: false,
+        adminToken: "",
+        adminPromos: [],
+        activePromoCode: "",
+        activityLog: [],
+        selectedVariants: {},
+        autoPreviewTimer: null,
+        lastAutoPreviewUrl: "",
+        stats: {
+            fetches: 0,
+            manualQuotes: 0
+        }
+    };
+
+    const original = {
+        getFormData: typeof window._getFormData === "function" ? window._getFormData : null,
+        sendOrder: typeof window.sendOrder === "function" ? window.sendOrder : null,
+        renderHistory: typeof window.renderHistory === "function" ? window.renderHistory : null
+    };
+
+    function isAliExpressUrl(value) {
+        try {
+            const parsed = new URL(String(value || "").trim());
+            return /(^|\.)aliexpress\.(com|us)$/i.test(parsed.hostname) || /(^|\.)a\.aliexpress\.com$/i.test(parsed.hostname);
+        } catch {
+            return false;
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function readJsonStorage(key, fallback) {
+        try {
+            const raw = window.localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function writeJsonStorage(key, value) {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+            // ignore quota/storage errors
+        }
+    }
+
+    function getStoredAdminToken() {
+        try {
+            return window.sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
+        } catch {
+            return "";
+        }
+    }
+
+    function setStoredAdminToken(token) {
+        try {
+            if (token) {
+                window.sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+            } else {
+                window.sessionStorage.removeItem(ADMIN_TOKEN_KEY);
             }
-          : undefined
-      }
-    };
-  }
-
-  if (!process.env.SCRAPE_PROXY_SERVER) {
-    log("warn", "No proxy configured for Axios");
-    return { proxy: false };
-  }
-
-  const proxyUrl = new URL(process.env.SCRAPE_PROXY_SERVER);
-
-  log("log", "Axios using SCRAPE_PROXY_SERVER", { server: proxyUrl.href });
-
-  return {
-    proxy: {
-      protocol: proxyUrl.protocol.replace(":", ""),
-      host: proxyUrl.hostname,
-      port: Number(proxyUrl.port || 80),
-      auth: {
-        username: process.env.SCRAPE_PROXY_USERNAME,
-        password: process.env.SCRAPE_PROXY_PASSWORD
-      }
-    }
-  };
-}
-
-function normalizeUrl(value = "") {
-  const cleaned = sanitizeText(value);
-  if (!cleaned) return "";
-  if (isAliExpressPlaceholderText(cleaned)) return "";
-  if (/^data:image\//i.test(cleaned)) return "";
-  if (cleaned.startsWith("//")) return `https:${cleaned}`;
-  return cleaned;
-}
-
-function parseMoney(value) {
-  const normalized = String(value || "")
-    .replace(/\s/g, "")
-    .replace(/,/g, ".")
-    .replace(/[^0-9.-]/g, "");
-  const amount = Number.parseFloat(normalized);
-  return Number.isFinite(amount) ? amount : 0;
-}
-
-function pickLowestPositive(values = []) {
-  const valid = values.filter((value) => Number.isFinite(value) && value > 0);
-  return valid.length ? Math.min(...valid) : 0;
-}
-
-function pickFirstPositive(values = []) {
-  for (const value of values) {
-    if (Number.isFinite(value) && value > 0) return value;
-  }
-  return 0;
-}
-
-function normalizeRating(value) {
-  const rating = Number.parseFloat(String(value ?? "").replace(",", "."));
-  return Number.isFinite(rating) && rating > 0 && rating <= 5 ? rating : 0;
-}
-
-function mergeVariantGroups(current = [], incoming = []) {
-  const map = new Map();
-  [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])].forEach((group) => {
-    if (!group || typeof group !== "object") return;
-    const name = sanitizeText(group.name || "Option");
-    const values = uniqueShortText(Array.isArray(group.values) ? group.values : []);
-    if (!values.length) return;
-    const existing = map.get(name) || [];
-    map.set(name, uniqueShortText(existing.concat(values)).slice(0, 8));
-  });
-  return Array.from(map.entries())
-    .map(([name, values]) => ({ name, values }))
-    .filter((group) => group.values.length >= 2);
-}
-
-function isVariantLikeKey(key = "") {
-  return /variant|sku|prop|property|option|attribute|color|colour|size|bundle|storage|capacity|style|material|model/.test(String(key || "").toLowerCase());
-}
-
-function normalizeVariantValue(value = "") {
-  return sanitizeText(value)
-    .replace(/^[|:;,\-]+|[|:;,\-]+$/g, "")
-    .trim();
-}
-
-function buildVariantOfferKey(attributes = {}) {
-  return Object.entries(attributes || {})
-    .map(([name, value]) => [sanitizeText(name).toLowerCase(), normalizeVariantValue(value).toLowerCase()])
-    .filter(([, value]) => value)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([name, value]) => `${name}:${value}`)
-    .join("|");
-}
-
-function mergeVariantOffers(current = [], incoming = []) {
-  const offers = new Map();
-  [...(Array.isArray(current) ? current : []), ...(Array.isArray(incoming) ? incoming : [])].forEach((offer) => {
-    if (!offer || typeof offer !== "object" || !offer.attributes || typeof offer.attributes !== "object") return;
-    const key = offer.key || buildVariantOfferKey(offer.attributes);
-    if (!key) return;
-
-    const previous = offers.get(key) || { attributes: {} };
-    offers.set(key, {
-      key,
-      attributes: { ...previous.attributes, ...offer.attributes },
-      price: pickLowestPositive([Number(offer.price || 0), Number(previous.price || 0)]),
-      shipping: offer.shipping != null ? Number(offer.shipping) : (previous.shipping != null ? Number(previous.shipping) : null),
-      image: normalizeUrl(offer.image || previous.image || ""),
-      deliveryEstimate: sanitizeText(offer.deliveryEstimate || previous.deliveryEstimate || ""),
-      source: sanitizeText(offer.source || previous.source || "")
-    });
-  });
-
-  return Array.from(offers.values())
-    .map((offer) => ({
-      ...offer,
-      key: offer.key || buildVariantOfferKey(offer.attributes)
-    }))
-    .filter((offer) => offer.key && Object.keys(offer.attributes || {}).length);
-}
-
-function extractVariantGroupsFromOffers(offers = []) {
-  const groups = new Map();
-  (Array.isArray(offers) ? offers : []).forEach((offer) => {
-    Object.entries(offer?.attributes || {}).forEach(([name, value]) => {
-      const label = sanitizeText(name || "Option");
-      const normalizedValue = normalizeVariantValue(value);
-      if (!label || !normalizedValue) return;
-      const existing = groups.get(label) || [];
-      groups.set(label, uniqueShortText(existing.concat(normalizedValue)));
-    });
-  });
-
-  return Array.from(groups.entries())
-    .map(([name, values]) => ({ name, values: values.slice(0, 12) }))
-    .filter((group) => group.values.length >= 2);
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function hasUsableImage(value) {
-  return Boolean(normalizeUrl(value));
-}
-
-function hasMeaningfulVariantGroups(groups = []) {
-  return (Array.isArray(groups) ? groups : []).some((group) => {
-    const name = sanitizeText(group?.name || "");
-    const values = Array.isArray(group?.values) ? group.values.map((value) => sanitizeText(value || "")) : [];
-    return (
-      name &&
-      !isLowValueProductTitle(name) &&
-      !isAliExpressNavigationJunk(name) &&
-      values.filter((value) => value && !isLowValueProductDescription(value) && !isAliExpressNavigationJunk(value)).length >= 2
-    );
-  });
-}
-
-function hasUsefulPartialProductData(partial = {}) {
-  const title = sanitizeText(partial.title);
-  const description = sanitizeText(partial.description);
-  const shipping = partial.shipping != null ? Number(partial.shipping) : null;
-  const hasMeaningfulText =
-    (title && !isLowValueProductTitle(title) && !isAliExpressPlaceholderLike(title)) ||
-    (description && !isLowValueProductDescription(description) && !isAliExpressPlaceholderLike(description));
-  const hasMeaningfulCommerceData =
-    Number(partial.price || 0) > 0 ||
-    (shipping != null && Number.isFinite(shipping) && shipping > 0);
-  const hasSupportingSignals =
-    Number(partial.reviewCount || 0) > 0 ||
-    Number(partial.soldCount || 0) > 0 ||
-    Boolean(sanitizeText(partial.deliveryEstimate)) ||
-    hasMeaningfulVariantGroups(partial.variants);
-
-  return Boolean(
-    hasMeaningfulText ||
-    hasMeaningfulCommerceData ||
-    (hasUsableImage(partial.image) && (hasMeaningfulText || hasMeaningfulCommerceData || hasSupportingSignals))
-  );
-}
-
-function mergePartialProductData(current = null, incoming = null, fallbackUrl = "") {
-  const base = current && typeof current === "object" ? current : {};
-  const next = incoming && typeof incoming === "object" ? incoming : {};
-  return {
-    title: sanitizeText(next.title || base.title || ""),
-    description: sanitizeText(next.description || base.description || ""),
-    image: normalizeUrl(next.image || base.image || ""),
-    price: pickLowestPositive([Number(next.price || 0), Number(base.price || 0)]),
-    shipping: next.shipping != null ? Number(next.shipping) : (base.shipping != null ? Number(base.shipping) : null),
-    rating: normalizeRating(next.rating) || normalizeRating(base.rating),
-    reviewCount: Math.max(0, Number(next.reviewCount || 0), Number(base.reviewCount || 0)),
-    soldCount: Math.max(0, Number(next.soldCount || 0), Number(base.soldCount || 0)),
-    deliveryEstimate: sanitizeText(next.deliveryEstimate || base.deliveryEstimate || ""),
-    variants: mergeVariantGroups(base.variants, next.variants),
-    url: next.url || base.url || fallbackUrl
-  };
-}
-
-function getCache(map, key) {
-  const hit = map.get(key);
-  if (!hit || hit.expiresAt < Date.now()) {
-    map.delete(key);
-    return null;
-  }
-  return hit.value;
-}
-
-function setCache(map, key, value, ttlMs) {
-  map.set(key, { value, expiresAt: Date.now() + ttlMs });
-}
-
-function ensureDataDir() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function toFiniteNumber(value, fallback) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function getDefaultAdminSettings() {
-  return {
-    calculator: {
-      thresholds: {
-        low: 10,
-        mid: 50,
-        high: 150
-      },
-      rates: {
-        low: 4.5,
-        mid: 4.3,
-        high: 4.1,
-        base: 3.8
-      },
-      serviceFeeTnd: 0
-    },
-    storefront: {
-      whatsappNumber: "21627498276",
-      messengerHandle: "alexpresstunisie",
-      instagramHandle: "alexpress.tunisie"
-    },
-    admin: {
-      autoRefreshSeconds: 0
-    }
-  };
-}
-
-function normalizeAdminSettings(settings = {}) {
-  const defaults = getDefaultAdminSettings();
-  const source = settings && typeof settings === "object" ? settings : {};
-  const calculator = source.calculator && typeof source.calculator === "object" ? source.calculator : {};
-  const thresholds = calculator.thresholds && typeof calculator.thresholds === "object" ? calculator.thresholds : {};
-  const rates = calculator.rates && typeof calculator.rates === "object" ? calculator.rates : {};
-  const storefront = source.storefront && typeof source.storefront === "object" ? source.storefront : {};
-  const admin = source.admin && typeof source.admin === "object" ? source.admin : {};
-
-  const lowThreshold = Math.max(0, toFiniteNumber(thresholds.low, defaults.calculator.thresholds.low));
-  const midThreshold = Math.max(lowThreshold + 1, toFiniteNumber(thresholds.mid, defaults.calculator.thresholds.mid));
-  const highThreshold = Math.max(midThreshold + 1, toFiniteNumber(thresholds.high, defaults.calculator.thresholds.high));
-
-  return {
-    calculator: {
-      thresholds: {
-        low: lowThreshold,
-        mid: midThreshold,
-        high: highThreshold
-      },
-      rates: {
-        low: Math.max(0.001, toFiniteNumber(rates.low, defaults.calculator.rates.low)),
-        mid: Math.max(0.001, toFiniteNumber(rates.mid, defaults.calculator.rates.mid)),
-        high: Math.max(0.001, toFiniteNumber(rates.high, defaults.calculator.rates.high)),
-        base: Math.max(0.001, toFiniteNumber(rates.base, defaults.calculator.rates.base))
-      },
-      serviceFeeTnd: Math.max(0, toFiniteNumber(calculator.serviceFeeTnd, defaults.calculator.serviceFeeTnd))
-    },
-    storefront: {
-      whatsappNumber: sanitizeText(storefront.whatsappNumber || defaults.storefront.whatsappNumber),
-      messengerHandle: sanitizeText(storefront.messengerHandle || defaults.storefront.messengerHandle),
-      instagramHandle: sanitizeText(storefront.instagramHandle || defaults.storefront.instagramHandle)
-    },
-    admin: {
-      autoRefreshSeconds: Math.max(0, Math.round(toFiniteNumber(admin.autoRefreshSeconds, defaults.admin.autoRefreshSeconds)))
-    }
-  };
-}
-
-function getDefaultAdminStore() {
-  return {
-    promos: [],
-    orders: [],
-    settings: getDefaultAdminSettings(),
-    updatedAt: new Date().toISOString()
-  };
-}
-
-function normalizePromoRecord(promo = {}) {
-  const code = sanitizeText(String(promo.code || "")).toUpperCase();
-  if (!code) return null;
-
-  return {
-    code,
-    type: promo.type === "fixed" ? "fixed" : "percent",
-    value: Number(promo.value || 0),
-    limit: Math.max(0, Number(promo.limit || 0)),
-    used: Math.max(0, Number(promo.used || 0)),
-    expiresAt: sanitizeText(promo.expiresAt || ""),
-    updatedAt: promo.updatedAt || new Date().toISOString()
-  };
-}
-
-function normalizeOrderRecord(order = {}) {
-  const orderRef = sanitizeText(order.orderRef || order.id || "");
-  if (!orderRef) return null;
-
-  return {
-    id: order.id || Date.now(),
-    orderRef,
-    date: sanitizeText(order.date || new Date().toISOString()),
-    total: Number(order.total || 0),
-    itemsCount: Math.max(0, Number(order.itemsCount || (Array.isArray(order.items) ? order.items.length : 0))),
-    items: Array.isArray(order.items) ? order.items : [],
-    status: sanitizeText(order.status || "pending") || "pending",
-    paymentMethod: sanitizeText(order.paymentMethod || ""),
-    trackingHint: sanitizeText(order.trackingHint || ""),
-    adminTracking: sanitizeText(order.adminTracking || ""),
-    promoCode: sanitizeText(order.promoCode || "").toUpperCase(),
-    customer: order.customer && typeof order.customer === "object" ? order.customer : {},
-    voiceNote: order.voiceNote && typeof order.voiceNote === "object" ? order.voiceNote : null,
-    referralCode: sanitizeText(order.referralCode || "").toUpperCase(),
-    loyaltyCredit: Math.max(0, Number(order.loyaltyCredit || 0)),
-    updatedAt: order.updatedAt || new Date().toISOString()
-  };
-}
-
-function sortOrdersNewestFirst(orders = []) {
-  return orders.slice().sort((left, right) => {
-    const leftTime = new Date(left.updatedAt || left.date || 0).getTime();
-    const rightTime = new Date(right.updatedAt || right.date || 0).getTime();
-    return rightTime - leftTime;
-  });
-}
-
-function loadAdminStore() {
-  if (adminStoreCache) return adminStoreCache;
-
-  ensureDataDir();
-  if (!fileExists(ADMIN_STORE_PATH)) {
-    adminStoreCache = getDefaultAdminStore();
-    fs.writeFileSync(ADMIN_STORE_PATH, JSON.stringify(adminStoreCache, null, 2), "utf8");
-    return adminStoreCache;
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(ADMIN_STORE_PATH, "utf8"));
-    adminStoreCache = {
-      promos: Array.isArray(parsed.promos) ? parsed.promos.map(normalizePromoRecord).filter(Boolean) : [],
-      orders: Array.isArray(parsed.orders) ? sortOrdersNewestFirst(parsed.orders.map(normalizeOrderRecord).filter(Boolean)) : [],
-      settings: normalizeAdminSettings(parsed.settings || {}),
-      updatedAt: parsed.updatedAt || new Date().toISOString()
-    };
-  } catch {
-    adminStoreCache = getDefaultAdminStore();
-  }
-
-  return adminStoreCache;
-}
-
-function saveAdminStore(store) {
-  ensureDataDir();
-  const normalized = {
-    promos: Array.isArray(store.promos) ? store.promos.map(normalizePromoRecord).filter(Boolean) : [],
-    orders: sortOrdersNewestFirst(Array.isArray(store.orders) ? store.orders.map(normalizeOrderRecord).filter(Boolean) : []),
-    settings: normalizeAdminSettings(store.settings || {}),
-    updatedAt: new Date().toISOString()
-  };
-  const tempPath = `${ADMIN_STORE_PATH}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(normalized, null, 2), "utf8");
-  fs.renameSync(tempPath, ADMIN_STORE_PATH);
-  adminStoreCache = normalized;
-  return normalized;
-}
-
-function getPublicPromoState(store = loadAdminStore()) {
-  const now = Date.now();
-  return store.promos.filter((promo) => {
-    if (!promo) return false;
-    if (promo.value <= 0) return false;
-    if (promo.expiresAt && new Date(promo.expiresAt).getTime() < now) return false;
-    if (promo.limit > 0 && promo.used >= promo.limit) return false;
-    return true;
-  });
-}
-
-function getPublicSettings(store = loadAdminStore()) {
-  const settings = normalizeAdminSettings(store.settings || {});
-  return {
-    calculator: settings.calculator,
-    storefront: settings.storefront
-  };
-}
-
-function buildAdminAnalytics(store = loadAdminStore()) {
-  const orders = Array.isArray(store.orders) ? store.orders : [];
-  const productCounts = new Map();
-  const customerCounts = new Map();
-  let riskOrders = 0;
-
-  orders.forEach((order) => {
-    const customerId = sanitizeText(order.customer?.phone || order.customer?.city || order.orderRef || "");
-    if (customerId) customerCounts.set(customerId, (customerCounts.get(customerId) || 0) + 1);
-
-    let hasRisk = false;
-    (Array.isArray(order.items) ? order.items : []).forEach((item) => {
-      const name = sanitizeText(item?.name || "Unnamed");
-      productCounts.set(name, (productCounts.get(name) || 0) + Number(item?.qty || 1));
-      if (item?.restrictions?.banned || item?.restrictions?.restricted) hasRisk = true;
-    });
-    if (hasRisk) riskOrders += 1;
-  });
-
-  return {
-    totalRevenue: orders.reduce((sum, order) => sum + Number(order.total || 0), 0),
-    totalOrders: orders.length,
-    pendingOrders: orders.filter((order) => ["pending", "processing", "shipped"].includes(String(order.status || ""))).length,
-    deliveredOrders: orders.filter((order) => String(order.status || "") === "delivered").length,
-    riskyOrders: riskOrders,
-    topProducts: Array.from(productCounts.entries())
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, 5)
-      .map(([name, count]) => ({ name, count })),
-    repeatCustomers: Array.from(customerCounts.entries())
-      .filter(([, count]) => count > 1)
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, 5)
-      .map(([id, ordersCount]) => ({ id, ordersCount })),
-    topPromos: (Array.isArray(store.promos) ? store.promos : [])
-      .slice()
-      .sort((left, right) => Number(right.used || 0) - Number(left.used || 0))
-      .slice(0, 5)
-      .map((promo) => ({ code: promo.code, used: Number(promo.used || 0) }))
-  };
-}
-
-function getOrderByRef(orderRef, store = loadAdminStore()) {
-  const target = sanitizeText(orderRef).toLowerCase();
-  return store.orders.find((order) => String(order.orderRef || "").toLowerCase() === target) || null;
-}
-
-function upsertOrderRecord(nextOrder) {
-  const store = loadAdminStore();
-  const normalized = normalizeOrderRecord(nextOrder);
-  if (!normalized) return null;
-
-  const index = store.orders.findIndex((order) => order.orderRef === normalized.orderRef);
-  if (index >= 0) {
-    store.orders[index] = {
-      ...store.orders[index],
-      ...normalized,
-      items: normalized.items.length ? normalized.items : store.orders[index].items,
-      itemsCount: normalized.itemsCount || store.orders[index].itemsCount,
-      updatedAt: new Date().toISOString()
-    };
-  } else {
-    store.orders.unshift({ ...normalized, updatedAt: new Date().toISOString() });
-  }
-
-  saveAdminStore(store);
-  return getOrderByRef(normalized.orderRef, store);
-}
-
-function signAdminTokenPayload(payload) {
-  return crypto.createHmac("sha256", ADMIN_SESSION_SECRET).update(payload).digest("base64url");
-}
-
-function createAdminToken() {
-  const payload = Buffer.from(JSON.stringify({
-    role: "admin",
-    exp: Date.now() + ADMIN_TOKEN_TTL_MS
-  })).toString("base64url");
-  return `${payload}.${signAdminTokenPayload(payload)}`;
-}
-
-function verifyAdminToken(token) {
-  const [payload, signature] = String(token || "").split(".");
-  if (!payload || !signature) return null;
-  if (signAdminTokenPayload(payload) !== signature) return null;
-
-  try {
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (!decoded || decoded.role !== "admin") return null;
-    if (!decoded.exp || Number(decoded.exp) < Date.now()) return null;
-    return decoded;
-  } catch {
-    return null;
-  }
-}
-
-function getBearerToken(req) {
-  const header = String(req.headers.authorization || "");
-  if (!header.toLowerCase().startsWith("bearer ")) return "";
-  return header.slice(7).trim();
-}
-
-function requireAdminAuth(req, res, next) {
-  const token = getBearerToken(req);
-  if (!verifyAdminToken(token)) {
-    return res.status(401).json({ success: false, error: "Ø¬Ù„Ø³Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
-  }
-  next();
-}
-
-function fileExists(targetPath) {
-  try {
-    return fs.existsSync(targetPath);
-  } catch {
-    return false;
-  }
-}
-
-function getPublicBaseUrl(req) {
-  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
-  const protocol = sanitizeText(req.headers["x-forwarded-proto"] || req.protocol || "https") || "https";
-  const host = sanitizeText(req.headers["x-forwarded-host"] || req.get("host") || "");
-  return host ? `${protocol}://${host}` : "";
-}
-
-function getAliExpressOAuthCallbackUrl(req) {
-  const baseUrl = getPublicBaseUrl(req);
-  return baseUrl ? `${baseUrl}/aliexpress/oauth-callback` : "";
-}
-
-function escapeEnvValue(value = "") {
-  const text = String(value ?? "");
-  if (!text) return "";
-  return /[\s#"'`]/.test(text) ? JSON.stringify(text) : text;
-}
-
-function upsertEnvEntries(filePath, updates = {}) {
-  const source = fileExists(filePath) ? fs.readFileSync(filePath, "utf8") : "";
-  const newline = source.includes("\r\n") ? "\r\n" : "\n";
-  let contents = source.replace(/\r\n/g, "\n");
-
-  Object.entries(updates).forEach(([key, rawValue]) => {
-    const value = escapeEnvValue(rawValue);
-    const line = `${key}=${value}`;
-    const pattern = new RegExp(`^${key}=.*$`, "m");
-    if (pattern.test(contents)) {
-      contents = contents.replace(pattern, line);
-    } else {
-      contents = `${contents.replace(/\n*$/g, "")}\n${line}\n`;
-    }
-  });
-
-  fs.writeFileSync(filePath, contents.replace(/\n/g, newline), "utf8");
-}
-
-function getFutureIsoFromSeconds(seconds) {
-  const amount = Number(seconds || 0);
-  if (!Number.isFinite(amount) || amount <= 0) return "";
-  return new Date(Date.now() + amount * 1000).toISOString();
-}
-
-function shouldUseAliExpressAffiliateApi() {
-  return false; // ðŸš« Ø¹Ø·Ù‘Ù„Ù†Ø§ affiliate Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹
-}
-
-function hasAliExpressDsAccessToken() {
-  return Boolean(sanitizeText(process.env.ALIEXPRESS_ACCESS_TOKEN || ""));
-}
-
-function getAliExpressApiMode() {
-  if (hasAliExpressDsAccessToken()) return "ds";
-  if (shouldUseAliExpressAffiliateApi()) return "affiliate";
-  return "scrape-only";
-}
-
-function buildAliExpressSortedParams(params = {}) {
-  return Object.keys(params)
-    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
-    .sort()
-    .map((key) => `${key}${params[key]}`)
-    .join("");
-}
-
-function signAliExpressRestRequest(apiPath, params, secret, strategy = "hmac-sha256-path") {
-  const normalizedPath = String(apiPath || "").trim() || "/";
-  const sorted = buildAliExpressSortedParams(params);
-
-  switch (strategy) {
-    case "sha256-secret-wrap-path":
-      return crypto.createHash("sha256").update(`${secret}${normalizedPath}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
-    case "sha256-secret-wrap":
-      return crypto.createHash("sha256").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
-    case "md5-secret-wrap":
-      return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
-    case "hmac-sha256":
-      return crypto.createHmac("sha256", secret).update(sorted, "utf8").digest("hex").toUpperCase();
-    case "hmac-sha256-path":
-    default:
-      return crypto.createHmac("sha256", secret).update(`${normalizedPath}${sorted}`, "utf8").digest("hex").toUpperCase();
-  }
-}
-
-function signAliExpressSystemParams(params = {}, secret, algorithm = "md5") {
-  const normalized = Object.keys(params)
-    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
-    .sort()
-    .map((key) => `${key}${params[key]}`)
-    .join("");
-
-  const payload = `${secret}${normalized}${secret}`;
-  const algo = String(algorithm || "md5").toLowerCase() === "sha256" ? "sha256" : "md5";
-  return crypto.createHash(algo).update(payload, "utf8").digest("hex").toUpperCase();
-}
-
-async function createAliExpressAccessToken(code) {
-  const trimmedCode = sanitizeText(code);
-  if (!trimmedCode) {
-    const error = new Error("Missing OAuth code");
-    error.status = 400;
-    throw error;
-  }
-  if (!ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET) {
-    const error = new Error("AliExpress app credentials are missing");
-    error.status = 500;
-    throw error;
-  }
-
-  const tokenUrl = new URL(ALIEXPRESS_OAUTH_TOKEN_URL);
-  const tokenPath = tokenUrl.pathname || "/auth/token/create";
-  const systemTokenUrl = `${tokenUrl.origin}/sync`;
-  const callbackUrl = getAliExpressOAuthCallbackUrl({ headers: {}, query: {}, protocol: "" }) || String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/$/, "") + "/aliexpress/oauth-callback";
-  const timestampValues = [String(Date.now()), String(Math.floor(Date.now() / 1000))];
-  const unsignedPayloadVariants = [];
-
-  for (const timestamp of timestampValues) {
-    unsignedPayloadVariants.push(
-      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code" },
-      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grantType: "authorization_code" },
-      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl },
-      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code" },
-      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl }
-    );
-  }
-
-  const requestVariants = [];
-  const seenVariants = new Set();
-  const addVariant = (variant) => {
-    const key = JSON.stringify(variant);
-    if (!seenVariants.has(key)) {
-      seenVariants.add(key);
-      requestVariants.push(variant);
-    }
-  };
-
-  for (const params of unsignedPayloadVariants) {
-    const restSignStrategies = [
-      "hmac-sha256-path",
-      "hmac-sha256",
-      "sha256-secret-wrap-path",
-      "sha256-secret-wrap",
-      "md5-secret-wrap"
-    ];
-
-    for (const strategy of restSignStrategies) {
-      const signMethod = strategy === "md5-secret-wrap" ? "md5" : params.sign_method;
-      const signedParams = { ...params, sign_method: signMethod };
-      addVariant({
-        label: `rest:${strategy}:${signMethod}`,
-        type: "rest",
-        url: ALIEXPRESS_OAUTH_TOKEN_URL,
-        params: {
-          ...signedParams,
-          sign: signAliExpressRestRequest(tokenPath, signedParams, ALIEXPRESS_APP_SECRET, strategy)
+        } catch {
+            // ignore storage errors
         }
-      });
     }
 
-    for (const signMethod of ["md5", "sha256"]) {
-      const systemParams = {
-        ...params,
-        sign_method: signMethod,
-        method: tokenPath,
-        format: "json"
-      };
-      addVariant({
-        label: `system-post:${signMethod}`,
-        type: "system-post",
-        url: systemTokenUrl,
-        params: {
-          ...systemParams,
-          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
+    async function apiFetch(endpoint, options = {}, requiresAuth = false) {
+        const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
+        if (requiresAuth && state.adminToken) {
+            headers.Authorization = `Bearer ${state.adminToken}`;
         }
-      });
-      addVariant({
-        label: `system-get:${signMethod}`,
-        type: "system-get",
-        url: systemTokenUrl,
-        params: {
-          ...systemParams,
-          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
-        }
-      });
-    }
-  }
-  let lastError = null;
 
-  for (const variant of requestVariants) {
-    try {
-      let response;
-      if (variant.type === "system-get") {
-        response = await axios.get(variant.url, {
-          timeout: 20_000,
-          proxy: false,
-          params: variant.params,
-          headers: { accept: "application/json" }
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, Object.assign({}, options, { headers }));
+        let data = {};
+        try {
+            data = await response.json();
+        } catch {
+            data = {};
+        }
+
+        if (!response.ok || data.success === false) {
+            const error = new Error(data.error || `Request failed (${response.status})`);
+            error.status = response.status;
+            throw error;
+        }
+
+        return data;
+    }
+
+    function getAccountPrefs() {
+        if (state.accountPrefs) return state.accountPrefs;
+        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
+            phone: "",
+            city: "",
+            address: "",
+            contactMethod: "whatsapp"
         });
-      } else if (variant.type === "system-post") {
-        response = await axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
-          timeout: 20_000,
-          proxy: false,
-          headers: {
-            "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-            accept: "application/json"
-          }
+        return state.accountPrefs;
+    }
+
+    function getBudgetPrefs() {
+        if (state.budgetPrefs) return state.budgetPrefs;
+        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
+            budget: "",
+            buffer: "10"
         });
-      } else {
-        const attempts = [
-          () => axios.post(variant.url, null, {
-            timeout: 20_000,
-            proxy: false,
-            params: variant.params,
-            headers: { accept: "application/json" }
-          }),
-          () => axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
-            timeout: 20_000,
-            proxy: false,
-            headers: {
-              "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-              accept: "application/json"
+        return state.budgetPrefs;
+    }
+
+    function saveBudgetPrefs(prefs) {
+        state.budgetPrefs = prefs;
+        writeJsonStorage(BUDGET_PREFS_KEY, prefs);
+    }
+
+    function getSavedPacks() {
+        if (Array.isArray(state.savedPacks) && state.savedPacks.length) return state.savedPacks;
+        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
+        return state.savedPacks;
+    }
+
+    function saveSavedPacks(packs) {
+        state.savedPacks = packs.slice(0, 8);
+        writeJsonStorage(SAVED_PACKS_KEY, state.savedPacks);
+        renderSavedPacks();
+    }
+
+    function getPriceAlerts() {
+        if (Array.isArray(state.priceAlerts) && state.priceAlerts.length) return state.priceAlerts;
+        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
+        return state.priceAlerts;
+    }
+
+    function savePriceAlerts(alerts) {
+        state.priceAlerts = alerts.slice(0, 20);
+        writeJsonStorage(PRICE_ALERTS_KEY, state.priceAlerts);
+        renderPriceAlerts();
+    }
+
+    function buildReferralCode() {
+        let seed = window.userId || window.localStorage.getItem("alexpress_user_id") || window.localStorage.getItem("alex_referral_seed") || "";
+        if (!seed) {
+            seed = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+            window.localStorage.setItem("alex_referral_seed", seed);
+        }
+        seed = String(seed).replace(/[^A-Z0-9]/gi, "").toUpperCase();
+        return `ALEX-${seed.slice(-6).padStart(6, "0")}`;
+    }
+
+    function getReferralState() {
+        if (state.referral) return state.referral;
+        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
+            code: buildReferralCode(),
+            credits: 0,
+            appliedCodes: [],
+            usedOwnCode: false
+        });
+        return state.referral;
+    }
+
+    function saveReferralState(referral) {
+        state.referral = referral;
+        writeJsonStorage(REFERRAL_STATE_KEY, referral);
+        renderReferralCard();
+    }
+
+    function getLocalStats() {
+        if (state.stats && typeof state.stats.fetches === "number") return state.stats;
+        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
+        return state.stats;
+    }
+
+    function getActivityLog() {
+        if (Array.isArray(state.activityLog) && state.activityLog.length) return state.activityLog;
+        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
+        return state.activityLog;
+    }
+
+    function saveActivityLog(entries) {
+        state.activityLog = entries.slice(0, 12);
+        writeJsonStorage(ACTIVITY_LOG_KEY, state.activityLog);
+    }
+
+    function pushActivityLog(type, text) {
+        const next = [{
+            id: Date.now(),
+            type,
+            text,
+            at: new Date().toLocaleString("ar-TN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })
+        }].concat(getActivityLog()).slice(0, 12);
+        saveActivityLog(next);
+        renderActivityLog();
+        renderNotifications();
+    }
+
+    function getAdminPin() {
+        return window.localStorage.getItem(ADMIN_PIN_KEY) || "1920";
+    }
+
+    function getAdminPromos() {
+        if (Array.isArray(state.adminPromos) && state.adminPromos.length) return state.adminPromos;
+        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
+        return state.adminPromos;
+    }
+
+    function saveAdminPromos(promos) {
+        state.adminPromos = promos;
+        writeJsonStorage(ADMIN_PROMOS_KEY, promos);
+        openAccountPanel("admin");
+        renderAdminPromos();
+        renderAccountStats();
+        renderNotifications();
+    }
+
+    function mergeOrderIntoHistory(order) {
+        if (!order || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        const ref = String(order.orderRef || order.id || "");
+        const index = orderHistory.findIndex((item) => String(item.orderRef || item.id || "") === ref);
+        if (index >= 0) {
+            orderHistory[index] = Object.assign({}, orderHistory[index], order);
+        } else {
+            orderHistory.unshift(order);
+        }
+    }
+
+    function syncOrdersFromServer(orders) {
+        if (!Array.isArray(orders) || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        orders.forEach(mergeOrderIntoHistory);
+        if (typeof saveData === "function") saveData();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+    }
+
+    async function refreshPublicPromos() {
+        try {
+            const data = await apiFetch("/api/promos");
+            if (Array.isArray(data.promos)) {
+                window.availablePromos = data.promos.slice();
+                saveAdminPromos(data.promos);
             }
-          })
+        } catch {
+            // keep local fallback
+        }
+    }
+
+    async function refreshAdminState() {
+        if (!state.adminToken) return false;
+        const data = await apiFetch("/api/admin/state", {}, true);
+        state.adminUnlocked = true;
+        state.adminAnalytics = data.analytics || null;
+        saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+        syncOrdersFromServer(Array.isArray(data.orders) ? data.orders : []);
+        if (dom.adminPanel) dom.adminPanel.classList.remove("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = currentLanguageText("مفتوحة", "Ouvert", "Unlocked");
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
+        }
+        openAccountPanel("admin");
+        renderAdminAnalytics();
+        return true;
+    }
+
+    async function persistOrderToBackend(order) {
+        try {
+            const data = await apiFetch("/api/orders/register", {
+                method: "POST",
+                body: JSON.stringify(order)
+            });
+            if (data.order) {
+                mergeOrderIntoHistory(data.order);
+                if (typeof saveData === "function") saveData();
+                if (typeof window.renderHistory === "function") window.renderHistory();
+            }
+        } catch {
+            // local fallback already exists
+        }
+    }
+
+    function formatUsd(value) {
+        return `${Number(value || 0).toFixed(2)} USD`;
+    }
+
+    function formatTnd(value) {
+        return `${Number(value || 0).toFixed(3)} TND`;
+    }
+
+    function formatDateLabel(dateLike) {
+        const date = dateLike ? new Date(dateLike) : new Date();
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toLocaleDateString("en-GB");
+    }
+
+    function cloneData(value) {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return value;
+        }
+    }
+
+    function isMeaningfulOptionValue(value = "") {
+        const text = String(value || "").trim();
+        if (!text || text.length > 40) return false;
+        if (/^https?:\/\//i.test(text)) return false;
+        if (/^[0-9\s.,/+%-]+$/.test(text)) return false;
+        if (/all categories|search|download|welcome|sign in|register|click to|feedback|aliexpress|store|shipping|review|rating|buyer protection|automotive|appliances|women'?s clothing|men'?s clothing|beauty\s*&\s*health|toys\s*&\s*games/i.test(text)) return false;
+        return true;
+    }
+
+    function isMeaningfulOptionGroup(group = {}) {
+        const name = String(group?.name || "").trim();
+        const values = Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : [];
+        if (values.length < 2 || values.length > 12) return false;
+        if (/all categories|download|feedback|search|review/i.test(name)) return false;
+        return true;
+    }
+
+    function getProductOptionGroups(product = state.currentProduct) {
+        const rawGroups = Array.isArray(product?.variants) ? product.variants : [];
+        const groups = rawGroups
+            .map((group) => ({
+                name: String(group?.name || "").trim() || "الخيار",
+                values: Array.isArray(group?.values) ? group.values.filter(isMeaningfulOptionValue) : []
+            }))
+            .filter(isMeaningfulOptionGroup);
+
+        if (product?.priceUnavailable && product?.source === "partial-fallback") {
+            return groups.filter((group) => /color|colour|size|bundle|storage|material|style|version|option|لون|مقاس|طول|نسخة/i.test(group.name));
+        }
+
+        return groups;
+    }
+
+    function productHasOptions(product = state.currentProduct) {
+        return getProductOptionGroups(product).length > 0;
+    }
+
+    function getSpecsPlaceholder(product = state.currentProduct) {
+        return productHasOptions(product)
+            ? "اكتب الخيار المطلوب هنا: لون، مقاس، طول، نسخة..."
+            : "مثال: Bleu 1.5m";
+    }
+
+    function getSpecsValueText(product = state.currentProduct) {
+        const note = String(dom.calcNote?.value || "").trim();
+        if (note) return note;
+        if (productHasOptions(product)) return "يرجى كتابة اللون / المقاس / الطول المطلوب في خانة المواصفات";
+        return "بدون ملاحظات";
+    }
+
+    function getServiceFeeDisplayText(pricing, product = state.currentProduct) {
+        return productHasOptions(product) ? "مشمولة" : formatTnd(pricing.serviceFee);
+    }
+
+    function updateSpecsGuidance(product = state.currentProduct) {
+        if (!dom.calcNote) return;
+        dom.calcNote.placeholder = getSpecsPlaceholder(product);
+    }
+
+    function getBaseProduct() {
+        return (state && (state.baseProduct || state.currentProduct)) || null;
+    }
+
+    function syncProductInputs(product = state.currentProduct) {
+        if (!product) return;
+
+        const safeTitle = String(product.title || "").trim();
+        const compactTitle = buildDisplayProductTitle(safeTitle);
+        if (dom.calcName) {
+            dom.calcName.value = safeTitle && !/^aliexpress$/i.test(safeTitle)
+                ? compactTitle
+                : (dom.calcName.value || "");
+        }
+
+        if (dom.usdPrice) {
+            const price = Number(product.price || 0);
+            dom.usdPrice.value = Number.isFinite(price) && price > 0 ? price.toFixed(2) : "0";
+        }
+
+        if (dom.usdShip) {
+            const shipping = product.shipping == null ? 0 : Number(product.shipping);
+            dom.usdShip.value = Number.isFinite(shipping) && shipping > 0 ? shipping.toFixed(2) : "0";
+        }
+
+        updateSpecsGuidance(product);
+    }
+
+    function parseDeliveryWindow(label) {
+        const values = String(label || "").match(/\d+/g);
+        if (!values || !values.length) return null;
+        const numbers = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+        if (!numbers.length) return null;
+        if (numbers.length === 1) {
+            return { min: numbers[0], max: numbers[0] };
+        }
+        return { min: Math.min(...numbers), max: Math.max(...numbers) };
+    }
+
+    function toast(message) {
+        if (typeof window.showToast === "function") {
+            window.showToast(message);
+        }
+    }
+
+    function getShippingLabel(value) {
+        if (value == null || Number.isNaN(Number(value))) return "غير متوفر";
+        if (Number(value) === 0) return "شحن مجاني";
+        return `${formatUsd(value)} شحن`;
+    }
+
+    function getPreviewPriceText(product = state.currentProduct) {
+        if (product?.priceUnavailable) return "تسعيرة يدوية";
+        const usdPrice = Number(product?.price || dom.usdPrice?.value || 0);
+        return Number.isFinite(usdPrice) && usdPrice > 0 ? formatUsd(usdPrice) : "";
+    }
+
+    function parseLocaleNumber(value) {
+        const normalized = String(value ?? "")
+            .trim()
+            .replace(/\s+/g, "")
+            .replace(/,/g, ".");
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function getRestrictionSummary(product) {
+        if (!product?.restrictions) return "";
+        if (product.restrictions.banned) return "خطر ديوانة مرتفع";
+        if (product.restrictions.restricted) return "يلزم تثبت قبل الطلب";
+        return "مقبول مبدئيًا";
+    }
+
+    function incrementStat(key) {
+        const stats = getLocalStats();
+        stats[key] = Number(stats[key] || 0) + 1;
+        state.stats = stats;
+        writeJsonStorage(LOCAL_STATS_KEY, stats);
+        renderAccountStats();
+    }
+
+    function renderAccountStats() {
+        const stats = getLocalStats();
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
+        if (dom.accountFetches) dom.accountFetches.textContent = Number(stats.fetches || 0);
+        if (dom.accountQuotes) dom.accountQuotes.textContent = Number(stats.manualQuotes || 0);
+        if (dom.accountOrders) dom.accountOrders.textContent = ordersCount;
+        if (dom.accountWish) dom.accountWish.textContent = wishCount;
+        if (dom.metricOrders) dom.metricOrders.textContent = ordersCount;
+        if (dom.metricPromos) {
+            dom.metricPromos.textContent = getCombinedPromos().length;
+        }
+        if (dom.metricFetches) {
+            dom.metricFetches.textContent = Number(stats.fetches || 0);
+        }
+        if (dom.metricRate) {
+            dom.metricRate.textContent = Number(state.liveRate || FX_FALLBACK_RATE).toFixed(3);
+        }
+        renderCustomerProfile();
+        renderNavBadges();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderAdminAnalytics();
+        renderRepeatOrders();
+    }
+
+    function getCustomerProfile() {
+        const stats = getLocalStats();
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const wishCount = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist.length : 0;
+        const points = (ordersCount * 120) + (Number(stats.fetches || 0) * 5) + (Number(stats.manualQuotes || 0) * 15) + (wishCount * 8);
+        const tags = [];
+
+        if (ordersCount >= 8) tags.push({ label: currentLanguageText("حريف VIP", "Client VIP", "VIP CLIENT"), tone: "amber" });
+        else if (ordersCount >= 3) tags.push({ label: currentLanguageText("راجع من قبل", "Retour client", "RETURNING"), tone: "blue" });
+        else tags.push({ label: currentLanguageText("حريف جديد", "Nouveau client", "NEW CLIENT"), tone: "slate" });
+
+        if (Number(stats.fetches || 0) >= 10) tags.push({ label: currentLanguageText("باحث قوي", "Recherche active", "POWER SEARCHER"), tone: "emerald" });
+        if (Number(stats.manualQuotes || 0) >= 3) tags.push({ label: currentLanguageText("جاهز للتسعير", "Pret pour devis", "QUOTE READY"), tone: "purple" });
+        if (wishCount >= 4) tags.push({ label: currentLanguageText("نية شراء عالية", "Intention forte", "HIGH INTENT"), tone: "pink" });
+
+        let tier = currentLanguageText("برونزي", "Bronze", "BRONZE");
+        if (points >= 1800) tier = currentLanguageText("بلاتيني", "Platine", "PLATINUM");
+        else if (points >= 900) tier = currentLanguageText("ذهبي", "Or", "GOLD");
+        else if (points >= 350) tier = currentLanguageText("فضي", "Argent", "SILVER");
+
+        return { points, tags, tier };
+    }
+
+    function renderCustomerProfile() {
+        if (!dom.customerTier || !dom.loyaltyPoints || !dom.customerTagCount || !dom.customerTags) return;
+        const profile = getCustomerProfile();
+        const toneMap = {
+            amber: "bg-amber-400/10 text-amber-300 border-amber-400/20",
+            blue: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+            emerald: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+            purple: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+            pink: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+            slate: "bg-white/5 text-slate-300 border-white/10"
+        };
+
+        dom.customerTier.textContent = profile.tier;
+        dom.loyaltyPoints.textContent = profile.points;
+        dom.customerTagCount.textContent = profile.tags.length;
+        dom.customerTags.innerHTML = profile.tags.map((tag) => `
+            <span class="px-3 py-1 rounded-full border text-[9px] font-black ${toneMap[tag.tone] || toneMap.slate}">
+                ${escapeHtml(tag.label)}
+            </span>
+        `).join("");
+    }
+
+    function ensureNavBadge(buttonId, badgeId, classes) {
+        const button = document.getElementById(buttonId);
+        if (!button) return null;
+        let badge = document.getElementById(badgeId);
+        if (!badge) {
+            button.classList.add("relative");
+            badge = document.createElement("span");
+            badge.id = badgeId;
+            badge.className = classes;
+            badge.textContent = "0";
+            button.appendChild(badge);
+        }
+        return badge;
+    }
+
+    function renderNavBadges() {
+        const ordersCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.length : 0;
+        const pendingCount = typeof orderHistory !== "undefined" && Array.isArray(orderHistory)
+            ? orderHistory.filter((order) => ["pending", "processing", "shipped"].includes(String(order.status || "pending"))).length
+            : 0;
+        const accountBadgeCount = Math.min(9, ordersCount || 0);
+
+        const historyBadge = ensureNavBadge("tab-history", "runtime-history-badge", "absolute -top-1 -left-1 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
+        const accountBadge = ensureNavBadge("tab-account", "runtime-account-badge", "absolute -top-1 -left-1 bg-amber-400 text-black text-[8px] px-1.5 py-0.5 rounded-full font-black ring-2 ring-slate-900");
+
+        if (historyBadge) {
+            historyBadge.textContent = pendingCount;
+            historyBadge.classList.toggle("hidden", pendingCount === 0);
+        }
+        if (accountBadge) {
+            accountBadge.textContent = accountBadgeCount;
+            accountBadge.classList.toggle("hidden", accountBadgeCount === 0);
+        }
+    }
+
+    function renderActivityLog() {
+        if (!dom.adminActivity) return;
+        const entries = getActivityLog();
+        if (!entries.length) {
+            dom.adminActivity.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("لا يوجد نشاط حتى الآن.", "Aucune activite pour le moment.", "No activity yet."))}</div>`;
+            return;
+        }
+
+        dom.adminActivity.innerHTML = entries.map((entry) => `
+            <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="text-[9px] font-black text-white uppercase">${escapeHtml(entry.type || "info")}</span>
+                    <span class="text-[9px] text-slate-500 font-bold">${escapeHtml(entry.at || "")}</span>
+                </div>
+                <div class="text-[10px] text-slate-300 mt-2">${escapeHtml(entry.text || "")}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderNotifications() {
+        if (!dom.notifications) return;
+        const lang = currentUiLanguage();
+        const toneMap = {
+            blue: "border-blue-400/20 bg-blue-500/10",
+            emerald: "border-emerald-400/20 bg-emerald-500/10",
+            amber: "border-amber-400/20 bg-amber-400/10",
+            slate: "border-white/5 bg-slate-900/60"
+        };
+        const notices = [];
+        const promos = getCombinedPromos();
+        const latestOrder = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) && orderHistory.length ? orderHistory[0] : null;
+        const stats = getLocalStats();
+
+        if (latestOrder) {
+            notices.push({
+                tone: "blue",
+                title: `${pickLanguageText(lang, "آخر طلب", "Derniere commande", "Latest order")}: ${latestOrder.orderRef || latestOrder.id}`,
+                body: latestOrder.adminTracking || latestOrder.trackingHint || getStatusUi(latestOrder.status || "pending").label
+            });
+        }
+        if (promos.length) {
+            notices.push({
+                tone: "emerald",
+                title: `${promos.length} ${pickLanguageText(lang, "برومو نشط", "promos actives", "active promos")}`,
+                body: `${pickLanguageText(lang, "أفضل كود", "Code principal", "Top code")}: ${promos[0].code}`
+            });
+        }
+        if (stats.manualQuotes > 0) {
+            notices.push({
+                tone: "amber",
+                title: pickLanguageText(lang, "نشاط التسعير اليدوي", "Activite devis manuel", "Manual quote activity"),
+                body: `${stats.manualQuotes} ${pickLanguageText(lang, "طلب تسعير تجهز من هذا الجهاز", "demande(s) de devis preparee(s) depuis cet appareil", "quote request(s) prepared from this device")}`
+            });
+        }
+        if (!notices.length) {
+            notices.push({
+                tone: "slate",
+                title: pickLanguageText(lang, "النظام جاهز", "Systeme pret", "System ready"),
+                body: pickLanguageText(lang, "ابدأ جلب منتج جديد أو حضّر تسعيرة يدوية باش يبان النشاط هنا.", "Lancez un nouveau fetch produit ou preparez un devis manuel pour voir l'activite ici.", "Fetch a product or prepare a manual quote to see activity here.")
+            });
+        }
+
+        dom.notifications.innerHTML = notices.slice(0, 4).map((item) => `
+            <div class="rounded-xl border p-3 ${toneMap[item.tone] || toneMap.slate}">
+                <div class="text-[10px] font-black text-white">${escapeHtml(item.title)}</div>
+                <div class="text-[9px] text-slate-300 mt-1 leading-relaxed">${escapeHtml(item.body)}</div>
+            </div>
+        `).join("");
+    }
+
+    function getStatusUi(status) {
+        const lang = currentUiLanguage();
+        const statusMap = {
+            pending: { label: pickLanguageText(lang, "قيد المراجعة", "En revision", "Under Review"), classes: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+            processing: { label: pickLanguageText(lang, "تم الشراء", "Achete", "Purchased"), classes: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
+            shipped: { label: pickLanguageText(lang, "في الطريق", "En transit", "In Transit"), classes: "text-purple-400 bg-purple-400/10 border-purple-400/20" },
+            delivered: { label: pickLanguageText(lang, "تم التسليم", "Livre", "Delivered"), classes: "text-green-400 bg-green-400/10 border-green-400/20" }
+        };
+        return statusMap[status] || statusMap.pending;
+    }
+
+    function findOrderByRef(ref) {
+        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return null;
+        return orderHistory.find((order) => String(order.orderRef || order.id || "").toLowerCase() === String(ref || "").trim().toLowerCase()) || null;
+    }
+
+    function renderTrackLookupResult(order) {
+        if (!dom.trackStatusCard || !dom.trackStatusRef || !dom.trackStatusBadge || !dom.trackStatusNote || !dom.trackStatusExtra) return;
+        if (!order) {
+            dom.trackStatusCard.classList.add("hidden");
+            renderTrackingTimeline(null);
+            return;
+        }
+        const statusUi = getStatusUi(order.status || "pending");
+        dom.trackStatusCard.classList.remove("hidden");
+        dom.trackStatusRef.textContent = order.orderRef || String(order.id || "");
+        dom.trackStatusBadge.textContent = statusUi.label;
+        dom.trackStatusBadge.className = `text-[10px] px-3 py-1 rounded-full font-black border ${statusUi.classes}`;
+        dom.trackStatusNote.textContent = order.trackingHint || order.adminTracking || currentLanguageText("مازال ما فماش tracking note مضافة.", "Aucune note de suivi ajoutee pour le moment.", "No tracking note has been added yet.");
+        dom.trackStatusExtra.textContent = order.adminTracking ? `${currentLanguageText("التتبع", "Suivi", "Tracking")}: ${order.adminTracking}` : "";
+        renderTrackingTimeline(order);
+    }
+
+    async function searchTrackedOrder() {
+        const ref = dom.trackRef?.value.trim() || "";
+        if (!ref) {
+            toast(currentLanguageText("دخل مرجع الطلب أولًا.", "Entrez d'abord la reference de commande.", "Enter the order reference first."));
+            return;
+        }
+        let order = null;
+        try {
+            const data = await apiFetch(`/api/orders/${encodeURIComponent(ref)}`);
+            order = data.order || null;
+            if (order) {
+                mergeOrderIntoHistory(order);
+                if (typeof saveData === "function") saveData();
+            }
+        } catch {
+            order = null;
+        }
+        if (!order) order = findOrderByRef(ref);
+        if (!order) {
+            renderTrackLookupResult(null);
+            toast(currentLanguageText("ما لقيناش الطلب بهذا المرجع.", "Commande introuvable avec cette reference.", "We could not find an order with that reference."));
+            return;
+        }
+        renderTrackLookupResult(order);
+    }
+
+    async function unlockAdmin() {
+        const pin = dom.adminPin?.value.trim() || "";
+        state.adminUnlocked = pin === getAdminPin();
+        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
+        dom.adminPanel.classList.toggle("hidden", !state.adminUnlocked);
+        dom.adminUnlockStatus.textContent = state.adminUnlocked ? currentLanguageText("مفتوحة", "Ouvert", "Unlocked") : currentLanguageText("مغلقة", "Verrouille", "Locked");
+        dom.adminUnlockStatus.className = `text-[9px] font-black ${state.adminUnlocked ? "text-emerald-300" : "text-red-300"}`;
+        if (!state.adminUnlocked) {
+            toast(currentLanguageText("PIN الإدارة غالط.", "PIN admin incorrect.", "Admin PIN is incorrect."));
+            return;
+        }
+        renderAdminPromos();
+        renderAdminOrders();
+        toast(currentLanguageText("تم فتح لوحة الإدارة.", "Le panneau admin est ouvert.", "Admin panel unlocked."));
+    }
+
+    function lockAdmin() {
+        state.adminUnlocked = false;
+        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+        }
+        openAccountPanel("overview");
+    }
+
+    function renderAdminPromos() {
+        if (!dom.adminPromos) return;
+        const lang = currentUiLanguage();
+        const promos = getAdminPromos();
+        if (!promos.length) {
+            dom.adminPromos.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(pickLanguageText(lang, "ما فماش promo codes محليين توّا.", "Aucun code promo local pour le moment.", "No local promo codes yet."))}</div>`;
+            return;
+        }
+        dom.adminPromos.innerHTML = promos.map((promo, index) => `
+            <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-black text-white">${escapeHtml(promo.code)}</div>
+                    <div class="text-[9px] text-slate-400">
+                        ${promo.type === "percent" ? `${promo.value}%` : `${promo.value} TND`} • 
+                        ${pickLanguageText(lang, "مستعمل", "utilise", "used")} ${Number(promo.used || 0)}/${Number(promo.limit || 0) || "∞"} • 
+                        ${promo.expiresAt || pickLanguageText(lang, "بدون انتهاء", "sans expiration", "no expiry")}
+                    </div>
+                </div>
+                <button type="button" class="text-[9px] font-black text-red-300 hover:text-red-200 transition-colors" data-remove-promo="${index}">${pickLanguageText(lang, "حذف", "Supprimer", "Delete")}</button>
+            </div>
+        `).join("");
+    }
+
+    function renderAdminOrders() {
+        if (!dom.adminOrders) return;
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory.slice(0, 8) : [];
+        if (!orders.length) {
+            dom.adminOrders.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش طلبات حتى الآن.", "Aucune commande pour le moment.", "No orders yet."))}</div>`;
+            return;
+        }
+        dom.adminOrders.innerHTML = orders.map((order) => {
+            const statusUi = getStatusUi(order.status || "pending");
+            return `
+                <button type="button" class="w-full text-right rounded-2xl border border-white/5 bg-slate-900/70 p-3 hover:border-amber-400/30 transition-colors" data-fill-order="${escapeHtml(order.orderRef || String(order.id || ""))}">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</span>
+                        <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
+                    </div>
+                    <div class="text-[9px] text-slate-500 mt-2">${escapeHtml(order.adminTracking || order.trackingHint || "")}</div>
+                </button>
+            `;
+        }).join("");
+    }
+
+    function saveAdminPromo() {
+        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
+        const type = dom.adminPromoType?.value || "percent";
+        const value = Number(dom.adminPromoValue?.value || 0);
+        const limit = Number(dom.adminPromoLimit?.value || 0);
+        const expiresAt = dom.adminPromoExpiry?.value || "";
+        if (!code || value <= 0) {
+            toast(currentLanguageText("كمّل بيانات الـ promo code.", "Completez les informations du code promo.", "Complete the promo code details."));
+            return;
+        }
+        const promos = getAdminPromos().filter((promo) => promo.code !== code);
+        promos.unshift({ code, type, value, limit, expiresAt, used: 0 });
+        saveAdminPromos(promos);
+        if (dom.adminPromoCode) dom.adminPromoCode.value = "";
+        if (dom.adminPromoValue) dom.adminPromoValue.value = "";
+        if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
+        if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
+        toast(currentLanguageText("تم حفظ الـ promo code.", "Code promo enregistre.", "Promo code saved."));
+    }
+
+    function normalizePromo(promo) {
+        if (!promo) return null;
+        const code = String(promo.code || "").trim().toUpperCase();
+        if (!code) return null;
+        return {
+            code,
+            type: promo.type || (promo.discountType === "fixed" ? "fixed" : "percent"),
+            value: Number(promo.value ?? promo.discount ?? 0),
+            limit: Number(promo.limit ?? promo.usageLimit ?? 0),
+            used: Number(promo.used || 0),
+            expiresAt: promo.expiresAt || promo.expiry || promo.expires || ""
+        };
+    }
+
+    function getCombinedPromos() {
+        const cloud = Array.isArray(window.availablePromos) ? window.availablePromos : [];
+        const combined = [...getAdminPromos(), ...cloud].map(normalizePromo).filter(Boolean);
+        const seen = new Set();
+        return combined.filter((promo) => {
+            if (seen.has(promo.code)) return false;
+            seen.add(promo.code);
+            return true;
+        });
+    }
+
+    async function applyPromoCode() {
+        const codeInput = document.getElementById("promo-code");
+        const msg = document.getElementById("promo-message");
+        const discountBadge = document.getElementById("discount-badge");
+        const code = String(codeInput?.value || "").trim().toUpperCase();
+        if (!code || typeof currentDiscount === "undefined") {
+            toast(currentLanguageText("دخل promo code صحيح.", "Entrez un code promo valide.", "Enter a valid promo code."));
+            return;
+        }
+
+        await refreshPublicPromos();
+
+        const now = new Date();
+        const promo = getCombinedPromos().find((item) => item.code === code);
+        const expired = promo?.expiresAt ? new Date(promo.expiresAt) < now : false;
+        const limitReached = promo?.limit > 0 && promo.used >= promo.limit;
+
+        if (!promo || promo.value <= 0 || expired || limitReached) {
+            currentDiscount = 0;
+            discountType = "";
+            state.activePromoCode = "";
+            if (msg) {
+                msg.classList.remove("hidden", "text-green-400");
+                msg.classList.add("text-red-400");
+                msg.textContent = currentLanguageText("الكود غالط، منتهي، أو limit متاعو كمل.", "Le code est invalide, expire ou sa limite est atteinte.", "The code is invalid, expired, or its limit has been reached.");
+            }
+            discountBadge?.classList.add("hidden");
+            if (typeof renderCart === "function") renderCart();
+            toast(currentLanguageText("الـ promo code موش صالح.", "Le code promo n'est pas valide.", "The promo code is not valid."));
+            return;
+        }
+
+        currentDiscount = promo.value;
+        discountType = promo.type;
+        state.activePromoCode = promo.code;
+        if (msg) {
+            msg.classList.remove("hidden", "text-red-400");
+            msg.classList.add("text-green-400");
+            msg.textContent = promo.type === "percent"
+                ? pickLanguageText(currentUiLanguage(), `تم تفعيل ${promo.code} بخصم ${promo.value}%`, `${promo.code} active avec ${promo.value}% de remise`, `${promo.code} applied with ${promo.value}% off`)
+                : pickLanguageText(currentUiLanguage(), `تم تفعيل ${promo.code} بخصم ${promo.value} TND`, `${promo.code} active avec ${promo.value} TND de remise`, `${promo.code} applied with ${promo.value} TND off`);
+        }
+        discountBadge?.classList.remove("hidden");
+        if (typeof renderCart === "function") renderCart();
+        toast(currentLanguageText("تم تفعيل الـ promo code.", "Code promo active.", "Promo code applied."));
+    }
+
+    function markPromoUsed(code) {
+        if (!code) return;
+        const promos = getAdminPromos().slice();
+        const index = promos.findIndex((promo) => String(promo.code || "").trim().toUpperCase() === String(code).trim().toUpperCase());
+        if (index === -1) return;
+        promos[index].used = Number(promos[index].used || 0) + 1;
+        saveAdminPromos(promos);
+    }
+
+    function removeAdminPromo(index) {
+        const promos = getAdminPromos().slice();
+        promos.splice(index, 1);
+        saveAdminPromos(promos);
+        toast(currentLanguageText("تم حذف الـ promo code.", "Code promo supprime.", "Promo code deleted."));
+    }
+
+    function fillAdminOrder(ref) {
+        const order = findOrderByRef(ref);
+        if (!order) return;
+        if (dom.adminOrderRef) dom.adminOrderRef.value = order.orderRef || String(order.id || "");
+        if (dom.adminOrderStatus) dom.adminOrderStatus.value = order.status || "pending";
+        if (dom.adminOrderTracking) dom.adminOrderTracking.value = order.adminTracking || order.trackingHint || "";
+    }
+
+    function updateAdminOrder() {
+        const ref = dom.adminOrderRef?.value.trim() || "";
+        if (!ref || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) {
+            toast(currentLanguageText("دخل مرجع طلب صحيح.", "Entrez une reference de commande valide.", "Enter a valid order reference."));
+            return;
+        }
+        const target = findOrderByRef(ref);
+        if (!target) {
+            toast(currentLanguageText("الطلب هذا موش موجود.", "Cette commande est introuvable.", "This order does not exist."));
+            return;
+        }
+        target.status = dom.adminOrderStatus?.value || "pending";
+        target.adminTracking = dom.adminOrderTracking?.value.trim() || "";
+        target.trackingHint = target.adminTracking || target.trackingHint || "";
+        if (typeof saveData === "function") saveData();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+        renderTrackLookupResult(target);
+        renderAdminOrders();
+        toast(currentLanguageText("تم تحديث status الطلب.", "Statut de commande mis a jour.", "Order status updated."));
+    }
+
+    async function unlockAdminRemote() {
+        const pin = dom.adminPin?.value.trim() || "";
+        if (!dom.adminPanel || !dom.adminUnlockStatus) return;
+
+        try {
+            const data = await apiFetch("/api/admin/login", {
+                method: "POST",
+                body: JSON.stringify({ pin })
+            });
+            state.adminToken = data.token || "";
+            state.adminUnlocked = Boolean(state.adminToken);
+            setStoredAdminToken(state.adminToken);
+            state.adminAnalytics = data.state?.analytics || null;
+            saveAdminPromos(Array.isArray(data.state?.promos) ? data.state.promos : []);
+            syncOrdersFromServer(Array.isArray(data.state?.orders) ? data.state.orders : []);
+            dom.adminPanel.classList.remove("hidden");
+            dom.adminUnlockStatus.textContent = currentLanguageText("مفتوحة", "Ouvert", "Unlocked");
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-emerald-300";
+            openAccountPanel("admin");
+            renderAdminPromos();
+            renderAdminOrders();
+            renderAdminAnalytics();
+            pushActivityLog("admin", currentLanguageText("تم فتح جلسة الإدارة ومزامنتها.", "Session admin ouverte et synchronisee.", "Admin session unlocked and synced."));
+            toast(currentLanguageText("تمت مزامنة الإدارة.", "Admin synchronise.", "Admin synced."));
+        } catch (error) {
+            state.adminUnlocked = false;
+            state.adminToken = "";
+            setStoredAdminToken("");
+            dom.adminPanel.classList.add("hidden");
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+            toast(error.message || currentLanguageText("فشل دخول الإدارة.", "Connexion admin echouee.", "Admin login failed."));
+        }
+    }
+
+    function lockAdminRemote() {
+        state.adminUnlocked = false;
+        state.adminToken = "";
+        setStoredAdminToken("");
+        if (dom.adminPanel) dom.adminPanel.classList.add("hidden");
+        if (dom.adminUnlockStatus) {
+            dom.adminUnlockStatus.textContent = currentLanguageText("مغلقة", "Verrouille", "Locked");
+            dom.adminUnlockStatus.className = "text-[9px] font-black text-red-300";
+        }
+        openAccountPanel("overview");
+    }
+
+    async function searchTrackedOrderRemote() {
+        return searchTrackedOrder();
+    }
+
+    async function saveAdminPromoRemote() {
+        const code = (dom.adminPromoCode?.value || "").trim().toUpperCase();
+        const type = dom.adminPromoType?.value || "percent";
+        const value = Number(dom.adminPromoValue?.value || 0);
+        const limit = Number(dom.adminPromoLimit?.value || 0);
+        const expiresAt = dom.adminPromoExpiry?.value || "";
+
+        if (!code || value <= 0) {
+            toast(currentLanguageText("بيانات البرومو ناقصة.", "Les donnees promo sont incompletes.", "Promo data is incomplete."));
+            return;
+        }
+        if (!state.adminToken) {
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
+            return;
+        }
+
+        try {
+            const data = await apiFetch("/api/admin/promos", {
+                method: "POST",
+                body: JSON.stringify({ code, type, value, limit, expiresAt, used: 0 })
+            }, true);
+            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+            if (dom.adminPromoCode) dom.adminPromoCode.value = "";
+            if (dom.adminPromoValue) dom.adminPromoValue.value = "";
+            if (dom.adminPromoLimit) dom.adminPromoLimit.value = "";
+            if (dom.adminPromoExpiry) dom.adminPromoExpiry.value = "";
+            pushActivityLog("promo", pickLanguageText(currentUiLanguage(), `تم حفظ البرومو ${code}.`, `Promo ${code} enregistre.`, `Saved promo ${code}.`));
+            toast(currentLanguageText("تم حفظ البرومو.", "Promo enregistree.", "Promo saved."));
+        } catch (error) {
+            toast(error.message || currentLanguageText("فشل حفظ البرومو.", "Echec de l'enregistrement promo.", "Promo save failed."));
+        }
+    }
+
+    async function removeAdminPromoRemote(index) {
+        const promo = getAdminPromos().slice()[index];
+        if (!promo?.code) return;
+        if (!state.adminToken) {
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
+            return;
+        }
+
+        try {
+            const data = await apiFetch(`/api/admin/promos/${encodeURIComponent(promo.code)}`, {
+                method: "DELETE"
+            }, true);
+            saveAdminPromos(Array.isArray(data.promos) ? data.promos : []);
+            pushActivityLog("promo", pickLanguageText(currentUiLanguage(), `تم حذف البرومو ${promo.code}.`, `Promo ${promo.code} supprime.`, `Deleted promo ${promo.code}.`));
+            toast(currentLanguageText("تم حذف البرومو.", "Promo supprimee.", "Promo deleted."));
+        } catch (error) {
+            toast(error.message || currentLanguageText("فشل حذف البرومو.", "Echec de la suppression promo.", "Promo delete failed."));
+        }
+    }
+
+    async function updateAdminOrderRemote() {
+        const ref = dom.adminOrderRef?.value.trim() || "";
+        if (!ref) {
+            toast(currentLanguageText("مرجع الطلب مطلوب.", "La reference de commande est obligatoire.", "Order reference is required."));
+            return;
+        }
+        if (!state.adminToken) {
+            toast(currentLanguageText("افتح الإدارة أولًا.", "Debloquez d'abord l'admin.", "Unlock admin first."));
+            return;
+        }
+
+        try {
+            const data = await apiFetch(`/api/admin/orders/${encodeURIComponent(ref)}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    status: dom.adminOrderStatus?.value || "pending",
+                    adminTracking: dom.adminOrderTracking?.value.trim() || ""
+                })
+            }, true);
+            if (data.order) {
+                mergeOrderIntoHistory(data.order);
+                if (typeof saveData === "function") saveData();
+                if (typeof window.renderHistory === "function") window.renderHistory();
+                renderTrackLookupResult(data.order);
+                renderAdminOrders();
+                pushActivityLog("order", pickLanguageText(currentUiLanguage(), `تم تحديث ${ref} إلى ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`, `${ref} mis a jour vers ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`, `Updated ${ref} to ${getStatusUi(dom.adminOrderStatus?.value || "pending").label}.`));
+            }
+            toast(currentLanguageText("تم تحديث الطلب.", "Commande mise a jour.", "Order updated."));
+        } catch (error) {
+            toast(error.message || currentLanguageText("فشل تحديث الطلب.", "Echec de mise a jour de la commande.", "Order update failed."));
+        }
+    }
+
+    function renderRecentLinks() {
+        if (!dom.recentLinksCard || !dom.recentLinks) return;
+        state.recentLinks = [];
+        writeJsonStorage(RECENT_LINKS_KEY, []);
+        dom.recentLinks.innerHTML = "";
+        dom.recentLinksCard.classList.add("hidden");
+    }
+
+    function saveRecentLink(product) {
+        return;
+    }
+
+    function useRecentLink(index) {
+        return;
+    }
+
+    function clearRecentLinks() {
+        state.recentLinks = [];
+        writeJsonStorage(RECENT_LINKS_KEY, []);
+        renderRecentLinks();
+    }
+
+    function renderImagePreview(dataUrl) {
+        if (!dom.imagePreviewCard || !dom.imagePreview) return;
+        const hasImage = Boolean(dataUrl);
+        dom.imagePreviewCard.classList.toggle("hidden", !hasImage);
+        if (hasImage) dom.imagePreview.src = dataUrl;
+    }
+
+    function ensurePreviewDescriptionNode() {
+        if (dom.previewDescription) return dom.previewDescription;
+        if (!dom.previewTitle || !dom.previewTitle.parentElement) return null;
+        const node = document.createElement("p");
+        node.id = "runtime-preview-description";
+        node.className = "text-[11px] md:text-sm text-slate-300 leading-relaxed max-w-4xl";
+        node.textContent = currentLanguageText("وصف المنتج باش يظهر هنا كي يتجلب المنتج.", "La description du produit apparaitra ici apres le chargement.", "The product description will appear here after the product loads.");
+        dom.previewTitle.insertAdjacentElement("afterend", node);
+        dom.previewDescription = node;
+        return node;
+    }
+
+    function applyCalculatorUiCleanup() {
+        const noteBlock = dom.calcNote?.closest("div");
+        const imageBlock = dom.calcImage?.closest("div");
+        if (noteBlock) noteBlock.classList.remove("hidden");
+        if (imageBlock) imageBlock.classList.add("hidden");
+        if (dom.imagePreviewCard) dom.imagePreviewCard.classList.add("hidden");
+        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
+        if (dom.customsCard) dom.customsCard.classList.add("hidden");
+        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
+    }
+
+    function applyAccountUiCleanup() {
+        const toolsPanel = document.querySelector('#section-account details[data-account-panel="tools"]');
+        const notificationsPanel = document.querySelector('#section-account details[data-account-panel="notifications"]');
+        const adminPanel = document.querySelector('#section-account details[data-account-panel="admin"]');
+        const legacyAccount = document.getElementById("section-account-legacy");
+        if (toolsPanel) {
+            toolsPanel.open = false;
+            toolsPanel.classList.add("hidden");
+        }
+        if (notificationsPanel) {
+            notificationsPanel.open = false;
+            notificationsPanel.classList.add("hidden");
+        }
+        if (adminPanel) {
+            adminPanel.open = false;
+            adminPanel.remove();
+        }
+        if (legacyAccount) {
+            legacyAccount.remove();
+        }
+    }
+
+    function repairTabLayout() {
+        const main = document.querySelector("main");
+        if (!main) return;
+
+        const orderedSectionIds = [
+            "section-guide",
+            "section-calc",
+            "section-wishlist",
+            "section-history",
+            "section-track",
+            "section-cart",
+            "section-check",
+            "section-account"
         ];
 
-        let localResponse = null;
-        for (const attempt of attempts) {
-          localResponse = await attempt();
-          const data = localResponse.data && typeof localResponse.data === "object" ? localResponse.data : {};
-          if (String(data.code ?? "0") === "0" || data.access_token) {
-            response = localResponse;
-            break;
-          }
-        }
-        if (!response && localResponse) response = localResponse;
-      }
+        let anchor = null;
+        orderedSectionIds.forEach((sectionId) => {
+            const section = document.getElementById(sectionId);
+            if (!section) return;
+            if (!anchor) {
+                if (section.parentElement !== main) {
+                    main.prepend(section);
+                }
+                anchor = section;
+                return;
+            }
+            if (section.parentElement !== main || section.previousElementSibling !== anchor) {
+                anchor.insertAdjacentElement("afterend", section);
+            }
+            anchor = section;
+        });
 
-      const rawData = response?.data && typeof response.data === "object" ? response.data : {};
-      const data = extractAliExpressOAuthTokenPayload(rawData);
-      if (String(rawData.code ?? data.code ?? "0") !== "0" && !data.access_token && !data.accessToken) {
-        const message = rawData.message || rawData.msg || rawData.error_message || rawData.error || data.message || data.msg || "AliExpress OAuth token exchange failed";
-        const error = new Error(message);
-        error.status = 502;
-        error.meta = {
-          code: rawData.code ?? data.code ?? null,
-          requestId: rawData.request_id || rawData.requestId || data.request_id || data.requestId || null,
-          label: variant.label,
-          responsePreview: previewValue(rawData)
-        };
-        throw error;
-      }
-      return data;
-    } catch (error) {
-      log("warn", "AliExpress OAuth token variant failed", {
-        label: variant.label,
-        error: error.message,
-        code: error?.meta?.code ?? error?.response?.data?.code ?? null,
-        requestId: error?.meta?.requestId ?? error?.response?.data?.request_id ?? error?.response?.data?.requestId ?? null,
-        responsePreview:
-          error?.meta?.responsePreview ||
-          (error?.response?.data ? previewValue(error.response.data) : "")
-      });
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("AliExpress OAuth token exchange failed");
-}
-
-function detectPlaywrightExecutable() {
-  if (PLAYWRIGHT_EXECUTABLE_PATH && fileExists(PLAYWRIGHT_EXECUTABLE_PATH)) {
-    return PLAYWRIGHT_EXECUTABLE_PATH;
-  }
-
-  const roots = [
-    process.env.PLAYWRIGHT_BROWSERS_PATH,
-    path.join(ROOT, "node_modules", "playwright-core", ".local-browsers"),
-    path.join(ROOT, "node_modules", "playwright", ".local-browsers"),
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "ms-playwright") : "",
-    path.join(os.homedir(), ".cache", "ms-playwright"),
-    path.join(os.homedir(), "AppData", "Local", "ms-playwright"),
-    "/opt/render/.cache/ms-playwright"
-  ].filter(Boolean);
-
-  const candidates = [];
-
-  for (const playwrightRoot of roots) {
-    let subdirs = [];
-    try {
-      subdirs = fs.readdirSync(playwrightRoot, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .filter((name) => /^(chromium|chromium_headless_shell)-\d+$/i.test(name))
-        .sort((left, right) => Number(right.split("-").pop()) - Number(left.split("-").pop()));
-    } catch {
-      subdirs = [];
+        const legacyAccount = document.getElementById("section-account-legacy");
+        if (legacyAccount) legacyAccount.remove();
     }
 
-    for (const subdir of subdirs) {
-      const base = path.join(playwrightRoot, subdir);
-      candidates.push(
-        path.join(base, "chrome-win64", "chrome.exe"),
-        path.join(base, "chrome-win", "chrome.exe"),
-        path.join(base, "chrome-headless-shell-win64", "chrome-headless-shell.exe"),
-        path.join(base, "chrome-linux", "chrome"),
-        path.join(base, "chrome-headless-shell-linux64", "chrome-headless-shell"),
-        path.join(base, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium")
-      );
-    }
-  }
-
-  return candidates.find(fileExists) || "";
-}
-
-function validateAliExpressUrl(input) {
-  try {
-    const parsed = new URL(String(input || "").trim());
-    const isAliExpress =
-      /(^|\.)aliexpress\.(com|us)$/i.test(parsed.hostname) ||
-      /(^|\.)a\.aliexpress\.com$/i.test(parsed.hostname);
-    if (!isAliExpress) return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
-
-function extractProductId(input) {
-  const source = validateAliExpressUrl(input) || String(input || "");
-  const patterns = [
-    /\/item\/(\d+)\.html/i,
-    /\/i\/(\d+)\.html/i,
-    /[?&]productId=(\d+)/i,
-    /[?&]id=(\d+)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = source.match(pattern);
-    if (match) return match[1];
-  }
-
-  return "";
-}
-
-function getCanonicalProductUrl(input) {
-  const productId = extractProductId(input);
-  if (productId) return `https://www.aliexpress.com/item/${productId}.html`;
-  return validateAliExpressUrl(input);
-}
-
-function getProductUrlCandidates(input) {
-  const validInput = validateAliExpressUrl(input);
-  const productId = extractProductId(input);
-  const candidates = [];
-
-  if (productId) {
-    candidates.push(
-      `https://www.aliexpress.com/item/${productId}.html`,
-      `https://ar.aliexpress.com/item/${productId}.html`,
-      `https://www.aliexpress.us/item/${productId}.html`,
-      `https://m.aliexpress.com/i/${productId}.html`
-    );
-  }
-
-  if (validInput) candidates.push(validInput);
-
-  return Array.from(new Set(candidates.filter(Boolean)));
-}
-
-function isAliExpressBlockedTitle(title) {
-  return /å°ç¦|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
-}
-
-function isGenericAliExpressTitle(title) {
-  return /^(aliexpress|ali express|aliexpress\.com)$/i.test(sanitizeText(title || ""));
-}
-
-function isAliExpressPlaceholderText(value) {
-  return /smarter shopping,\s*better living(?:!|\.)?(?:\s*aliexpress\.com)?/i.test(sanitizeText(value || ""));
-}
-
-function isAliExpressNavigationJunk(value) {
-  const cleaned = sanitizeText(value || "");
-  if (!cleaned) return false;
-  const keywordMatches = [
-    /download the aliexpress app/i,
-    /you can click this button to search/i,
-    /help center/i,
-    /return(?:&| and )refund policy/i,
-    /report ipr infringement/i,
-    /transparency center/i,
-    /submit report/i,
-    /welcome\s*sign in/i,
-    /sign in\s*\/\s*register/i,
-    /welcome\s*sign in\s*\/\s*register/i,
-    /search by image/i,
-    /all categories/i,
-    /\b0\s+cart\b/i,
-    /\ben\s*\/\s*usd\b/i
-  ].filter((pattern) => pattern.test(cleaned)).length;
-
-  return keywordMatches >= 2;
-}
-
-function isAliExpressAntiBotSignal(value) {
-  const cleaned = sanitizeText(value || "");
-  if (!cleaned) return false;
-  return Boolean(
-    /bxpunish/i.test(cleaned) ||
-    /x5secdata/i.test(cleaned) ||
-    /secdata/i.test(cleaned) ||
-    /captcha/i.test(cleaned) ||
-    /verify (?:you'?re|you are) human/i.test(cleaned) ||
-    /æµ™å…¬ç½‘å®‰å¤‡|å¢žå€¼ç”µä¿¡ä¸šåŠ¡ç»è¥è®¸å¯è¯/.test(cleaned)
-  );
-}
-
-function isAliExpressPlaceholderLike(value) {
-  const cleaned = sanitizeText(value || "");
-  if (!cleaned) return false;
-  return Boolean(
-    isAliExpressBlockedTitle(cleaned) ||
-    isAliExpressPlaceholderText(cleaned) ||
-    isAliExpressNavigationJunk(cleaned) ||
-    /download the aliexpress app/i.test(cleaned) ||
-    /\bdownload the app\b/i.test(cleaned) ||
-    /\bwelcome\b/i.test(cleaned) ||
-    /help center/i.test(cleaned) ||
-    /return(?:&| and )refund policy/i.test(cleaned) ||
-    /report ipr infringement/i.test(cleaned) ||
-    /search by image/i.test(cleaned) ||
-    /all categories/i.test(cleaned) ||
-    /\b0\s+cart\b/i.test(cleaned) ||
-    /\ben[^\p{L}\p{N}]{0,8}usd\b/iu.test(cleaned) ||
-    isAliExpressAntiBotSignal(cleaned)
-  );
-}
-
-function isLowValueProductTitle(title) {
-  const cleaned = sanitizeText(title || "");
-  if (!cleaned) return true;
-  return Boolean(
-    isGenericAliExpressTitle(cleaned) ||
-    /^Ù…Ù†ØªØ¬\s+aliexpress\s*#\d+$/i.test(cleaned) ||
-    /^aliexpress\s+product\s*#\d+$/i.test(cleaned) ||
-    /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
-    /^(resp|response|result|data|dto)$/i.test(cleaned) ||
-    /^smarter shopping, better living!?$/i.test(cleaned) ||
-    isAliExpressNavigationJunk(cleaned) ||
-    isAliExpressPlaceholderText(cleaned) ||
-    isAliExpressPlaceholderLike(cleaned)
-  );
-}
-
-function isLowValueProductDescription(text) {
-  const cleaned = sanitizeText(text || "");
-  if (!cleaned) return true;
-  return Boolean(
-    isAliExpressBlockedTitle(cleaned) ||
-    isAliExpressPlaceholderText(cleaned) ||
-    isAliExpressNavigationJunk(cleaned) ||
-    isAliExpressPlaceholderLike(cleaned) ||
-    /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
-    /window\._config_/i.test(cleaned) ||
-    /captcharecaptcha/i.test(cleaned) ||
-    /recaptcha/i.test(cleaned) ||
-    /nctokenstr/i.test(cleaned) ||
-    /secdata/i.test(cleaned) ||
-    /slidetoget/i.test(cleaned) ||
-    /^with\s*\(document\)\s*with\s*\(body\)/i.test(cleaned) ||
-    /createelement\(["']script["']\)/i.test(cleaned) ||
-    /aplus_v2\.js/i.test(cleaned) ||
-    /tb-beacon-aplus/i.test(cleaned)
-  );
-}
-
-function isBadCachedProduct(product = {}) {
-  return Boolean(
-    product?.source === "partial-fallback" ||
-    product?.priceUnavailable ||
-    isLowValueProductTitle(product?.title) ||
-    isLowValueProductDescription(product?.description) ||
-    isAliExpressPlaceholderText(product?.title) ||
-    isAliExpressPlaceholderText(product?.description) ||
-    isAliExpressBlockedTitle(product?.title) ||
-    isAliExpressBlockedTitle(product?.description)
-  );
-}
-
-function getClientIp(req) {
-  return req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-}
-
-function formatTopTimestamp(date = new Date()) {
-  const pad = (value) => String(value).padStart(2, "0");
-  const utcMs = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
-  const gmt8 = new Date(utcMs + (8 * 60 * 60 * 1000));
-  return `${gmt8.getUTCFullYear()}-${pad(gmt8.getUTCMonth() + 1)}-${pad(gmt8.getUTCDate())} ${pad(gmt8.getUTCHours())}:${pad(gmt8.getUTCMinutes())}:${pad(gmt8.getUTCSeconds())}`;
-}
-
-function signTopRequest(params, secret, signMethod = "md5") {
-  const sorted = Object.keys(params)
-    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
-    .sort()
-    .map((key) => `${key}${params[key]}`)
-    .join("");
-
-  if (String(signMethod || "").toLowerCase() === "hmac") {
-    return crypto.createHmac("md5", secret).update(sorted, "utf8").digest("hex").toUpperCase();
-  }
-
-  return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
-}
-
-function walkObject(value, visit, seen = new WeakSet()) {
-  if (!value || typeof value !== "object") return;
-  if (seen.has(value)) return;
-  seen.add(value);
-  visit(value);
-  if (Array.isArray(value)) {
-    value.forEach((item) => walkObject(item, visit, seen));
-    return;
-  }
-  Object.values(value).forEach((item) => walkObject(item, visit, seen));
-}
-
-function readScalar(value) {
-  if (typeof value === "string" || typeof value === "number") return value;
-  if (!value || typeof value !== "object") return "";
-  for (const key of ["value", "amount", "displayAmount", "price", "salePrice", "formattedPrice"]) {
-    if (value[key] != null) {
-      const nested = readScalar(value[key]);
-      if (nested !== "") return nested;
-    }
-  }
-  return "";
-}
-
-function readImage(value) {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const image = readImage(item);
-      if (image) return image;
-    }
-    return "";
-  }
-  if (typeof value === "string") {
-    const normalized = normalizeUrl(value);
-    return /^https?:\/\//i.test(normalized) ? normalized : "";
-  }
-  if (!value || typeof value !== "object") return "";
-  for (const key of ["image", "imageUrl", "mainImage", "mainImageUrl", "src", "url"]) {
-    const image = readImage(value[key]);
-    if (image) return image;
-  }
-  return "";
-}
-
-function extractUsdValuesFromText(text) {
-  const prices = [];
-  const patterns = [
-    /(?:us\s*)?\$\s*([0-9]+(?:[.,][0-9]{1,2})?)/gi,
-    /([0-9]+(?:[.,][0-9]{1,2})?)\s*(?:usd|us\$)/gi
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of String(text || "").matchAll(pattern)) {
-      const value = parseMoney(match[1]);
-      if (value > 0) prices.push(value);
-    }
-  }
-
-  return prices;
-}
-
-function hasShippingKeyword(text) {
-  return /shipping|delivery|freight|logistics|postage|livraison|Ø´Ø­Ù†|ØªÙˆØµÙŠÙ„/i.test(text);
-}
-
-function hasFreeShippingKeyword(text) {
-  return /free shipping|free delivery|livraison gratuite|Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ|ØªÙˆØµÙŠÙ„ Ù…Ø¬Ø§Ù†ÙŠ/i.test(text);
-}
-
-function parseShippingTexts(texts = []) {
-  let sawFree = false;
-  const prices = [];
-
-  for (const raw of texts) {
-    const text = sanitizeText(raw);
-    if (!text) continue;
-    const lowerText = text.toLowerCase();
-    if (text.length > 220) continue;
-    if (hasFreeShippingKeyword(lowerText) && hasShippingKeyword(lowerText)) sawFree = true;
-    if (!hasShippingKeyword(lowerText)) continue;
-    prices.push(...extractUsdValuesFromText(lowerText));
-  }
-
-  const cheapest = pickLowestPositive(prices);
-  if (cheapest > 0) return cheapest;
-  if (sawFree) return 0;
-  return null;
-}
-
-function extractDeliveryEstimateFromTexts(texts = []) {
-  const patterns = [
-    /\b(\d{1,2})\s*(?:-|to|~)\s*(\d{1,2})\s*(?:business\s*)?(?:days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:Ø­ØªÙ‰|Ø§Ù„Ù‰|Ø¥Ù„Ù‰)\s*(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i,
-    /\b(\d{1,2})\s*(?:business\s*)?(days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i
-  ];
-
-  for (const raw of texts) {
-    const text = sanitizeText(raw);
-    if (!text || text.length > 180) continue;
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) return text;
-    }
-  }
-  return "";
-}
-
-function inferDeliveryEstimate(shippingValue) {
-  const shipping = Number(shippingValue);
-  if (!Number.isFinite(shipping) || shipping < 0) return "ØºÙŠØ± Ù…ØªÙˆÙØ±";
-  if (shipping === 0) return "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…";
-  if (shipping <= 3) return "Ù…Ù† 10 Ø­ØªÙ‰ 20 ÙŠÙˆÙ…";
-  if (shipping <= 8) return "Ù…Ù† 8 Ø­ØªÙ‰ 16 ÙŠÙˆÙ…";
-  return "Ù…Ù† 7 Ø­ØªÙ‰ 14 ÙŠÙˆÙ…";
-}
-
-function parseCompactCount(value) {
-  const text = sanitizeText(value).toLowerCase();
-  if (!text) return 0;
-  const match = text.match(/([0-9]{1,3}(?:[.,\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?)\s*([km])?/i);
-  if (!match) return 0;
-  const rawNumber = match[1];
-  const hasGroupedThousands = /[.,\s][0-9]{3}(?:[.,\s][0-9]{3})*$/.test(rawNumber) && !match[2];
-  const normalizedNumber = hasGroupedThousands
-    ? rawNumber.replace(/[.,\s]/g, "")
-    : rawNumber.replace(/\s/g, "").replace(",", ".");
-  const base = Number.parseFloat(normalizedNumber);
-  if (!Number.isFinite(base) || base < 0) return 0;
-  const multiplier = match[2] === "k" ? 1_000 : (match[2] === "m" ? 1_000_000 : 1);
-  return Math.round(base * multiplier);
-}
-
-function extractCountFromTextList(texts = [], keywordPattern) {
-  const patternSource = keywordPattern.source;
-  const nearKeywordPatterns = [
-    new RegExp(`([0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?\\s*[km]?)\\+?\\s*(?:${patternSource})`, "i"),
-    new RegExp(`(?:${patternSource})[^0-9]{0,12}([0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+(?:[.,][0-9]+)?\\s*[km]?)`, "i")
-  ];
-  let best = 0;
-  for (const raw of texts) {
-    const text = sanitizeText(raw);
-    if (!text || !keywordPattern.test(text) || isLowValueProductDescription(text)) continue;
-    for (const pattern of nearKeywordPatterns) {
-      const match = text.match(pattern);
-      const count = parseCompactCount(match?.[1] || "");
-      if (count > best) best = count;
-    }
-    const fallbackCount = parseCompactCount(text);
-    if (fallbackCount > best) best = fallbackCount;
-  }
-  return best;
-}
-
-function classifyProductRestrictions({ title = "", url = "" }) {
-  const haystack = `${title} ${url}`.trim();
-  const matches = RESTRICTED_RULES.filter((rule) => rule.pattern.test(haystack));
-
-  return {
-    banned: matches.some((match) => match.type === "banned"),
-    restricted: matches.some((match) => match.type === "restricted"),
-    category: matches[0]?.category || "",
-    reasons: matches.map((match) => match.message)
-  };
-}
-
-function buildProductAlerts(product) {
-  const alerts = [];
-
-  if (product.restrictions?.banned) {
-    alerts.push({ level: "danger", text: "Ù‡Ø°Ø§ Ø§Ù„Ù…Ù†ØªØ¬ Ø¹Ù†Ø¯Ùˆ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ± ÙÙŠ ØªÙˆÙ†Ø³. ÙƒÙ„Ù…Ù†Ø§ Ù‚Ø¨Ù„ Ù…Ø§ ØªØ£ÙƒØ¯ Ø§Ù„Ø·Ù„Ø¨." });
-  } else if (product.restrictions?.restricted) {
-    alerts.push({ level: "warning", text: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠØ­ØªØ§Ø¬ ØªØ«Ø¨Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." });
-  }
-
-  if (product.shipping != null && Number(product.shipping) === 0) {
-    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ ÙÙŠ Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø­Ø§Ù„ÙŠ." });
-  } else if (product.shipping != null && Number(product.shipping) >= 8) {
-    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø±ØªÙØ¹ Ø´ÙˆÙŠØ©ØŒ Ø¥Ø°Ø§ ØªØ­Ø¨ Ù†Ø¹Ù…Ù„ÙˆÙ„Ùƒ ØªØ³Ø¹ÙŠØ±Ø© ÙŠØ¯ÙˆÙŠØ© Ø£ÙØ¶Ù„." });
-  }
-
-  return alerts;
-}
-
-function guessVariantLabel(key = "", values = []) {
-  const haystack = `${key} ${values.join(" ")}`.toLowerCase();
-  if (/color|colour|couleur|black|white|blue|red|green|pink|silver|gold/.test(haystack)) return "Color";
-  if (/size|taille|xl|xxl|\bxs\b|\bs\b|\bm\b|\bl\b|cm|inch/.test(haystack)) return "Size";
-  if (/storage|ram|rom|gb|tb/.test(haystack)) return "Storage";
-  if (/bundle|pack|set|piece|pcs/.test(haystack)) return "Bundle";
-  return sanitizeText(key) || "Option";
-}
-
-function uniqueShortText(values = []) {
-  return Array.from(new Set(values
-    .map((value) => sanitizeText(value))
-    .filter((value) => (
-      value &&
-      value.length <= 40 &&
-      !/^[0-9.]+$/.test(value) &&
-      !isAliExpressPlaceholderLike(value) &&
-      !isAliExpressAntiBotSignal(value)
-    ))
-  ));
-}
-
-function getVariantObjectValue(source, keys = []) {
-  if (!source || typeof source !== "object") return "";
-  for (const key of keys) {
-    if (source[key] == null) continue;
-    const raw = source[key];
-    const value = typeof raw === "string" || typeof raw === "number"
-      ? sanitizeText(raw)
-      : sanitizeText(readScalar(raw));
-    if (value) return value;
-  }
-  return "";
-}
-
-function collectVariantIdCandidates(value) {
-  const ids = new Set();
-  const visit = (entry, depth = 0) => {
-    if (depth > 2 || entry == null) return;
-    if (typeof entry === "string" || typeof entry === "number") {
-      const text = sanitizeText(entry);
-      if (!text) return;
-      for (const match of text.matchAll(/\b(\d{2,})\s*:\s*(\d{2,})\b/g)) {
-        ids.add(`${match[1]}:${match[2]}`);
-        ids.add(match[2]);
-      }
-      if (/^\d{2,}$/.test(text)) ids.add(text);
-      return;
-    }
-    if (Array.isArray(entry)) {
-      entry.forEach((item) => visit(item, depth + 1));
-      return;
-    }
-    if (typeof entry === "object") {
-      Object.entries(entry).forEach(([key, nested]) => {
-        if (/id|attr|prop|sku/i.test(key)) visit(nested, depth + 1);
-      });
-    }
-  };
-  visit(value);
-  return Array.from(ids);
-}
-
-function buildVariantPropertyLookup(source) {
-  const groups = new Map();
-  const valuesById = new Map();
-
-  const addGroupValue = (groupName, valueName, image = "", ids = []) => {
-    const label = sanitizeText(groupName || "Option");
-    const normalizedValue = normalizeVariantValue(valueName);
-    if (!label || !normalizedValue) return;
-
-    const existing = groups.get(label) || [];
-    groups.set(label, uniqueShortText(existing.concat(normalizedValue)));
-
-    const record = { group: label, value: normalizedValue, image: normalizeUrl(image) };
-    ids.map((id) => sanitizeText(id)).filter(Boolean).forEach((id) => valuesById.set(id, record));
-  };
-
-  walkObject(source, (node) => {
-    if (!node || typeof node !== "object" || Array.isArray(node)) return;
-
-    const groupName = getVariantObjectValue(node, [
-      "skuPropertyName",
-      "propertyName",
-      "salePropName",
-      "attributeName",
-      "specName",
-      "name"
-    ]);
-    const propertyId = getVariantObjectValue(node, ["skuPropertyId", "propertyId", "salePropId", "attrId", "propId", "id"]);
-    const valueLists = [
-      node.skuPropertyValues,
-      node.propertyValues,
-      node.salePropValues,
-      node.values,
-      node.options,
-      node.variantValues
-    ].filter((value) => Array.isArray(value));
-
-    if (!groupName || !valueLists.length) return;
-
-    valueLists.flat().forEach((item) => {
-      if (typeof item === "string" || typeof item === "number") {
-        addGroupValue(groupName, String(item), "", propertyId ? [propertyId] : []);
-        return;
-      }
-      if (!item || typeof item !== "object") return;
-
-      const valueName = getVariantObjectValue(item, [
-        "propertyValueDisplayName",
-        "propertyValueDefinitionName",
-        "propertyValueName",
-        "skuPropertyTips",
-        "skuPropertyValue",
-        "valueName",
-        "displayName",
-        "name",
-        "title",
-        "value"
-      ]);
-      const image = getVariantObjectValue(item, [
-        "skuPropertyImagePath",
-        "image",
-        "imageUrl",
-        "imagePath",
-        "iconUrl"
-      ]);
-      const valueId = getVariantObjectValue(item, [
-        "propertyValueIdLong",
-        "propertyValueId",
-        "skuPropertyValueId",
-        "valueId",
-        "id"
-      ]);
-
-      const ids = [];
-      if (valueId) ids.push(valueId);
-      if (propertyId && valueId) ids.push(`${propertyId}:${valueId}`);
-      addGroupValue(groupName, valueName, image, ids);
-    });
-  });
-
-  return {
-    groups: Array.from(groups.entries())
-      .map(([name, values]) => ({ name, values: values.slice(0, 12) }))
-      .filter((group) => group.values.length >= 2),
-    valuesById
-  };
-}
-
-function extractVariantPairsFromValue(value, fallbackKey = "", lookup = null, depth = 0) {
-  if (depth > 2 || value == null) return [];
-
-  if (typeof value === "string" || typeof value === "number") {
-    const text = sanitizeText(value);
-    if (!text || text.length > 120 || /^https?:\/\//i.test(text)) return [];
-
-    const resolvedByIds = [];
-    collectVariantIdCandidates(text).forEach((id) => {
-      const match = lookup?.valuesById?.get(id);
-      if (match) resolvedByIds.push({ name: match.group, value: match.value, image: match.image || "" });
-    });
-    if (resolvedByIds.length) return resolvedByIds;
-
-    const pairMatches = text.split(/[|;]+/).map((entry) => sanitizeText(entry)).filter(Boolean).flatMap((entry) => {
-      const match = entry.match(/^([^:=]{2,30})\s*[:=]\s*(.{1,60})$/);
-      if (!match) return [];
-      return [{ name: guessVariantLabel(match[1], [match[2]]), value: match[2] }];
-    });
-    if (pairMatches.length) return pairMatches;
-
-    if (isVariantLikeKey(fallbackKey)) {
-      const normalizedValue = normalizeVariantValue(text);
-      if (!normalizedValue || /price|shipping|delivery|review|rating/i.test(normalizedValue)) return [];
-      return [{ name: guessVariantLabel(fallbackKey, [normalizedValue]), value: normalizedValue }];
-    }
-
-    return [];
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap((entry) => extractVariantPairsFromValue(entry, fallbackKey, lookup, depth + 1));
-  }
-
-  if (typeof value !== "object") return [];
-
-  const directGroupName = getVariantObjectValue(value, [
-    "skuPropertyName",
-    "propertyName",
-    "salePropName",
-    "attributeName",
-    "specName",
-    "groupName"
-  ]);
-  const directValue = getVariantObjectValue(value, [
-    "propertyValueDisplayName",
-    "propertyValueDefinitionName",
-    "propertyValueName",
-    "skuPropertyTips",
-    "skuPropertyValue",
-    "valueName",
-    "displayName",
-    "name",
-    "title",
-    "value"
-  ]);
-
-  if (directGroupName && directValue) {
-    return [{ name: guessVariantLabel(directGroupName, [directValue]), value: directValue }];
-  }
-
-  return Object.entries(value).flatMap(([key, nested]) => extractVariantPairsFromValue(nested, key, lookup, depth + 1));
-}
-
-function normalizeVariantAttributes(pairs = []) {
-  const attributes = {};
-  const images = [];
-
-  (Array.isArray(pairs) ? pairs : []).forEach((pair) => {
-    const name = sanitizeText(pair?.name || "");
-    const value = normalizeVariantValue(pair?.value || "");
-    if (!name || !value || value.length > 60) return;
-    if (!attributes[name]) attributes[name] = value;
-    if (pair?.image) images.push(normalizeUrl(pair.image));
-  });
-
-  return { attributes, images: images.filter(Boolean) };
-}
-
-function extractVariantOffersFromObjectTree(source) {
-  const lookup = buildVariantPropertyLookup(source);
-  const offers = [];
-
-  walkObject(source, (node) => {
-    if (!node || typeof node !== "object" || Array.isArray(node)) return;
-
-    let price = 0;
-    let shipping = null;
-    let image = "";
-    let deliveryEstimate = "";
-
-    for (const [key, value] of Object.entries(node)) {
-      const lowerKey = key.toLowerCase();
-      if (!price && /price|amount|saleprice|offerprice|activityprice|currentprice|displayprice/.test(lowerKey)) {
-        const scalar = readScalar(value);
-        price = pickFirstPositive([parseMoney(scalar), ...extractUsdValuesFromText(String(scalar || ""))]);
-      }
-      if (shipping == null && /shipping|freight|delivery|logistics|postage/.test(lowerKey)) {
-        shipping = parseShippingTexts([String(readScalar(value) || "")]);
-      }
-      if (!image && /image|img|pic|thumb/.test(lowerKey)) {
-        image = readImage(value);
-      }
-      if (!deliveryEstimate && /delivery|ship|eta|arrival|transit/.test(lowerKey)) {
-        deliveryEstimate = extractDeliveryEstimateFromTexts([String(readScalar(value) || "")]);
-      }
-    }
-
-    if (price <= 0 && shipping == null && !image) return;
-
-    const { attributes, images } = normalizeVariantAttributes(
-      Object.entries(node).flatMap(([key, value]) => extractVariantPairsFromValue(value, key, lookup))
-    );
-    if (!Object.keys(attributes).length) return;
-
-    offers.push({
-      key: buildVariantOfferKey(attributes),
-      attributes,
-      price,
-      shipping,
-      image: normalizeUrl(image || images[0] || ""),
-      deliveryEstimate,
-      source: "object-tree"
-    });
-  });
-
-  return {
-    groups: mergeVariantGroups(lookup.groups, extractVariantGroupsFromOffers(offers)),
-    offers: mergeVariantOffers([], offers)
-  };
-}
-
-function extractVariantGroupsFromObjectTree(source) {
-  const groups = new Map();
-
-  walkObject(source, (node) => {
-    if (!node || typeof node !== "object") return;
-
-    for (const [key, value] of Object.entries(node)) {
-      const lowerKey = key.toLowerCase();
-      const isVariantKey = /variant|sku|prop|property|option|attribute|color|colour|size|bundle|storage|capacity/.test(lowerKey);
-      if (!isVariantKey) continue;
-
-      const values = uniqueShortText(
-        Array.isArray(value)
-          ? value.flatMap((entry) => {
-              if (typeof entry === "string" || typeof entry === "number") return [String(entry)];
-              if (!entry || typeof entry !== "object") return [];
-              return Object.values(entry).flatMap((nested) => typeof nested === "string" || typeof nested === "number" ? [String(nested)] : []);
-            })
-          : (typeof value === "string" ? value.split(/[|,/]/) : [])
-      ).filter((entry) => !/price|image|shipping|rating|review/i.test(entry));
-
-      if (values.length < 2 || values.length > 12) continue;
-      const label = guessVariantLabel(key, values);
-      const existing = groups.get(label) || [];
-      groups.set(label, uniqueShortText(existing.concat(values)));
-    }
-  });
-
-  return Array.from(groups.entries())
-    .map(([name, values]) => ({ name, values: values.slice(0, 8) }))
-    .filter((group) => group.values.length >= 2);
-}
-
-function extractVariantGroupsFromHtml($) {
-  const groups = new Map();
-  const addGroup = (name, values = []) => {
-    const label = sanitizeText(name || "Option");
-    const cleanedValues = uniqueShortText(values).filter((value) => !/^select|choose|view more/i.test(value));
-    if (cleanedValues.length < 2) return;
-    const existing = groups.get(label) || [];
-    groups.set(label, uniqueShortText(existing.concat(cleanedValues)).slice(0, 12));
-  };
-
-  const readNodeTexts = (element) => {
-    const $element = $(element);
-    return [
-      sanitizeText($element.text()),
-      sanitizeText($element.attr("title")),
-      sanitizeText($element.attr("aria-label")),
-      sanitizeText($element.attr("data-title")),
-      sanitizeText($element.attr("data-name")),
-      sanitizeText($element.attr("data-value")),
-      sanitizeText($element.attr("data-sku-title")),
-      sanitizeText($element.attr("alt"))
-    ].filter(Boolean);
-  };
-
-  const candidateSelectors = [
-    "[class*='sku'] button",
-    "[class*='Sku'] button",
-    "[class*='variant'] button",
-    "[class*='Variant'] button",
-    "[class*='property'] li",
-    "[class*='Property'] li",
-    "[role='button'][title]",
-    "[role='button'][aria-label]",
-    "label[title]",
-    "label[aria-label]",
-    "select option",
-    "img[alt]"
-  ];
-
-  const flatValues = candidateSelectors.flatMap((selector) =>
-    $(selector).map((_, element) => readNodeTexts(element)).get().flat()
-  );
-  addGroup(guessVariantLabel("", flatValues), flatValues);
-
-  const groupTitlePattern = /(nom de la couleur|color|colour|couleur|size|taille|bundle|pack|set|style|model|storage|capacity|version)/i;
-  $("div, section, form, li").each((_, element) => {
-    const $element = $(element);
-    const blockText = sanitizeText($element.text());
-    if (!groupTitlePattern.test(blockText) || blockText.length > 240) return;
-
-    const titleText = sanitizeText(
-      $element.find("h1,h2,h3,h4,label,dt,strong,[class*='title'],[class*='Title']").first().text() ||
-      blockText.split(/\n|:/)[0]
-    );
-    const values = $element.find("button,li,label,[role='button'],img,[title],[aria-label],[data-title],[data-sku-title],[data-value]")
-      .map((__, child) => readNodeTexts(child)).get().flat();
-    addGroup(guessVariantLabel(titleText, values), values);
-  });
-
-  return Array.from(groups.entries())
-    .map(([name, values]) => ({ name, values }))
-    .filter((group) => group.values.length >= 2);
-}
-
-function extractVariantGroupsFromTextList(texts = []) {
-  const values = uniqueShortText(texts).filter((value) => !/^select|choose/i.test(value));
-  if (values.length < 2) return [];
-  return [{ name: guessVariantLabel("", values), values: values.slice(0, 8) }];
-}
-
-function buildSellerTrustScore(product) {
-  let score = 50;
-  const rating = Number(product.rating || 0);
-  const reviewCount = Number(product.reviewCount || 0);
-  const soldCount = Number(product.soldCount || 0);
-
-  if (rating >= 4.8) score += 22;
-  else if (rating >= 4.5) score += 15;
-  else if (rating >= 4.0) score += 7;
-  else if (rating > 0) score -= 10;
-
-  if (reviewCount >= 5000) score += 12;
-  else if (reviewCount >= 500) score += 8;
-  else if (reviewCount >= 50) score += 4;
-
-  if (soldCount >= 1000) score += 8;
-  else if (soldCount >= 100) score += 4;
-
-  if (product.shipping != null && Number(product.shipping) === 0) score += 4;
-  else if (product.shipping != null && Number(product.shipping) >= 10) score -= 4;
-
-  if (product.restrictions?.restricted) score -= 10;
-  if (product.restrictions?.banned) score -= 25;
-  if (product.priceUnavailable) score -= 5;
-
-  const finalScore = Math.max(15, Math.min(98, Math.round(score)));
-  let label = "Ù…ØªÙˆØ³Ø·";
-  if (finalScore >= 85) label = "Ù…Ù…ØªØ§Ø²";
-  else if (finalScore >= 72) label = "Ù‚ÙˆÙŠ";
-  else if (finalScore >= 58) label = "Ù…Ù„ÙŠØ­";
-
-  return { score: finalScore, label };
-}
-
-function buildCustomsAdvisor(product) {
-  const category = product.restrictions?.category || "general";
-  const riskLevel = product.restrictions?.banned ? "high" : (product.restrictions?.restricted ? "medium" : "low");
-  const docsMap = {
-    phone: ["Ø¥Ø«Ø¨Ø§Øª IMEI Ø£Ùˆ Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
-    radio: ["ØªØ±Ø®ÙŠØµ ØªÙˆØ±ÙŠØ¯", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
-    "tv-box": ["Ù…Ø±Ø¬Ø¹ ØªÙ‚Ù†ÙŠ Ù„Ù„Ù…Ù†ØªØ¬", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
-    supplements: ["Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
-    knife: ["Ù…Ø±Ø§Ø¬Ø¹Ø© ÙŠØ¯ÙˆÙŠØ© Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨"],
-    general: ["ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"]
-  };
-  const saferAlternativeMap = {
-    phone: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø£Ùˆ Ù‚Ø·Ø¹ ØºÙŠØ§Ø± Ø¨Ø¯Ù„ Ù‡Ø§ØªÙ ÙƒØ§Ù…Ù„.",
-    radio: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Bluetooth Ù…Ù† ØºÙŠØ± ØªØ¬Ù‡ÙŠØ²Ø§Øª Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¯ÙŠÙˆ.",
-    "tv-box": "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø³ØªØ±ÙŠÙ…Ù†Øº Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ´Ù‡Ø§Ø¯Ø§Øª ÙˆØ§Ø¶Ø­Ø©.",
-    supplements: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø¹Ù†Ø§ÙŠØ© Ø£Ùˆ Ø±ÙØ§Ù‡Ø© ØºÙŠØ± Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ.",
-    knife: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø£Ø¯ÙˆØ§Øª Ù…Ø·Ø¨Ø® Ø£Ù‚Ù„ Ø­Ø³Ø§Ø³ÙŠØ© ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø©.",
-    general: "Ø§Ø®ØªØ§Ø± Ù…Ù†ØªØ¬Ø§Øª Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ§Ø¶Ø­Ø© ÙˆØ´Ø­Ù† Ø¹Ø§Ø¯ÙŠ."
-  };
-
-  return {
-    level: riskLevel,
-    category,
-    docs: docsMap[category] || docsMap.general,
-    note: product.restrictions?.reasons?.[0] || "Ù…Ø§ Ø«Ù…Ø§Ø´ Ù…Ø§Ù†Ø¹ Ø¯ÙŠÙˆØ§Ù†Ø© ÙˆØ§Ø¶Ø­ Ø­Ø§Ù„ÙŠØ§.",
-    saferAlternative: saferAlternativeMap[category] || saferAlternativeMap.general
-  };
-}
-
-function buildEstimatedTimeline(product) {
-  const estimate = inferDeliveryEstimate(product.shipping);
-  return [
-    { step: "ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨", status: "current", note: "ÙƒÙŠ ÙŠØªØ£ÙƒØ¯ Ø§Ù„Ø¯ÙØ¹ØŒ Ù†Ø«Ø¨ØªÙˆ Ø§Ù„Ø·Ù„Ø¨ Ù…Ø¹ Ø§Ù„Ø¨Ø§Ø¦Ø¹." },
-    { step: "ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ø¨Ø§Ø¦Ø¹", status: "upcoming", note: "Ø¹Ø§Ø¯Ø© Ø¨ÙŠÙ† Ù†Ù‡Ø§Ø± Ùˆ4 Ø£ÙŠØ§Ù… Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„." },
-    { step: "Ø§Ù„Ø´Ø­Ù† Ø§Ù„Ø¯ÙˆÙ„ÙŠ", status: "upcoming", note: estimate },
-    { step: "Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "Ù…Ø±Ø§Ø¬Ø¹Ø© Ø¯ÙŠÙˆØ§Ù†ÙŠØ© Ø¹Ø§Ø¯ÙŠØ©." },
-    { step: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ù…Ø­Ù„ÙŠ", status: "upcoming", note: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø£Ø®ÙŠØ± Ø¹Ø¨Ø± Ø§Ù„Ù…ÙˆØ²Ø¹ Ø§Ù„Ù…Ø­Ù„ÙŠ Ø£Ùˆ Ø§Ù„Ø¨Ø±ÙŠØ¯." }
-  ];
-}
-
-function isAffiliateAppKeyInvalidError(error) {
-  return Boolean(
-    error?.apiError?.subCode === "isv.appkey-not-exists" ||
-    error?.apiError?.code === 29 ||
-    /invalid app key/i.test(String(error?.message || ""))
-  );
-}
-
-function buildUnavailableProductResponse({ canonicalUrl, productId }) {
-  return {
-    success: true,
-    title: "Ù…Ù†ØªØ¬ AliExpress",
-    description: "Ø§Ù„Ø³Ø¹Ø± ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹. ÙŠÙ…ÙƒÙ†Ù†Ø§ Ø·Ù„Ø¨ Ø¹Ø±Ø¶ Ø³Ø¹Ø± ÙŠØ¯ÙˆÙŠ.",
-    price: 0,
-    shipping: null,
-    image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
-    rating: 0,
-    reviewCount: 0,
-    soldCount: 0,
-    variants: [],
-    url: canonicalUrl || `https://m.aliexpress.com/item/${productId}.html`,
-    source: "fallback",
-    cached: false,
-    fetchedAt: new Date().toISOString(),
-    deliveryEstimate: "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…",
-    manualQuoteRecommended: true,
-    priceUnavailable: true,
-    alerts: [{ level: "warning", text: "AliExpress Ø´Ø¯Ù‘ Ø§Ù„Ù€ anti-bot. Ø§Ù„Ø³Ø¹Ø± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙŠØ¯ÙˆÙŠ." }]
-  };
-}
-
-function buildVariantOfferProduct(baseProduct, offer) {
-  const price = Number(offer?.price || 0) > 0 ? Number(offer.price) : Number(baseProduct?.price || 0);
-  const shipping = offer?.shipping != null
-    ? Number(offer.shipping)
-    : (baseProduct?.shipping != null ? Number(baseProduct.shipping) : null);
-  const image = normalizeUrl(offer?.image || baseProduct?.image || "");
-  const deliveryEstimate = sanitizeText(offer?.deliveryEstimate || baseProduct?.deliveryEstimate || inferDeliveryEstimate(shipping));
-  const attributes = { ...(offer?.attributes || {}) };
-  const selectionLabel = Object.values(attributes).filter(Boolean).join(" / ");
-
-  const variantProduct = {
-    title: baseProduct?.title || "Ù…Ù†ØªØ¬ AliExpress",
-    description: baseProduct?.description || "",
-    price,
-    shipping,
-    image,
-    rating: Number(baseProduct?.rating || 0),
-    reviewCount: Number(baseProduct?.reviewCount || 0),
-    soldCount: Number(baseProduct?.soldCount || 0),
-    url: baseProduct?.url || "",
-    source: baseProduct?.source || "scrape",
-    deliveryEstimate,
-    priceUnavailable: price <= 0 && Boolean(baseProduct?.priceUnavailable),
-    variantSelectionLabel: selectionLabel
-  };
-
-  variantProduct.shippingLabel = variantProduct.shipping == null
-    ? "ØºÙŠØ± Ù…ØªÙˆÙØ±"
-    : (variantProduct.shipping === 0 ? "Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ" : `${variantProduct.shipping.toFixed(2)} USD`);
-  variantProduct.restrictions = classifyProductRestrictions(variantProduct);
-  variantProduct.alerts = buildProductAlerts(variantProduct);
-  variantProduct.trustScore = buildSellerTrustScore(variantProduct);
-  variantProduct.customsAdvisor = buildCustomsAdvisor(variantProduct);
-  variantProduct.deliveryTimeline = buildEstimatedTimeline(variantProduct);
-  variantProduct.manualQuoteRecommended = Boolean(
-    variantProduct.restrictions?.banned ||
-    variantProduct.restrictions?.restricted ||
-    (Number.isFinite(Number(variantProduct.shipping)) && Number(variantProduct.shipping) >= 8)
-  );
-
-  return {
-    key: offer?.key || buildVariantOfferKey(attributes),
-    attributes,
-    price: variantProduct.price,
-    shipping: variantProduct.shipping,
-    image: variantProduct.image,
-    deliveryEstimate: variantProduct.deliveryEstimate,
-    shippingLabel: variantProduct.shippingLabel,
-    priceUnavailable: variantProduct.priceUnavailable,
-    alerts: variantProduct.alerts,
-    restrictions: variantProduct.restrictions,
-    trustScore: variantProduct.trustScore,
-    customsAdvisor: variantProduct.customsAdvisor,
-    deliveryTimeline: variantProduct.deliveryTimeline,
-    manualQuoteRecommended: variantProduct.manualQuoteRecommended,
-    variantSelectionLabel: selectionLabel
-  };
-}
-
-function cleanupProductTitle(title) {
-  return sanitizeText(title)
-    .replace(/\s{2,}/g, " ")
-    .replace(/^[\-\|\s]+|[\-\|\s]+$/g, "")
-    .trim();
-}
-
-function cleanupProductDescription(text, fallbackTitle = "") {
-  const cleaned = sanitizeText(text)
-    .replace(/\s{2,}/g, " ")
-    .replace(/^[\-\|\s]+|[\-\|\s]+$/g, "")
-    .trim();
-
-  if (!cleaned) return "";
-  if (isLowValueProductDescription(cleaned)) return "";
-  if (/^ae.+ip.+æ¨¡æ¿/i.test(cleaned)) return "";
-  if (isAliExpressPlaceholderText(cleaned)) return "";
-  if (fallbackTitle && cleaned.toLowerCase() === String(fallbackTitle).trim().toLowerCase()) return "";
-  return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
-}
-
-function pickBestProductTitle(...candidates) {
-  for (const candidate of candidates) {
-    const cleaned = cleanupProductTitle(candidate || "");
-    if (!cleaned) continue;
-    if (isLowValueProductTitle(cleaned)) continue;
-    if (isAliExpressPlaceholderLike(cleaned)) continue;
-    return cleaned;
-  }
-  return "";
-}
-
-function pickBestProductDescription(candidates = [], fallbackTitle = "") {
-  for (const candidate of candidates) {
-    const cleaned = cleanupProductDescription(candidate || "", fallbackTitle);
-    if (!cleaned) continue;
-    if (isLowValueProductDescription(cleaned)) continue;
-    if (isAliExpressPlaceholderLike(cleaned)) continue;
-    return cleaned;
-  }
-  return "";
-}
-
-function extractPriceFromTextList(texts = []) {
-  return pickLowestPositive(texts.flatMap((text) => extractUsdValuesFromText(text)));
-}
-
-function extractRatingFromTextList(texts = []) {
-  for (const text of texts) {
-    const match = String(text || "").match(/([0-5](?:[.,][0-9])?)/);
-    if (!match) continue;
-    const rating = Number.parseFloat(match[1].replace(",", "."));
-    if (Number.isFinite(rating) && rating > 0 && rating <= 5) return rating;
-  }
-  return 0;
-}
-
-function safeJsonParse(raw) {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function parseMaybeJson(value, maxDepth = 3) {
-  let current = value;
-  let depth = 0;
-
-  while (typeof current === "string" && depth < maxDepth) {
-    const trimmed = current.trim();
-    if (!trimmed || !/^[\[{]/.test(trimmed)) break;
-    const parsed = safeJsonParse(trimmed);
-    if (!parsed) break;
-    current = parsed;
-    depth += 1;
-  }
-
-  return current;
-}
-
-function summarizeValueKeys(value, limit = 12) {
-  if (!value || typeof value !== "object") return [];
-  return Object.keys(value).slice(0, limit);
-}
-
-function previewValue(value, limit = 280) {
-  const text = sanitizeText(
-    typeof value === "string"
-      ? value
-      : JSON.stringify(value)
-  );
-  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
-}
-
-function buildAffiliateResponseDebugSummary(responseData) {
-  const errorResponse = responseData?.error_response || null;
-  const methodResponse =
-    responseData?.aliexpress_affiliate_productdetail_get_response ||
-    responseData?.aliexpress_affiliate_product_detail_get_response ||
-    responseData?.aliexpress_affiliate_productdetails_get_response ||
-    responseData;
-  const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
-  const payload = parseMaybeJson(rawRespResult);
-  const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
-  const productsNode = parseMaybeJson(
-    resultNode?.products ??
-    payload?.products ??
-    resultNode?.result ??
-    null
-  );
-  const productNode = parseMaybeJson(
-    productsNode?.product ??
-    resultNode?.product ??
-    payload?.product ??
-    null
-  );
-  const firstProduct = Array.isArray(productNode) ? productNode[0] : productNode;
-
-  return {
-    dataType: Array.isArray(responseData) ? "array" : typeof responseData,
-    topKeys: summarizeValueKeys(responseData),
-    errorResponseKeys: summarizeValueKeys(errorResponse),
-    errorCode: errorResponse?.code ?? null,
-    errorMsg: errorResponse?.msg ?? null,
-    errorSubCode: errorResponse?.sub_code ?? null,
-    errorSubMsg: errorResponse?.sub_msg ?? null,
-    errorPreview: errorResponse ? previewValue(errorResponse) : "",
-    methodResponseKeys: summarizeValueKeys(methodResponse),
-    respResultType: Array.isArray(rawRespResult) ? "array" : typeof rawRespResult,
-    respResultPreview: rawRespResult == null ? "" : previewValue(rawRespResult),
-    payloadKeys: summarizeValueKeys(payload),
-    resultKeys: summarizeValueKeys(resultNode),
-    productsKeys: summarizeValueKeys(productsNode),
-    firstProductKeys: summarizeValueKeys(firstProduct),
-    firstProductPreview: firstProduct == null ? "" : previewValue(firstProduct)
-  };
-}
-
-function extractBalancedJson(source, startIndex) {
-  const opening = source[startIndex];
-  const closing = opening === "{" ? "}" : "]";
-  let depth = 0;
-  let quote = "";
-  let escaped = false;
-
-  for (let index = startIndex; index < source.length; index += 1) {
-    const char = source[index];
-
-    if (quote) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === quote) {
-        quote = "";
-      }
-      continue;
-    }
-
-    if (char === "'" || char === "\"" || char === "`") {
-      quote = char;
-      continue;
-    }
-
-    if (char === opening) depth += 1;
-    if (char === closing) {
-      depth -= 1;
-      if (depth === 0) return source.slice(startIndex, index + 1);
-    }
-  }
-
-  return "";
-}
-
-function extractJsonObjectsFromHtml(html, $) {
-  const objects = [];
-  const scripts = $("script").map((_, element) => $(element).html() || "").get();
-  for (const rawScript of scripts) {
-    const script = rawScript.trim();
-    if (!script) continue;
-
-    if (script.startsWith("{") || script.startsWith("[")) {
-      const parsed = safeJsonParse(script);
-      if (parsed) objects.push(parsed);
-      continue;
-    }
-
-    const assignmentPattern = /(?:window\.[\w$]+|[\w$]+)\s*=\s*[\[{]/g;
-    let match = null;
-    while ((match = assignmentPattern.exec(script)) !== null) {
-      const relativeStart = script.slice(match.index).search(/[\[{]/);
-      const start = relativeStart >= 0 ? match.index + relativeStart : -1;
-      if (start < 0) continue;
-      const jsonChunk = extractBalancedJson(script, start);
-      if (!jsonChunk) continue;
-
-      const parsed = safeJsonParse(jsonChunk);
-      if (parsed) objects.push(parsed);
-    }
-
-    const jsonParsePattern = /JSON\.parse\(\s*(['"`])([\s\S]*?)\1\s*\)/g;
-    while ((match = jsonParsePattern.exec(script)) !== null) {
-      const rawValue = match[2]
-        .replace(/\\"/g, "\"")
-        .replace(/\\'/g, "'")
-        .replace(/\\n/g, "\n")
-        .replace(/\\t/g, "\t")
-        .replace(/\\\\/g, "\\");
-      const parsed = safeJsonParse(rawValue);
-      if (parsed) objects.push(parsed);
-    }
-
-    const objectMarkerPattern = /[\[{]/g;
-    while ((match = objectMarkerPattern.exec(script)) !== null) {
-      const jsonChunk = extractBalancedJson(script, match.index);
-      if (!jsonChunk || jsonChunk.length < 20) continue;
-      const parsed = safeJsonParse(jsonChunk);
-      if (parsed) objects.push(parsed);
-      if (jsonChunk) {
-        objectMarkerPattern.lastIndex = match.index + jsonChunk.length;
-      }
-    }
-  }
-  return objects;
-}
-
-function decodeAliExpressEscapes(value = "") {
-  return String(value || "")
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
-    .replace(/\\x([0-9a-fA-F]{2})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
-    .replace(/\\\//g, "/")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#34;/g, "\"")
-    .replace(/&amp;/g, "&")
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
-function pickFirstRegexValue(source, patterns = []) {
-  for (const pattern of patterns) {
-    const match = String(source || "").match(pattern);
-    if (!match?.[1]) continue;
-    const value = sanitizeText(decodeAliExpressEscapes(match[1]));
-    if (value) return value;
-  }
-  return "";
-}
-
-function extractProductFieldsFromRawHtml(html) {
-  const source = String(html || "");
-  const title = pickFirstRegexValue(source, [
-    /"subject"\s*:\s*"([^"]{6,500})"/i,
-    /"productTitle"\s*:\s*"([^"]{6,500})"/i,
-    /"seoTitle"\s*:\s*"([^"]{6,500})"/i,
-    /"title"\s*:\s*"([^"]{6,500}?)"\s*,\s*"tradeCount"/i,
-    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
-  ]);
-  const image = normalizeUrl(pickFirstRegexValue(source, [
-    /"imagePathList"\s*:\s*\[\s*"([^"]+)"/i,
-    /"productMainImageUrl"\s*:\s*"([^"]+)"/i,
-    /"mainImageUrl"\s*:\s*"([^"]+)"/i,
-    /"imageUrl"\s*:\s*"([^"]+)"/i,
-    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
-  ]));
-  const priceText = pickFirstRegexValue(source, [
-    /"formatedActivityPrice"\s*:\s*"([^"]+)"/i,
-    /"formatedPrice"\s*:\s*"([^"]+)"/i,
-    /"skuCalPrice"\s*:\s*"([^"]+)"/i,
-    /"salePrice"\s*:\s*"([^"]+)"/i,
-    /"minPrice"\s*:\s*"([^"]+)"/i,
-    /"minActivityAmount"\s*:\s*"([^"]+)"/i,
-    /"price"\s*:\s*"((?:US\s*)?\$?\s*[0-9][^"]{0,24})"/i
-  ]);
-  const ratingText = pickFirstRegexValue(source, [
-    /"averageStar"\s*:\s*"([^"]+)"/i,
-    /"starRating"\s*:\s*"([^"]+)"/i,
-    /"rating"\s*:\s*"([0-5](?:[.,][0-9])?)"/i
-  ]);
-  const reviewText = pickFirstRegexValue(source, [
-    /"reviewerNum"\s*:\s*"([^"]+)"/i,
-    /"reviewCount"\s*:\s*"([^"]+)"/i,
-    /"feedbackRating"\s*:\s*"([^"]+)"/i
-  ]);
-  const soldText = pickFirstRegexValue(source, [
-    /"tradeCount"\s*:\s*"([^"]+)"/i,
-    /"formatTradeCount"\s*:\s*"([^"]+)"/i,
-    /"orders"\s*:\s*"([^"]+)"/i
-  ]);
-
-  return {
-    title,
-    image,
-    price: pickFirstPositive([parseMoney(priceText), ...extractUsdValuesFromText(priceText)]),
-    rating: normalizeRating(ratingText),
-    reviewCount: parseCompactCount(reviewText),
-    soldCount: parseCompactCount(soldText)
-  };
-}
-
-function extractProductFieldsFromObjectTree(source) {
-  const result = { title: "", description: "", image: "", price: 0, shipping: null, deliveryEstimate: "", rating: 0, reviewCount: 0, soldCount: 0, variants: [] };
-
-  walkObject(source, (node) => {
-    if (Array.isArray(node)) return;
-    for (const [key, value] of Object.entries(node)) {
-      const lowerKey = key.toLowerCase();
-
-        if (!result.title && typeof value === "string" && /(?:subject|title|producttitle|seotitle|displaytitle|productname|itemname|tradename|name)/i.test(lowerKey)) {
-          const title = sanitizeText(value);
-          if (title && !isLowValueProductTitle(title)) result.title = title;
+    function patchTabSwitching() {
+        const sectionIds = ["guide", "calc", "wishlist", "history", "track", "cart", "check", "account"];
+
+        function applyTabState(tabId) {
+            const safeTabId = sectionIds.includes(tabId) ? tabId : "guide";
+            sectionIds.forEach((id) => {
+                const section = document.getElementById(`section-${id}`);
+                const button = document.getElementById(`tab-${id}`);
+                const isActive = id === safeTabId;
+                if (section) {
+                    section.classList.toggle("active", isActive);
+                    section.style.display = isActive ? "block" : "none";
+                }
+                if (button) {
+                    button.classList.toggle("active-tab", isActive);
+                }
+            });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            if (safeTabId === "guide" && typeof window.initCharts === "function") {
+                window.initCharts();
+            }
         }
 
-        if (!result.description && typeof value === "string" && /(?:description|summary|subtitle|sellingpoint|feature|overview|seoDescription)/i.test(lowerKey)) {
-          const description = cleanupProductDescription(value, result.title);
-          if (description) result.description = description;
+        window.switchTab = applyTabState;
+
+        const activeButton = document.querySelector(".nav-btn.active-tab");
+        const currentTab = activeButton?.id?.replace(/^tab-/, "") || "guide";
+        applyTabState(currentTab);
+    }
+
+    function getAccountPanels() {
+        return Array.from(document.querySelectorAll('#section-account details.account-panel:not(.hidden)'));
+    }
+
+    function openAccountPanel(panelName) {
+        const panels = getAccountPanels();
+        if (!panels.length) return;
+        let matched = false;
+        panels.forEach((panel) => {
+            const shouldOpen = panel.dataset.accountPanel === panelName;
+            panel.open = shouldOpen;
+            matched = matched || shouldOpen;
+        });
+        if (!matched && panels[0]) panels[0].open = true;
+    }
+
+    function initAccountPanels() {
+        const panels = getAccountPanels();
+        if (!panels.length) return;
+        if (!panels.some((panel) => panel.open)) {
+            panels[0].open = true;
         }
-
-      if (!result.image && /(?:image|img|cover|thumb|pic)/i.test(lowerKey)) {
-        const image = readImage(value);
-        if (image) result.image = image;
-      }
-
-      if (!result.price && /(?:price|amount|saleprice|minprice|maxprice|currentprice|activityprice|displayprice)/i.test(lowerKey)) {
-        const scalar = readScalar(value);
-        const price = pickLowestPositive([parseMoney(scalar), ...extractUsdValuesFromText(String(scalar || ""))]);
-        if (price > 0) result.price = price;
-      }
-
-      if (result.shipping == null && /(?:shipping|freight|delivery|logistics|postage)/i.test(lowerKey)) {
-        const shippingValue = parseShippingTexts([String(readScalar(value) || "")]);
-        if (shippingValue != null) result.shipping = shippingValue;
-      }
-
-      if (!result.deliveryEstimate && /(?:delivery|ship|eta|arrival|transit)/i.test(lowerKey)) {
-        const estimate = extractDeliveryEstimateFromTexts([String(readScalar(value) || "")]);
-        if (estimate) result.deliveryEstimate = estimate;
-      }
-
-      if (!result.rating && /(?:rating|star|reviewscore|averagestar)/i.test(lowerKey)) {
-        const rating = normalizeRating(readScalar(value));
-        if (rating > 0) result.rating = rating;
-      }
-
-      if (!result.reviewCount && /(?:reviewcount|reviews|reviewnum|commentcount|feedback)/i.test(lowerKey)) {
-        const count = parseCompactCount(String(readScalar(value) || ""));
-        if (count > 0) result.reviewCount = count;
-      }
-
-      if (!result.soldCount && /(?:sold|orders|trade|salecount|wishcount)/i.test(lowerKey)) {
-        const count = parseCompactCount(String(readScalar(value) || ""));
-        if (count > 0) result.soldCount = count;
-      }
+        panels.forEach((panel) => {
+            if (panel.__accountBound) return;
+            panel.addEventListener("toggle", () => {
+                if (!panel.open) return;
+                panels.forEach((otherPanel) => {
+                    if (otherPanel !== panel) otherPanel.open = false;
+                });
+            });
+            panel.__accountBound = true;
+        });
     }
-  });
 
-  result.variants = extractVariantGroupsFromObjectTree(source);
-
-  return result;
-}
-
-function extractHtmlProduct(html, url, source) {
-  const $ = cheerio.load(html);
-  const rawExtracted = extractProductFieldsFromRawHtml(html);
-  const antiBotPage = isAliExpressAntiBotSignal([
-    $("title").text(),
-    $("body").text().slice(0, 5000),
-    html.slice(0, 12000)
-  ].join(" "));
-  const jsonLdObjects = $("script[type='application/ld+json']").map((_, element) => safeJsonParse($(element).html() || "")).get().filter(Boolean);
-  const embedded = extractProductFieldsFromObjectTree([
-    ...extractJsonObjectsFromHtml(html, $),
-    ...jsonLdObjects
-  ]);
-  const safeEmbeddedTitle = !isLowValueProductTitle(embedded.title) && !isAliExpressBlockedTitle(embedded.title)
-    ? embedded.title
-    : "";
-  const title =
-    rawExtracted.title ||
-    safeEmbeddedTitle ||
-    sanitizeText($("meta[property='og:title']").attr("content")) ||
-    sanitizeText($("meta[name='twitter:title']").attr("content")) ||
-    sanitizeText($("meta[name='title']").attr("content")) ||
-    sanitizeText($("[data-pl='product-title']").first().text()) ||
-      sanitizeText($("h1").first().text()) ||
-      sanitizeText($("title").text());
-  const description = cleanupProductDescription(
-    embedded.description ||
-    sanitizeText($("meta[property='og:description']").attr("content")) ||
-    sanitizeText($("meta[name='description']").attr("content")) ||
-    sanitizeText($("meta[name='twitter:description']").attr("content")) ||
-    sanitizeText($("[class*='description']").first().text()) ||
-    sanitizeText($("[class*='Description']").first().text()) ||
-    sanitizeText($("body").text().slice(0, 600)),
-    title
-  );
-  const image =
-    rawExtracted.image ||
-    embedded.image ||
-    normalizeUrl($("meta[property='og:image']").attr("content")) ||
-    normalizeUrl($("meta[name='twitter:image']").attr("content")) ||
-    normalizeUrl($("img").first().attr("src"));
-  const selectorPrice = extractPriceFromTextList([
-    $("[class*='price']").first().text(),
-    $("[class*='Price']").first().text(),
-    $("[data-testid*='price']").first().text()
-  ]);
-  const bodyPrice = extractPriceFromTextList([
-    $("meta[property='og:description']").attr("content"),
-    $("body").text().slice(0, 4000)
-  ]);
-  const price = pickFirstPositive([
-    parseMoney($("meta[property='product:price:amount']").attr("content")),
-    parseMoney($("meta[name='twitter:data1']").attr("content")),
-    parseMoney($("meta[itemprop='price']").attr("content")),
-    rawExtracted.price,
-    selectorPrice,
-    embedded.price,
-    bodyPrice
-  ]);
-  const rating = rawExtracted.rating || embedded.rating || extractRatingFromTextList([
-    ...$("[class*='rating'], [class*='Rating'], [class*='star'], [class*='Star']").map((_, el) => $(el).text()).get(),
-    ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
-  ]);
-  const reviewCount = rawExtracted.reviewCount || embedded.reviewCount || extractCountFromTextList([
-    $("body").text(),
-    ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
-  ], /review|feedback|ratings?|avis/i);
-  const soldCount = rawExtracted.soldCount || embedded.soldCount || extractCountFromTextList([
-    $("body").text(),
-    ...$("[class*='sold'], [class*='order'], [class*='trade']").map((_, el) => $(el).text()).get()
-  ], /sold|orders?|commandes|ventes/i);
-  const shipping = parseShippingTexts([
-    ...$("[class*='shipping'], [class*='delivery'], [class*='freight'], [class*='logistics']").map((_, el) => $(el).text()).get()
-  ]);
-  const deliveryEstimate = embedded.deliveryEstimate || extractDeliveryEstimateFromTexts([
-    ...$("[class*='delivery'], [class*='Delivery'], [class*='arrival'], [class*='transit'], [class*='logistics']").map((_, el) => $(el).text()).get()
-  ]);
-  const variants = antiBotPage
-    ? []
-    : (embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($));
-
-    return {
-      success: true,
-      title: antiBotPage || isAliExpressBlockedTitle(title) || isAliExpressPlaceholderText(title) ? "" : title,
-      description: antiBotPage ? "" : description,
-      price: antiBotPage ? 0 : price,
-      shipping,
-      deliveryEstimate,
-      image: antiBotPage ? "" : image,
-    rating: antiBotPage ? 0 : (rating || 0),
-    reviewCount: antiBotPage ? 0 : reviewCount,
-    soldCount: antiBotPage ? 0 : soldCount,
-    variants,
-    url,
-    source
-  };
-}
-
-async function withRetries(label, task) {
-  let lastError = null;
-  for (let attempt = 0; attempt <= SCRAPE_RETRIES; attempt += 1) {
-    try {
-      return await task(attempt + 1);
-    } catch (error) {
-      lastError = error;
-      log("warn", `${label} failed`, { attempt: attempt + 1, error: error.message });
-      if (error?.nonRetryable || hasUsefulPartialProductData(error?.partialData)) break;
-      if (attempt < SCRAPE_RETRIES) await sleep(700 * (attempt + 1));
-    }
-  }
-  throw lastError;
-}
-
-async function fetchAliExpressApiProduct(productId, url) {
-  return null;
-}
-
-function buildAffiliateLink(url) {
-  return url;
-}
-
-function shouldRetryScrapingDogRequest(error) {
-  const status = Number(error?.response?.status || 0);
-  if (error?.code === "ECONNABORTED") return true;
-  if (!status) return true;
-  return status >= 500 || status === 429;
-}
-
-function normalizeScrapedProductData(product = {}, url, source) {
-  return {
-    success: true,
-    title: pickBestProductTitle(product.title, product.description) || "",
-    description: pickBestProductDescription([product.description], product.title || ""),
-    price: Number(product.price || 0),
-    shipping: product.shipping != null ? Number(product.shipping) : null,
-    deliveryEstimate: sanitizeText(product.deliveryEstimate || ""),
-    image: normalizeUrl(product.image || ""),
-    rating: normalizeRating(product.rating),
-    reviewCount: Number(product.reviewCount || 0),
-    soldCount: Number(product.soldCount || 0),
-    variants: Array.isArray(product.variants) ? product.variants : [],
-    url,
-    affiliateUrl: buildAffiliateLink(url),
-    source
-  };
-}
-
-function buildScrapePartialData(product = {}, url, source) {
-  const normalized = normalizeScrapedProductData(product, url, source);
-  return {
-    title: normalized.title,
-    description: normalized.description,
-    image: normalized.image,
-    price: normalized.price,
-    shipping: normalized.shipping,
-    deliveryEstimate: normalized.deliveryEstimate,
-    rating: normalized.rating,
-    reviewCount: normalized.reviewCount,
-    soldCount: normalized.soldCount,
-    variants: normalized.variants,
-    url: normalized.url
-  };
-}
-
-async function fetchScrapingDogHtml(url, options = {}) {
-  if (!SCRAPINGDOG_API_KEY) {
-    const error = new Error("ScrapingDog API key is missing");
-    error.status = 500;
-    throw error;
-  }
-
-  const useDynamic = options.dynamic === true;
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
-    try {
-      const response = await axios.get(SCRAPINGDOG_API_URL, {
-        params: {
-          api_key: SCRAPINGDOG_API_KEY,
-          url,
-          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC),
-          country: SCRAPINGDOG_COUNTRY || undefined
+    const UI_TRANSLATIONS = {
+        ar: {
+            page_title: "مركز عمليات Alexpress Tunisie",
+            nav_guide: "الدليل",
+            nav_calc: "الحاسبة",
+            nav_cart: "السلة",
+            nav_wish: "المفضلة",
+            nav_track: "التتبع",
+            nav_check: "الأمان",
+            nav_hist: "طلباتي",
+            nav_acc: "الحساب",
+            hero_title_1: "كيفاش تشري",
+            hero_title_2: "من AliExpress؟",
+            hero_desc: "دليلك الكامل باش طلبيتك توصل لباب دارك في تونس، بطريقة واضحة وأنيقة.",
+            hero_btn: "ابدأ الحساب من هنا",
+            trust_1: "أمان كامل",
+            trust_2: "شحن سريع",
+            trust_3: "دعم متواصل",
+            trust_4: "خدمة مضمونة",
+            step1_title: "لوّج في AliExpress",
+            step1_desc: "اختار المنتج اللي يعجبك وخذ الرابط متاعو.",
+            step2_title: "انسخ الرابط",
+            step2_desc: "الصق الرابط هنا باش نجهزلك المعطيات بسرعة.",
+            step3_title: "احسب وراجع",
+            step3_desc: "شوف المعطيات، الوصف، والتنبيهات قبل التأكيد.",
+            step4_title: "أرسل الطلب",
+            step4_desc: "ثبت الطلب وابعثهولنا مباشرة على واتساب.",
+            pay_title: "طرق الدفع المتاحة",
+            faq_title: "أسئلة شائعة",
+            faq_q1: "قداش تقعد الشحنة حتى توصل؟",
+            faq_a1: "عادة بين 15 و45 يوم عمل حسب نوع الشحن والمنتج.",
+            faq_q2: "كيفاش نخلّص بالدينار؟",
+            faq_a2: "تخلّص بالدينار وإحنا نتكفلوا بالدفع للمزوّد.",
+            faq_q3: "فما ضمان؟",
+            faq_a3: "نضمنوا المتابعة والتنسيق حتى يوصل الطلب بطريقة صحيحة.",
+            faq_q4: "قداش نخلّص في البريد؟",
+            faq_a4: "إذا فما معلوم بريد أو ديوانة يبانلك قبل التأكيد أو وقت الاستلام.",
+            transp_title: "شفافية كاملة في الأسعار",
+            transp_desc: "تفاصيل التكلفة ديما واضحة: المنتج، الخدمات، وأي مصاريف إضافية.",
+            transp_1: "سعر المنتج من المصدر",
+            transp_2: "مصاريف الخدمة والتحويل",
+            transp_3: "أي معلوم إضافي عند الاستلام",
+            transp_btn: "امشِ للحاسبة وجرّب",
+            calc_rate: "سعر الصرف اليوم:",
+            calc_guide_btn: "أول مرة تشري؟ اقرأ الدليل",
+            calc_title: "الحاسبة الذكية",
+            banned_err: "المنتج هذا يحتاج مراجعة قبل ما نكملوا الطلب.",
+            lbl_link: "رابط AliExpress",
+            lbl_name: "اسم المنتج",
+            btn_format: "ترتيب الاسم",
+            lbl_spec: "المواصفات (لون، مقاس...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "مثال: كابل USB Type-C",
+            plc_spec: "مثال: أسود 1.5م",
+            cart_total_lbl: "المبلغ الجملي:",
+            lbl_pay_method: "اختر وسيلة الدفع",
+            pay_d17: "تطبيق D17",
+            pay_flouci: "تطبيق Flouci",
+            pay_poste: "حوالة بريدية",
+            pay_vir: "تحويل بنكي",
+            btn_send: "إرسال",
+            saf_title: "الأمان والديوانة",
+            saf_desc1: "أهم الفئات اللي تحتاج حذر أو مراجعة في تونس.",
+            saf_desc2: "كل طلب يتراجع حسب نوع المنتج قبل التأكيد النهائي.",
+            saf_calc_title: "حاسبة الديوانة التقريبية",
+            saf_calc_desc: "اختار نوع المنتج وخذ فكرة سريعة على المصاريف المحتملة.",
+            saf_btn_clothes: "ملابس وأحذية",
+            saf_btn_elec: "إلكترونيات",
+            saf_btn_acc: "إكسسوارات",
+            saf_btn_other: "أخرى",
+            acc_title: "حسابي الشخصي",
+            acc_subtitle: "بياناتك وتجربتك محفوظين بطريقة مرتبة.",
+            acc_id_lbl: "معرّف الحساب",
+            acc_sync_status: "حالة المزامنة",
+            acc_sync_ok: "متصل وبالسحابة",
+            lvl_title: "مستوى الحساب",
+            acc_note: "تنجم ترجع لبياناتك من نفس الجهاز أو بالمزامنة وقت تكون متاحة.",
+            footer_desc: "وسيط تونسي مرتب وعملي للتسوق من AliExpress."
         },
-        timeout: SCRAPE_TIMEOUT_MS,
-        responseType: "text",
-        headers: {
-          Accept: "text/html,application/xhtml+xml",
-          "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+        fr: {
+            page_title: "Centre Alexpress Tunisie",
+            nav_guide: "Guide",
+            nav_calc: "Calculatrice",
+            nav_cart: "Panier",
+            nav_wish: "Favoris",
+            nav_track: "Suivi",
+            nav_check: "Securite",
+            nav_hist: "Commandes",
+            nav_acc: "Compte",
+            hero_title_1: "Comment acheter",
+            hero_title_2: "sur AliExpress ?",
+            hero_desc: "Une experience claire et elegante pour commander depuis AliExpress vers la Tunisie.",
+            hero_btn: "Commencer le calcul",
+            trust_1: "Securite totale",
+            trust_2: "Livraison rapide",
+            trust_3: "Support continu",
+            trust_4: "Service garanti",
+            step1_title: "Choisissez le produit",
+            step1_desc: "Prenez le lien du produit qui vous interesse.",
+            step2_title: "Collez le lien",
+            step2_desc: "Nous recuperons les informations les plus utiles automatiquement.",
+            step3_title: "Revoyez les details",
+            step3_desc: "Nom, image, description et alertes utiles avant validation.",
+            step4_title: "Envoyez la commande",
+            step4_desc: "Finalisez rapidement via WhatsApp.",
+            pay_title: "Moyens de paiement",
+            faq_title: "Questions frequentes",
+            faq_q1: "Quel est le delai de livraison ?",
+            faq_a1: "En general entre 15 et 45 jours ouvrables.",
+            faq_q2: "Comment payer en dinars ?",
+            faq_a2: "Vous payez en TND et nous gerons le paiement au fournisseur.",
+            faq_q3: "Y a-t-il une garantie ?",
+            faq_a3: "Nous assurons le suivi et la coordination jusqu'a reception.",
+            faq_q4: "Y a-t-il des frais a la poste ?",
+            faq_a4: "Selon le produit, un petit montant peut etre demande a la reception.",
+            transp_title: "Transparence totale",
+            transp_desc: "Les composantes du prix restent claires a chaque etape.",
+            transp_1: "Prix du produit",
+            transp_2: "Frais de service et conversion",
+            transp_3: "Eventuels frais a la reception",
+            transp_btn: "Aller a la calculatrice",
+            calc_rate: "Taux du jour :",
+            calc_guide_btn: "Premiere visite ? Lire le guide",
+            calc_title: "Calculatrice intelligente",
+            banned_err: "Ce produit demande une verification avant confirmation.",
+            lbl_link: "Lien AliExpress",
+            lbl_name: "Nom du produit",
+            btn_format: "Nettoyer le nom",
+            lbl_spec: "Specifications (couleur, taille...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "Exemple : Cable USB Type C",
+            plc_spec: "Exemple : Bleu 1.5m",
+            cart_total_lbl: "Total :",
+            lbl_pay_method: "Choisissez le paiement",
+            pay_d17: "Application D17",
+            pay_flouci: "Application Flouci",
+            pay_poste: "Mandat postal",
+            pay_vir: "Virement bancaire",
+            btn_send: "Envoyer",
+            saf_title: "Securite et douane",
+            saf_desc1: "Categories sensibles ou controlees en Tunisie.",
+            saf_desc2: "Chaque demande est revue avant validation finale.",
+            saf_calc_title: "Estimation douane",
+            saf_calc_desc: "Selectionnez la categorie pour une idee rapide.",
+            saf_btn_clothes: "Vetements",
+            saf_btn_elec: "Electronique",
+            saf_btn_acc: "Accessoires",
+            saf_btn_other: "Autre",
+            acc_title: "Mon compte",
+            acc_subtitle: "Vos preferences et votre activite dans un espace propre.",
+            acc_id_lbl: "Identifiant compte",
+            acc_sync_status: "Etat de sync",
+            acc_sync_ok: "Connecte au cloud",
+            lvl_title: "Niveau du compte",
+            acc_note: "Vos donnees restent accessibles sur le meme appareil ou via synchronisation.",
+            footer_desc: "Votre passerelle tunisienne pour acheter sur AliExpress."
         },
-        proxy: false
-      });
-
-      const html = typeof response.data === "string" ? response.data : String(response.data || "");
-      if (!html.trim()) {
-        const error = new Error("ScrapingDog returned an empty HTML response");
-        error.status = 502;
-        error.nonRetryable = true;
-        throw error;
-      }
-
-      return html;
-    } catch (error) {
-      lastError = error;
-      if (attempt >= SCRAPINGDOG_RETRY_COUNT || !shouldRetryScrapingDogRequest(error)) {
-        break;
-      }
-      await sleep(500 * (attempt + 1));
-    }
-  }
-
-  if (lastError?.response?.status) {
-    const status = Number(lastError.response.status);
-    const error = new Error(`ScrapingDog request failed with status ${status}`);
-    error.status = status >= 500 ? 502 : status;
-    error.nonRetryable = status < 500 && status !== 429;
-    throw error;
-  }
-
-  throw lastError || new Error("ScrapingDog request failed");
-}
-
-function isIncompleteScrapedProduct(product = {}) {
-  return Boolean(
-    !product.title ||
-    !product.image ||
-    (!product.price && !product.description) ||
-    isAliExpressBlockedTitle(product.title) ||
-    isAliExpressBlockedTitle(product.description) ||
-    isAliExpressPlaceholderLike(product.title) ||
-    isAliExpressPlaceholderLike(product.description)
-  );
-}
-
-async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
-  let browser = null, context = null, page = null;
-  try {
-    if (!playwright?.chromium) throw new Error("Playwright not available");
-
-    const proxyConfig = getScrapeProxyConfig();
-
-    browser = await playwright.chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      proxy: proxyConfig ? { server: proxyConfig.server, username: proxyConfig.username, password: proxyConfig.password } : undefined
-    });
-
-    context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
-      viewport: { width: 412, height: 915 },
-      isMobile: true,
-      hasTouch: true
-    });
-
-    page = await context.newPage();
-
-    await page.route('**/*', (route) => {
-      if (['image', 'font', 'media', 'stylesheet'].includes(route.request().resourceType())) return route.abort();
-      return route.continue();
-    });
-
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
-
-    await page.waitForTimeout(1500);
-    await page.mouse.move(150, 250, { steps: 10 });
-    await page.waitForTimeout(1000);
-    await page.evaluate(() => window.scrollBy(0, 600));
-
-    const html = await page.content();
-
-    if (html.includes("captcha") || html.includes("punish")) {
-      throw new Error("Blocked by AliExpress");
-    }
-
-    const extracted = extractHtmlProduct(html, url, source);
-
-    return normalizeScrapedProductData(extracted, url, source);
-
-  } catch (error) {
-    log("warn", "scrapeAliExpressWithScrapingDog failed", { url, error: error.message });
-    throw error;
-  } finally {
-    if (page) await page.close().catch(() => {});
-    if (context) await context.close().catch(() => {});
-    if (browser) await browser.close().catch(() => {});
-  }
-}
-
-async function legacyScrapeWithPlaywright(url) {
-  return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
-}
-
-async function scrapeWithHttp(url) {
-  return scrapeAliExpressWithScrapingDog(url, "scrapingdog-http");
-}
-
-async function fetchAliExpressApiProductLegacy(productId) {
-  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !hasAliExpressDsAccessToken()) {
-    return null;
-  }
-
-  const params = {
-    app_key: ALIEXPRESS_APP_KEY,
-    method: ALIEXPRESS_PRODUCT_METHOD,
-    format: "json",
-    sign_method: "md5",
-    timestamp: formatTopTimestamp(),
-    v: "2.0",
-    product_id: productId,
-    access_token: String(process.env.ALIEXPRESS_ACCESS_TOKEN || "").trim(),
-    ship_to_country: "TN",
-    target_currency: "USD",
-    target_language: "en_US"
-  };
-
-  params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET);
-
-  const response = await axios.get(ALIEXPRESS_API_BASE_URL, {
-    params,
-    timeout: 20_000,
-    ...getAxiosProxyOptions()
-  });
-
-  const extracted = extractProductFieldsFromObjectTree(response.data);
-  if (!extracted.title && !extracted.image && !extracted.description && !extracted.price) {
-    throw new Error("AliExpress API returned no usable product fields");
-  }
-
-  return {
-    title: extracted.title,
-    description: extracted.description,
-    image: extracted.image,
-    price: extracted.price,
-    shipping: extracted.shipping,
-    deliveryEstimate: extracted.deliveryEstimate || "",
-    rating: extracted.rating || 0,
-    reviewCount: extracted.reviewCount || 0,
-    soldCount: extracted.soldCount || 0,
-    variants: extracted.variants || [],
-    source: "aliexpress-api"
-  };
-}
-
-
-async function fetchAliExpressAffiliateProduct(productId) {
-  if (!ALIEXPRESS_AFFILIATE_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId) {
-    return null;
-  }
-
-  const attemptCountries = ["TN", "", "US"];
-  let lastError = null;
-
-  for (const country of attemptCountries) {
-    try {
-      const params = {
-        app_key: ALIEXPRESS_APP_KEY,
-        method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
-        format: "json",
-        sign_method: "hmac",
-        timestamp: formatTopTimestamp(),
-        v: "2.0",
-        partner_id: "apidoc",
-        simplify: "true",
-        fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,target_app_sale_price,target_app_sale_price_currency,app_sale_price,app_sale_price_currency,sale_price,sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
-        product_ids: String(productId),
-        target_currency: "USD",
-        target_language: "EN"
-      };
-
-      if (country) {
-        params.country = country;
-      }
-      if (ALIEXPRESS_TRACKING_ID) {
-        params.tracking_id = ALIEXPRESS_TRACKING_ID;
-      }
-
-      params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET, params.sign_method);
-
-      const body = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          body.append(key, String(value));
+        en: {
+            page_title: "Alexpress Tunisie Operations Center",
+            nav_guide: "Guide",
+            nav_calc: "Calculator",
+            nav_cart: "Cart",
+            nav_wish: "Wishlist",
+            nav_track: "Tracking",
+            nav_check: "Safety",
+            nav_hist: "Orders",
+            nav_acc: "Account",
+            hero_title_1: "How to buy",
+            hero_title_2: "from AliExpress?",
+            hero_desc: "A clearer, more premium way to manage AliExpress orders for Tunisia.",
+            hero_btn: "Start calculating",
+            trust_1: "Full Security",
+            trust_2: "Fast Delivery",
+            trust_3: "Always-On Support",
+            trust_4: "Guaranteed Service",
+            step1_title: "Pick your product",
+            step1_desc: "Copy the AliExpress link for the item you want.",
+            step2_title: "Paste the link",
+            step2_desc: "We pull the most useful product details automatically.",
+            step3_title: "Review the details",
+            step3_desc: "Check the name, image, description, and any warnings.",
+            step4_title: "Send the order",
+            step4_desc: "Finalize quickly through WhatsApp.",
+            pay_title: "Payment Methods",
+            faq_title: "Frequently Asked Questions",
+            faq_q1: "How long does delivery take?",
+            faq_a1: "Usually between 15 and 45 business days.",
+            faq_q2: "How do I pay in TND?",
+            faq_a2: "You pay locally in TND and we handle the supplier payment.",
+            faq_q3: "Is there any guarantee?",
+            faq_a3: "We provide follow-up and coordination through the full order flow.",
+            faq_q4: "Are there postal fees?",
+            faq_a4: "Some products may have small fees at delivery depending on the shipment.",
+            transp_title: "Full Price Transparency",
+            transp_desc: "Every cost component stays visible throughout the process.",
+            transp_1: "Source product cost",
+            transp_2: "Service and transfer fees",
+            transp_3: "Possible fees on receipt",
+            transp_btn: "Open the calculator",
+            calc_rate: "Today's exchange rate:",
+            calc_guide_btn: "First order? Read the guide",
+            calc_title: "Smart Calculator",
+            banned_err: "This product needs review before final confirmation.",
+            lbl_link: "AliExpress Link",
+            lbl_name: "Product Name",
+            btn_format: "Clean Title",
+            lbl_spec: "Specifications (color, size...)",
+            plc_link: "https://aliexpress.com/item/...",
+            plc_name: "Example: Cable USB Type C",
+            plc_spec: "Example: Blue 1.5m",
+            cart_total_lbl: "Grand Total:",
+            lbl_pay_method: "Choose payment method",
+            pay_d17: "D17 App",
+            pay_flouci: "Flouci App",
+            pay_poste: "Postal Mandate",
+            pay_vir: "Bank Transfer",
+            btn_send: "Send",
+            saf_title: "Safety and Customs",
+            saf_desc1: "Key categories that may need review in Tunisia.",
+            saf_desc2: "Each request is checked before final confirmation.",
+            saf_calc_title: "Customs Estimate",
+            saf_calc_desc: "Select a category for a quick estimate.",
+            saf_btn_clothes: "Clothes",
+            saf_btn_elec: "Electronics",
+            saf_btn_acc: "Accessories",
+            saf_btn_other: "Other",
+            acc_title: "My Account",
+            acc_subtitle: "Your preferences and activity in one clean space.",
+            acc_id_lbl: "Account ID",
+            acc_sync_status: "Sync Status",
+            acc_sync_ok: "Cloud connected",
+            lvl_title: "Account Level",
+            acc_note: "Your data stays available on the same device or through sync when available.",
+            footer_desc: "A polished Tunisian gateway for AliExpress orders."
         }
-      });
-
-      const response = await axios.post(ALIEXPRESS_AFFILIATE_API_BASE_URL, body.toString(), {
-        timeout: 20_000,
-        headers: {
-          "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        ...getAxiosProxyOptions()
-      });
-
-      if (response.data?.error_response) {
-        const apiError = response.data.error_response;
-        const message = apiError?.sub_msg || apiError?.msg || "AliExpress Affiliate API returned error_response";
-        const error = new Error(message);
-        error.nonRetryable = true;
-        error.apiError = {
-          code: apiError?.code ?? null,
-          msg: apiError?.msg ?? null,
-          subCode: apiError?.sub_code ?? null,
-          subMsg: apiError?.sub_msg ?? null
-        };
-        throw error;
-      }
-
-      const methodResponse =
-        response.data?.aliexpress_affiliate_productdetail_get_response ||
-        response.data?.aliexpress_affiliate_product_detail_get_response ||
-        response.data?.aliexpress_affiliate_productdetails_get_response ||
-        response.data;
-      const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
-      const payload = parseMaybeJson(rawRespResult);
-      const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
-      const productsNode = parseMaybeJson(
-        resultNode?.products ??
-        payload?.products ??
-        resultNode?.result ??
-        null
-      );
-      const rawProducts = parseMaybeJson(
-        productsNode?.product ??
-        resultNode?.product ??
-        payload?.product ??
-        null
-      );
-      const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
-      const extracted = extractProductFieldsFromObjectTree([
-        response.data,
-        methodResponse,
-        payload,
-        resultNode,
-        productsNode,
-        firstProduct
-      ]);
-      const title = pickBestProductTitle(
-        firstProduct?.product_title,
-        firstProduct?.title,
-        firstProduct?.productName,
-        firstProduct?.item_title,
-        extracted.title
-      );
-      const image = normalizeUrl(
-        firstProduct?.product_main_image_url ||
-        firstProduct?.image_url ||
-        firstProduct?.main_image ||
-        firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
-        extracted.image
-      );
-      const price = pickFirstPositive([
-        parseMoney(firstProduct?.target_sale_price),
-        parseMoney(firstProduct?.target_app_sale_price),
-        parseMoney(firstProduct?.app_sale_price),
-        parseMoney(firstProduct?.sale_price),
-        parseMoney(firstProduct?.targetOriginalPrice),
-        parseMoney(firstProduct?.targetSalePrice),
-        parseMoney(firstProduct?.promotion_price),
-        extracted.price
-      ]);
-      const soldCount = Math.max(
-        parseCompactCount(firstProduct?.lastest_volume),
-        parseCompactCount(firstProduct?.orders),
-        Number(extracted.soldCount || 0)
-      );
-
-      if (title || image || price) {
-        return {
-          title,
-          description: "",
-          image,
-          price,
-          shipping: null,
-          deliveryEstimate: "",
-          rating: normalizeRating(extracted.rating) || 0,
-          reviewCount: Number(extracted.reviewCount || 0),
-          soldCount,
-          variants: [],
-          source: "aliexpress-affiliate-api"
-        };
-      }
-
-      const debugSummary = buildAffiliateResponseDebugSummary(response.data);
-      lastError = new Error(`AliExpress Affiliate API returned no usable product fields (country=${country || "none"}, resp_code=${payload?.resp_code || methodResponse?.resp_code || "unknown"})`);
-      log("warn", "AliExpress Affiliate API returned empty product", {
-        productId,
-        country: country || "none",
-        respCode: payload?.resp_code || methodResponse?.resp_code || null,
-        respMsg: payload?.resp_msg || methodResponse?.resp_msg || null,
-        debug: debugSummary
-      });
-    } catch (error) {
-      lastError = error;
-      log("warn", "AliExpress Affiliate API request failed", {
-        productId,
-        country: country || "none",
-        error: error.message,
-        apiError: error?.apiError || null,
-        responseStatus: error?.response?.status || null,
-        responseDataPreview: error?.response?.data ? previewValue(error.response.data) : ""
-      });
-      if (error?.nonRetryable) break;
-    }
-  }
-
-  throw lastError || new Error("AliExpress Affiliate API returned no usable product fields");
-}
-
-async function getBrowser() {
-  if (!playwright?.chromium) {
-    throw new Error("Playwright is not installed");
-  }
-
-  // reuse browser if alive
-  if (browserPromise) {
-    try {
-      const existingBrowser = await browserPromise;
-      if (typeof existingBrowser?.isConnected !== "function" || existingBrowser.isConnected()) {
-        return existingBrowser;
-      }
-      clearBrowserReference("browser-disconnected-before-reuse");
-    } catch (error) {
-      clearBrowserReference("browser-promise-rejected", { error: error.message });
-    }
-  }
-
-  if (!browserPromise) {
-    resolvedBrowserExecutable = resolvedBrowserExecutable || detectPlaywrightExecutable();
-
-    const launchOptions = {
-      headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage"
-      ]
     };
 
-    const proxyConfig = getScrapeProxyConfig();
-    if (proxyConfig) {
-      launchOptions.proxy = {
-        server: proxyConfig.server,
-        username: proxyConfig.username || undefined,
-        password: proxyConfig.password || undefined
-      };
-      log("log", "Using configured Playwright proxy", { server: proxyConfig.server });
-    }
-
-    // optional custom chromium path
-    if (resolvedBrowserExecutable) {
-      launchOptions.executablePath = resolvedBrowserExecutable;
-    }
-
-    browserPromise = playwright.chromium
-      .launch(launchOptions)
-      .then((browser) => {
-        browser.on("disconnected", () => {
-          clearBrowserReference("browser-disconnected-event");
-        });
-
-        console.log("ðŸš€ Browser launched");
-        return browser;
-      })
-      .catch((error) => {
-        clearBrowserReference("browser-launch-failed", { error: error.message });
-        throw error;
-      });
-  }
-
-  return browserPromise;
-}
-
-async function buildPlaywrightContext(browser) {
-  const context = await browser.newContext({
-    locale: "en-US",
-    timezoneId: "Africa/Tunis",
-    viewport: { width: 1366, height: 900 },
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-    deviceScaleFactor: 1,
-    isMobile: false,
-    hasTouch: false,
-    colorScheme: "light"
-  });
-
-  await context.setExtraHTTPHeaders({
-    "accept-language": "en-US,en;q=0.9",
-    "upgrade-insecure-requests": "1",
-    "sec-ch-ua": "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": "\"Windows\""
-  }).catch(() => {});
-
-  await context.addInitScript(() => {
-    const override = (target, key, value) => {
-      try {
-        Object.defineProperty(target, key, {
-          get: () => value,
-          configurable: true
-        });
-      } catch {}
+    const RUNTIME_TRANSLATIONS = {
+        ar: {
+            preview_ready: "جاهز لتونس",
+            preview_review: "راجع قبل التأكيد",
+            preview_no_desc: "ما لقيناش وصف واضح، أما الاسم والصورة متوفرين.",
+            stat_shipping: "شحن تونس",
+            stat_delivery: "التوصيل",
+            stat_rating: "التقييم",
+            stat_reviews: "المراجعات",
+            action_open: "فتح المنتج الأصلي",
+            action_alert: "تنبيه هبوط السعر",
+            action_share: "مشاركة الإحالة",
+            trust_title: "ثقة البائع",
+            trust_desc: "تقييم سريع حسب التقييم والمراجعات والشحن والمخاطر",
+            variant_title: "ملاحظة على الخيارات",
+            variant_desc: "إذا المنتج فيه لون أو مقاس أو طول، اكتب الخيار المطلوب في المواصفات لأن السعر ينجم يتبدل",
+            variant_auto: "خيارات",
+            quote_pdf: "PDF / عرض سعر",
+            export_csv: "تصدير CSV",
+            account_overview: "نظرة عامة",
+            account_overview_desc: "ملخص سريع للحساب والنشاط",
+            account_contact: "بيانات وتفضيلات",
+            account_contact_desc: "بياناتك المحفوظة وطرق التواصل",
+            account_admin: "لوحة الإدارة",
+            account_admin_desc: "البروموات والطلبات وإدارة الحالة",
+            cloud_identity: "هوية السحابة",
+            saved_yes: "محفوظة",
+            saved_no: "غير محفوظة",
+            contact_whatsapp: "واتساب",
+            contact_call: "مكالمة",
+            contact_sms: "SMS",
+            cart_eta: "التوصيل",
+            cart_ready: "جاهز",
+            cart_split: "قسّم الطلب",
+            cart_rec_empty: "أضف منتجات للسلة باش يبان التحليل الذكي.",
+            cart_rec_ready: "السلة متوازنة وجاهزة للإرسال كطلب واحد.",
+            cart_rec_risk: "في السلة منتجات تحتاج حذر أو مراجعة. الأفضل تقسيمها أو مراجعتها يدويًا.",
+            cart_rec_eta: "مواعيد التوصيل متباعدة. تقسيم الطلب ينجم يكون أوضح وأسرع.",
+            cart_rec_large: "السلة كبيرة. راجع المقاسات والخيارات قبل الإرسال النهائي.",
+            bundle_default: "تجميعة ذكية",
+            bundle_note_low: "أضف أكثر من منتج باش تتحسن التجميعة أكثر.",
+            bundle_note_hot: "التجميعة هاذي تنجم توفر أكثر في الرسوم والخدمة.",
+            safety_ban: "ممنوع 100%",
+            safety_license: "قد يطلب ترخيص",
+            safety_before: "قبل ما تطلب",
+            safety_docs: "وثائق تنجم تنفع",
+            safety_notice: "تنبيه مهم",
+            remove: "حذف",
+            total: "الإجمالي",
+            shipping_free: "شحن مجاني",
+            reviews_na: "غير متوفر",
+            rating_na: "غير متوفر"
+        },
+        fr: {
+            preview_ready: "Pret pour la Tunisie",
+            preview_review: "A revoir avant validation",
+            preview_no_desc: "La description n'est pas claire pour le moment, mais le nom et l'image sont disponibles.",
+            stat_shipping: "Livraison TN",
+            stat_delivery: "Delai",
+            stat_rating: "Note",
+            stat_reviews: "Avis",
+            action_open: "Ouvrir le produit",
+            action_alert: "Alerte prix",
+            action_share: "Partager l'affiliation",
+            trust_title: "Confiance vendeur",
+            trust_desc: "Resume rapide selon note, avis, livraison et risque douane",
+            variant_title: "Note options",
+            variant_desc: "Si le produit a couleur, taille ou longueur, ecrivez l'option dans les specifications car le prix peut changer",
+            variant_auto: "Options",
+            quote_pdf: "PDF / Devis",
+            export_csv: "Exporter CSV",
+            account_overview: "Vue d'ensemble",
+            account_overview_desc: "Resume rapide du compte et de l'activite",
+            account_contact: "Contact & Preferences",
+            account_contact_desc: "Vos informations sauvegardees et votre moyen de contact",
+            account_admin: "Admin Studio",
+            account_admin_desc: "Promos, commandes et suivi admin",
+            cloud_identity: "Identite cloud",
+            saved_yes: "Sauvegarde",
+            saved_no: "Non sauvegarde",
+            contact_whatsapp: "WhatsApp",
+            contact_call: "Appel",
+            contact_sms: "SMS",
+            cart_eta: "Livraison",
+            cart_ready: "PRET",
+            cart_split: "SEPARER",
+            cart_rec_empty: "Ajoutez des produits pour afficher l'analyse intelligente.",
+            cart_rec_ready: "Panier equilibre et pret a etre envoye comme une seule commande.",
+            cart_rec_risk: "Certains articles demandent plus de prudence. Il vaut mieux separer ou verifier.",
+            cart_rec_eta: "Les delais sont tres differents. Separer la commande peut etre plus pratique.",
+            cart_rec_large: "Panier assez grand. Verifiez bien tailles et options avant validation.",
+            bundle_default: "Bundle intelligent",
+            bundle_note_low: "Ajoutez plus d'articles pour mieux optimiser le bundle.",
+            bundle_note_hot: "Ce bundle peut reduire une partie des frais et du service.",
+            safety_ban: "Interdit 100%",
+            safety_license: "Licence possible",
+            safety_before: "Avant de commander",
+            safety_docs: "Documents utiles",
+            safety_notice: "Note importante",
+            remove: "Supprimer",
+            total: "Total",
+            shipping_free: "Livraison gratuite",
+            reviews_na: "Indispo",
+            rating_na: "Indispo"
+        },
+        en: {
+            preview_ready: "Tunisia Ready",
+            preview_review: "Review Before Checkout",
+            preview_no_desc: "A clear description is not available yet, but the product name and image are ready.",
+            stat_shipping: "Tunisia Shipping",
+            stat_delivery: "Delivery ETA",
+            stat_rating: "Rating",
+            stat_reviews: "Reviews",
+            action_open: "Open Original Product",
+            action_alert: "Price Alert",
+            action_share: "Share Referral",
+            trust_title: "Seller Trust Score",
+            trust_desc: "Quick view based on rating, reviews, shipping, and customs risk",
+            variant_title: "Options Note",
+            variant_desc: "If the product has color, size, or length choices, write the option in specs because the price may change",
+            variant_auto: "Options",
+            quote_pdf: "PDF / Quote",
+            export_csv: "Export CSV",
+            account_overview: "Overview",
+            account_overview_desc: "Quick account and activity summary",
+            account_contact: "Contact & Preferences",
+            account_contact_desc: "Saved customer details and preferred contact method",
+            account_admin: "Admin Studio",
+            account_admin_desc: "Promos, orders, and admin controls",
+            cloud_identity: "Cloud Identity",
+            saved_yes: "Saved",
+            saved_no: "Not saved",
+            contact_whatsapp: "WhatsApp",
+            contact_call: "Call",
+            contact_sms: "SMS",
+            cart_eta: "ETA",
+            cart_ready: "READY",
+            cart_split: "SPLIT",
+            cart_rec_empty: "Add products to see smart cart analysis.",
+            cart_rec_ready: "This cart looks balanced and ready to send as one order.",
+            cart_rec_risk: "Some items need extra customs care. Splitting or manual review is safer.",
+            cart_rec_eta: "Delivery windows are far apart. Splitting the order may be cleaner.",
+            cart_rec_large: "This is a large cart. Double-check sizes and options before sending it.",
+            bundle_default: "Smart Bundle",
+            bundle_note_low: "Add more products to improve the bundle suggestion.",
+            bundle_note_hot: "This bundle can save part of the fees and service cost.",
+            safety_ban: "100% Prohibited",
+            safety_license: "May Need License",
+            safety_before: "Before You Order",
+            safety_docs: "Helpful Documents",
+            safety_notice: "Important Note",
+            remove: "Remove",
+            total: "Total",
+            shipping_free: "Free Shipping",
+            reviews_na: "N/A",
+            rating_na: "N/A"
+        }
     };
 
-    override(Navigator.prototype, "webdriver", false);
-    override(Navigator.prototype, "platform", "Win32");
-    override(Navigator.prototype, "language", "en-US");
-    override(Navigator.prototype, "languages", ["en-US", "en"]);
-    override(Navigator.prototype, "hardwareConcurrency", 8);
-    override(Navigator.prototype, "maxTouchPoints", 0);
-    override(Navigator.prototype, "plugins", [1, 2, 3, 4, 5]);
-
-    if (!window.chrome) {
-      Object.defineProperty(window, "chrome", {
-        value: { runtime: {}, app: {} },
-        configurable: true
-      });
+    function currentUiLanguage() {
+        const lang = window.localStorage.getItem("alexpress_lang") || "ar";
+        return RUNTIME_TRANSLATIONS[lang] ? lang : "ar";
     }
 
-    const originalQuery = window.navigator.permissions?.query;
-    if (originalQuery) {
-      window.navigator.permissions.query = (parameters) => (
-        parameters?.name === "notifications"
-          ? Promise.resolve({ state: Notification.permission })
-          : originalQuery(parameters)
-      );
+    function rt(key, lang = currentUiLanguage()) {
+        return RUNTIME_TRANSLATIONS[lang]?.[key] || RUNTIME_TRANSLATIONS.ar[key] || key;
     }
-  }).catch(() => {});
 
-  await context.route("**/*", async (route) => {
-    const type = route.request().resourceType();
-    if (type === "font" || type === "media") {
-      await route.abort();
-      return;
+    function pickLanguageText(lang, ar, fr, en) {
+        if (lang === "fr") return fr;
+        if (lang === "en") return en;
+        return ar;
     }
-    await route.continue();
-  }).catch(() => {});
 
-  await context.addCookies([
-    {
-      name: "aep_usuc_f",
-      value: "site=glo&c_tp=USD&region=TN&b_locale=en_US",
-      domain: ".aliexpress.com",
-      path: "/",
-      secure: true
+    function currentLanguageText(ar, fr, en) {
+        return pickLanguageText(currentUiLanguage(), ar, fr, en);
     }
-  ]).catch(() => {});
 
-  return context;
-}
+    function applyLanguageMeta(lang) {
+        const rtl = lang === "ar";
+        document.documentElement.lang = lang;
+        document.documentElement.dir = rtl ? "rtl" : "ltr";
+        document.body.classList.toggle("tracking-tight", rtl);
+        document.body.classList.toggle("tracking-[0.01em]", !rtl);
+        if (dom.langSwitch && dom.langSwitch.value !== lang) dom.langSwitch.value = lang;
+        const guideBtn = document.querySelector('.sticky-mobile-bar button[onclick*="guide"]');
+        const cartBtn = document.querySelector('.sticky-mobile-bar button[onclick*="cart"]');
+        const waBtn = document.querySelector('.sticky-mobile-bar a[href*="wa.me"]');
+        if (guideBtn) guideBtn.textContent = rtl ? "الحاسبة" : (lang === "fr" ? "Calcul" : "Calculator");
+        if (cartBtn) cartBtn.textContent = rtl ? "السلة" : (lang === "fr" ? "Panier" : "Cart");
+        if (waBtn) waBtn.textContent = rtl ? "واتساب" : "WhatsApp";
+        const options = dom.langSwitch?.querySelectorAll("option") || [];
+        if (options[0]) options[0].textContent = "TN AR";
+        if (options[1]) options[1].textContent = "FR";
+        if (options[2]) options[2].textContent = "EN";
+    }
 
-async function legacyScrapeWithCapturedResponses(url) {
-  const browser = await getBrowser();
-  const context = await buildPlaywrightContext(browser);
-  const page = await context.newPage();
-  const responsePayloads = [];
-  const responsePayloadTasks = [];
-
-  const captureResponsePayload = async (response) => {
-    try {
-      const responseUrl = String(response.url() || "");
-      if (!/aliexpress\./i.test(responseUrl)) return;
-      if (response.status() >= 400) return;
-
-      const headers = response.headers();
-      const contentType = String(headers["content-type"] || "");
-      const looksStructured =
-        /json|javascript/i.test(contentType) ||
-        /graphql|api|mtop|detail|product|sku|price|recommend|component|render/i.test(responseUrl);
-      if (!looksStructured) return;
-
-      const body = await response.text();
-      if (!body || body.length > 1_500_000) return;
-
-      const parsed = parseMaybeJson(body, 4);
-      if (!parsed || typeof parsed !== "object") return;
-
-      responsePayloads.push(parsed);
-      if (responsePayloads.length > 24) responsePayloads.shift();
-    } catch {}
-  };
-
-  page.on("response", (response) => {
-    const task = captureResponsePayload(response);
-    responsePayloadTasks.push(task);
-    task.finally(() => {
-      const index = responsePayloadTasks.indexOf(task);
-      if (index >= 0) responsePayloadTasks.splice(index, 1);
-    }).catch(() => {});
-  });
-
-try {
-  await page.goto(url, {
-    waitUntil: "domcontentloaded",
-    timeout: SCRAPE_TIMEOUT_MS || 20000
-  }).catch(() => {});
-
-  await page.waitForLoadState("domcontentloaded").catch(() => {});
-  await page.waitForTimeout(2000).catch(() => {});
-
-  if (responsePayloadTasks.length) {
-    await Promise.allSettled(responsePayloadTasks);
-  }
-
-    const runtime = await page.evaluate(() => {
-      const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
-      const toSerializable = (value, depth = 0, seen = new WeakSet()) => {
-        if (value == null) return value;
-        if (typeof value === "string") return value.length > 4_000 ? value.slice(0, 4_000) : value;
-        if (typeof value === "number" || typeof value === "boolean") return value;
-        if (depth >= 5) return undefined;
-        if (Array.isArray(value)) {
-          return value
-            .slice(0, 24)
-            .map((entry) => toSerializable(entry, depth + 1, seen))
-            .filter((entry) => entry !== undefined);
-        }
-        if (typeof value !== "object") return undefined;
-        if (seen.has(value)) return undefined;
-        seen.add(value);
-
-        const result = {};
-        Object.entries(value)
-          .slice(0, 80)
-          .forEach(([key, entry]) => {
-            const normalized = toSerializable(entry, depth + 1, seen);
-            if (normalized !== undefined) result[key] = normalized;
-          });
-        return Object.keys(result).length ? result : undefined;
-      };
-      const queryText = (selectors) => {
-        for (const selector of selectors) {
-          const element = document.querySelector(selector);
-          const text = clean(element?.textContent);
-          if (text) return text;
-        }
-        return "";
-      };
-      const queryAttr = (selectors, attr) => {
-        for (const selector of selectors) {
-          const element = document.querySelector(selector);
-          const value = attr === "currentSrc" ? element?.currentSrc : element?.getAttribute(attr);
-          const text = clean(value);
-          if (text) return text;
-        }
-        return "";
-      };
-      const collectTexts = (selectors) => {
-        const values = [];
-        selectors.forEach((selector) => {
-          document.querySelectorAll(selector).forEach((element) => {
-            const text = clean(element.textContent);
-            if (text) values.push(text);
-          });
+    function applyUiTranslations(lang) {
+        const dict = UI_TRANSLATIONS[lang] || UI_TRANSLATIONS.ar;
+        document.title = dict.page_title || document.title;
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+            const key = element.getAttribute("data-i18n");
+            if (!key || !dict[key]) return;
+            element.textContent = dict[key];
         });
-        return Array.from(new Set(values));
-      };
-
-      const globalSnapshots = [];
-      const candidateGlobalEntries = [
-        window.runParams,
-        window.__INITIAL_STATE__,
-        window.__data__,
-        window.__AER_DATA__,
-        window.__NEXT_DATA__,
-        window.detailData,
-        window.pageData
-      ];
-      Object.keys(window)
-        .filter((key) => /(?:^__|data|state|detail|product|sku|price|offer|render|page)/i.test(key))
-        .slice(0, 20)
-        .forEach((key) => {
-          try {
-            candidateGlobalEntries.push(window[key]);
-          } catch {}
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+            const key = element.getAttribute("data-i18n-placeholder");
+            if (!key || !dict[key]) return;
+            element.placeholder = dict[key];
         });
-      candidateGlobalEntries.forEach((entry) => {
-        if (entry && typeof entry === "object") {
-          const normalized = toSerializable(entry);
-          if (normalized) globalSnapshots.push(normalized);
-        }
-      });
-
-      return {
-        title: queryText([
-          "h1[data-pl='product-title']",
-          "h1[data-testid*='title']",
-          "h1[class*='title']",
-          "h1"
-        ]),
-        description:
-          queryText(["meta[property='og:description']", "meta[name='description']", "[class*='description']", "[class*='Description']"]) ||
-          "",
-        image:
-          queryAttr(["meta[property='og:image']", "meta[name='twitter:image']"], "content") ||
-          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "currentSrc") ||
-          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "src"),
-        priceTexts: collectTexts([
-          "[class*='price']",
-          "[class*='Price']",
-          "[data-testid*='price']",
-          "[data-pl*='price']",
-          "[class*='snow-price']",
-          "[class*='product-price']"
-        ]),
-        ratingTexts: collectTexts(["[class*='rating']", "[class*='Rating']", "[class*='star']", "[class*='Star']"]),
-        reviewTexts: collectTexts(["[class*='review']", "[class*='Review']", "[class*='feedback']", "[class*='comment']"]),
-        soldTexts: collectTexts(["[class*='sold']", "[class*='Sold']", "[class*='order']", "[class*='Order']", "[class*='trade']"]),
-        shippingTexts: collectTexts([
-          "[class*='shipping']",
-          "[class*='Shipping']",
-          "[class*='delivery']",
-          "[class*='Delivery']",
-          "[class*='freight']",
-          "[class*='logistics']",
-          "[data-testid*='shipping']"
-        ]),
-        variantTexts: collectTexts([
-          "[class*='sku'] button",
-          "[class*='Sku'] button",
-          "[class*='variant'] button",
-          "[class*='property'] li",
-          "select option"
-        ]),
-        pageTitle: clean(document.title),
-        bodyText: clean(document.body?.innerText || ""),
-        globalSnapshots
-      };
-    });
-
-    const html = await page.content();
-    const parsed = extractHtmlProduct(html, page.url(), "playwright");
-    const fromGlobals = extractProductFieldsFromObjectTree(runtime.globalSnapshots || []);
-    const fromResponses = extractProductFieldsFromObjectTree(responsePayloads);
-    const responseVariants = extractVariantOffersFromObjectTree(responsePayloads);
-
-    const merged = {
-      ...parsed,
-      title: sanitizeText(runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle),
-      description: cleanupProductDescription(
-        runtime.description || fromResponses.description || fromGlobals.description || parsed.description || runtime.bodyText,
-        runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle
-      ),
-      image: normalizeUrl(runtime.image || fromResponses.image || fromGlobals.image || parsed.image),
-      price: pickFirstPositive([
-        extractPriceFromTextList(runtime.priceTexts),
-        fromResponses.price,
-        fromGlobals.price,
-        parsed.price,
-        extractPriceFromTextList([runtime.bodyText])
-      ]),
-      rating:
-        normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) ||
-        normalizeRating(fromResponses.rating) ||
-        normalizeRating(fromGlobals.rating) ||
-        normalizeRating(parsed.rating),
-      reviewCount: Math.max(
-        extractCountFromTextList(runtime.reviewTexts, /review|feedback|ratings?|avis/i),
-        Number(fromResponses.reviewCount || 0),
-        Number(fromGlobals.reviewCount || 0),
-        Number(parsed.reviewCount || 0)
-      ),
-      soldCount: Math.max(
-        extractCountFromTextList(runtime.soldTexts, /sold|orders?|commandes|ventes/i),
-        Number(fromResponses.soldCount || 0),
-        Number(fromGlobals.soldCount || 0),
-        Number(parsed.soldCount || 0)
-      ),
-      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromResponses.shipping ?? fromGlobals.shipping ?? parsed.shipping,
-      deliveryEstimate:
-        extractDeliveryEstimateFromTexts(runtime.shippingTexts) ||
-        fromResponses.deliveryEstimate ||
-        fromGlobals.deliveryEstimate ||
-        parsed.deliveryEstimate ||
-        "",
-      variants: mergeVariantGroups(
-        mergeVariantGroups(
-          mergeVariantGroups(responseVariants.groups, fromGlobals.variants),
-          parsed.variants
-        ),
-        extractVariantGroupsFromTextList(runtime.variantTexts)
-      )
-    };
-
-    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle) || isAliExpressPlaceholderText(merged.title || runtime.pageTitle)) {
-      const error = new Error("AliExpress blocked this host for the current URL");
-      error.partialData = {
-        title: "",
-        description: merged.description,
-        image: merged.image,
-        price: merged.price,
-        shipping: merged.shipping,
-        deliveryEstimate: merged.deliveryEstimate,
-        rating: merged.rating,
-        reviewCount: merged.reviewCount,
-        soldCount: merged.soldCount,
-        variants: merged.variants
-      };
-      error.nonRetryable = true;
-      throw error;
     }
 
-    if (
-      !hasUsefulPartialProductData(merged) ||
-      /^aliexpress$/i.test(merged.title) ||
-      isAliExpressBlockedTitle(merged.title) ||
-      isAliExpressBlockedTitle(merged.description) ||
-      isAliExpressPlaceholderText(merged.title) ||
-      isAliExpressPlaceholderText(merged.description)
-    ) {
-      log("warn", "Playwright extracted partial product data", {
-        url,
-        title: merged.title || null,
-        description: merged.description ? true : false,
-        image: Boolean(merged.image),
-        price: merged.price || 0,
-        shipping: merged.shipping,
-        rating: merged.rating || 0
-      });
-      const error = new Error("Playwright scrape returned incomplete product data");
-      error.partialData = {
-        title: merged.title,
-        description: merged.description,
-        image: merged.image,
-        price: merged.price,
-        shipping: merged.shipping,
-        deliveryEstimate: merged.deliveryEstimate,
-        rating: merged.rating,
-        reviewCount: merged.reviewCount,
-        soldCount: merged.soldCount,
-        variants: merged.variants
-      };
-      if (hasUsefulPartialProductData(merged)) {
-        error.nonRetryable = true;
-      }
-      throw error;
-    }
-    return merged;
-  } catch (error) {
-    if (isRecoverablePlaywrightError(error)) {
-      clearBrowserReference("recoverable-playwright-error", { error: error.message, url });
-    }
-    throw error;
-  } finally {
-    await page.close().catch(() => {});
-    await context.close().catch(() => {});
-  }
-}
+    function applyAccountCopy(lang) {
+        const copy = {
+            ar: {
+                title: "الحساب الشخصي",
+                subtitle: "واجهة أوضح للحساب وبياناتك السريعة.",
+                cloud: "معرف السحابة",
+                sync: "المزامنة",
+                summary: "الملخص",
+                orders: "طلبات",
+                wishlist: "المفضلة",
+                cloudIdentity: "هوية السحابة",
+                usage: "الاستخدام",
+                fetches: "عمليات الجلب",
+                quotes: "التسعيرات",
+                clientData: "بيانات العميل",
+                phone: "رقم الهاتف",
+                city: "المدينة",
+                address: "العنوان أو نقطة الاستلام",
+                save: "حفظ البيانات"
+            },
+            fr: {
+                title: "Mon Compte",
+                subtitle: "Une vue plus claire du compte et de vos infos rapides.",
+                cloud: "ID Cloud",
+                sync: "Sync",
+                summary: "Resume",
+                orders: "Commandes",
+                wishlist: "Souhaits",
+                cloudIdentity: "Identite Cloud",
+                usage: "Utilisation",
+                fetches: "Collectes",
+                quotes: "Devis",
+                clientData: "Infos Client",
+                phone: "Numero de telephone",
+                city: "Ville",
+                address: "Adresse ou point de retrait",
+                save: "Enregistrer"
+            },
+            en: {
+                title: "My Account",
+                subtitle: "A clearer account view with your quick details.",
+                cloud: "Cloud ID",
+                sync: "Sync",
+                summary: "Summary",
+                orders: "Orders",
+                wishlist: "Wishlist",
+                cloudIdentity: "Cloud Identity",
+                usage: "Usage",
+                fetches: "Fetches",
+                quotes: "Quotes",
+                clientData: "Client Data",
+                phone: "Phone Number",
+                city: "City",
+                address: "Address or pickup point",
+                save: "Save Details"
+            }
+        };
 
-async function legacyMinimalPlaywrightScrape(url) {
-  const { chromium } = require("playwright");
-  const executablePath = detectPlaywrightExecutable();
+        const text = copy[lang] || copy.ar;
+        const setText = (selector, value) => {
+            try {
+                const element = document.querySelector(selector);
+                if (element) element.textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector in applyAccountCopy", selector, error);
+            }
+        };
 
-  const launchOptions = {
-    headless: true,
-    args: ["--no-sandbox"]
-  };
-  if (executablePath) {
-    launchOptions.executablePath = executablePath;
-  }
+        const getMany = (selector) => {
+            try {
+                return document.querySelectorAll(selector);
+            } catch (error) {
+                console.warn("Skipped invalid selector list in applyAccountCopy", selector, error);
+                return [];
+            }
+        };
 
-  const browser = await chromium.launch(launchOptions);
+        setText("#section-account .text-center.mb-8 h2", text.title);
+        setText("#section-account .text-center.mb-8 p", text.subtitle);
 
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-  });
+        const kpiLabels = getMany("#section-account .grid.grid-cols-1.md\\:grid-cols-3.gap-3.mb-5 .text-\\[9px\\].uppercase.tracking-\\[0\\.25em\\].text-slate-500.font-black");
+        if (kpiLabels[0]) kpiLabels[0].textContent = text.cloud;
+        if (kpiLabels[1]) kpiLabels[1].textContent = text.sync;
+        if (kpiLabels[2]) kpiLabels[2].textContent = text.summary;
 
-  const page = await context.newPage();
+        const summaryLabels = getMany("#section-account .account-kpi .flex.items-center.gap-2.mt-2.text-xs.font-black.text-white .text-slate-500");
+        if (summaryLabels[0]) summaryLabels[0].textContent = text.orders;
+        if (summaryLabels[1]) summaryLabels[1].textContent = text.wishlist;
 
-  try {
+        const overviewLabels = getMany("#section-account details[data-account-panel='overview'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-2");
+        if (overviewLabels[0]) overviewLabels[0].textContent = text.cloudIdentity;
+        if (overviewLabels[1]) overviewLabels[1].textContent = text.usage;
 
-await page.goto(url, {
-  waitUntil: "domcontentloaded",
-  timeout: 20000
-}).catch(() => {});
+        const usageLabels = getMany("#section-account details[data-account-panel='overview'] .rounded-2xl.bg-black\\/20.border.border-white\\/5.p-4.text-center .text-\\[9px\\].font-black.uppercase.mt-1");
+        if (usageLabels[0]) usageLabels[0].textContent = text.fetches;
+        if (usageLabels[1]) usageLabels[1].textContent = text.quotes;
 
-await page.waitForTimeout(3000).catch(() => {});
-
-    const html = await page.content();
-
-    // ðŸš¨ detect block
-    if (html.includes("captcha") || html.includes("punish")) {
-      throw new Error("BLOCKED BY ALIEXPRESS");
-    }
-
-const data = await page.evaluate(() => {
-  const scripts = Array.from(document.querySelectorAll("script"));
-
-  let jsonData = null;
-
-  for (const s of scripts) {
-    if (s.innerText.includes("runParams")) {
-      try {
-        const match = s.innerText.match(/runParams\s*=\s*(\{.*\})/);
-        if (match) {
-          jsonData = JSON.parse(match[1]);
-          break;
-        }
-      } catch {}
-    }
-  }
-
-  if (!jsonData) return null;
-
-  const product = jsonData?.data || {};
-
-  return {
-    title:
-      product.titleModule?.subject ||
-      product.title ||
-      "",
-
-    price:
-      product.priceModule?.formatedPrice ||
-      product.priceModule?.minActivityAmount?.value ||
-      "",
-
-    image:
-      product.imageModule?.imagePathList?.[0] || ""
-  };
-});
-
-if (!data) {
-  const error = new Error("JSON extraction failed");
-  error.nonRetryable = true;
-  throw error;
-}
-
-    return data;
-  } catch (err) {
-    throw err;
-  } finally {
-    await page.close().catch(() => {});
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
-}
-}
-
-async function scrapeWithPlaywright(url) {
-  if (!playwright?.chromium) throw new Error("Playwright not available");
-
-  const browser = await playwright.chromium.launch({ headless: true, args: ["--no-sandbox"] });
-  const context = await browser.newContext({
-    userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/135.0.0.0 Mobile Safari/537.36",
-    viewport: { width: 412, height: 915 }
-  });
-  const page = await context.newPage();
-
-  try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
-    await page.waitForTimeout(2000);
-
-    const html = await page.content();
-    const $ = cheerio.load(html);
-
-    const title = $("h1").first().text().trim() || $("title").text().trim();
-    let price = 0;
-    const priceEl = $("[class*='price'], .product-price").first().text();
-    if (priceEl) price = parseFloat(priceEl.replace(/[^0-9.]/g, '')) || 0;
-
-    const image = $("img[src*='alicdn']").first().attr("src") || "";
-
-    return { title: sanitizeText(title), price, image: normalizeUrl(image) };
-  } finally {
-    await page.close();
-    await context.close();
-    await browser.close();
-  }
-}
-
-function finalizeFetchedProduct(product, canonicalUrl) {
-  const normalized = normalizeScrapedProductData(product, canonicalUrl, product?.source || "scrape");
-  return {
-    ...normalized,
-    success: true,
-    fetchedAt: new Date().toISOString(),
-    cached: false,
-    deliveryEstimate: normalized.deliveryEstimate || "12 to 25 days",
-    manualQuoteRecommended: Number(normalized.price || 0) <= 0,
-    priceUnavailable: Number(normalized.price || 0) <= 0
-  };
-}
-
-function extractAliExpressOAuthTokenPayload(responseData) {
-  const parsedRoot = parseMaybeJson(responseData);
-  const candidates = [
-    parsedRoot,
-    parseMaybeJson(parsedRoot?.data),
-    parseMaybeJson(parsedRoot?.result),
-    parseMaybeJson(parsedRoot?.response),
-    parseMaybeJson(parsedRoot?.resp_result),
-    parseMaybeJson(parsedRoot?.respResult),
-    parseMaybeJson(parsedRoot?.aliexpress_auth_token_create_response),
-    parseMaybeJson(parsedRoot?.aliexpress_oauth_token_create_response)
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== "object") continue;
-    const direct =
-      candidate.access_token ||
-      candidate.accessToken ||
-      candidate.refresh_token ||
-      candidate.refreshToken;
-    if (direct) return candidate;
-
-    const nested = [
-      parseMaybeJson(candidate.data),
-      parseMaybeJson(candidate.result),
-      parseMaybeJson(candidate.response),
-      parseMaybeJson(candidate.token_result),
-      parseMaybeJson(candidate.tokenResult)
-    ];
-
-    for (const value of nested) {
-      if (!value || typeof value !== "object") continue;
-      if (value.access_token || value.accessToken || value.refresh_token || value.refreshToken) {
-        return value;
-      }
-    }
-  }
-
-  return parsedRoot && typeof parsedRoot === "object" ? parsedRoot : {};
-}
-
-async function fetchProduct(url) {
-  const canonicalUrl = getCanonicalProductUrl(url);
-  if (!canonicalUrl) return { success: false, error: "Invalid product URL" };
-
-  const productId = extractProductId(canonicalUrl);
-  const cacheKey = `product:${productId}`;
-  const cached = getCache(productCache, cacheKey);
-
-  if (cached && !isBadCachedProduct(cached)) {
-    return { ...cached, cached: true };
-  }
-
-  let partialProduct = cached && hasUsefulPartialProductData(cached)
-    ? mergePartialProductData(null, cached, canonicalUrl)
-    : null;
-
-  const rememberPartial = (candidate, source = "") => {
-    if (!hasUsefulPartialProductData(candidate)) return;
-    partialProduct = mergePartialProductData(partialProduct, { ...candidate, source }, canonicalUrl);
-  };
-
-  const tryCandidate = async (label, task) => {
-    try {
-      const candidate = await task();
-      if (!candidate) return null;
-
-      const finalized = finalizeFetchedProduct(
-        { ...candidate, source: candidate.source || label },
-        canonicalUrl
-      );
-
-      rememberPartial(finalized, finalized.source);
-
-      if (!isBadCachedProduct(finalized) && !isIncompleteScrapedProduct(finalized)) {
-        setCache(productCache, cacheKey, finalized, CACHE_TTL_MS);
-        return finalized;
-      }
-    } catch (error) {
-      rememberPartial(error?.partialData, label);
-      log("warn", `${label} product fetch failed`, {
-        url: canonicalUrl,
-        error: error.message
-      });
-    }
-
-    return null;
-  };
-
-  const affiliateProduct =
-    ALIEXPRESS_ENABLE_AFFILIATE_API &&
-    await tryCandidate("aliexpress-affiliate-api", async () => {
-      const product = await fetchAliExpressAffiliateProduct(productId);
-      return product ? { ...product, source: product.source || "aliexpress-affiliate-api" } : null;
-    });
-  if (affiliateProduct) return affiliateProduct;
-
-  const dsApiProduct = await tryCandidate("aliexpress-api", async () => {
-    const product = await fetchAliExpressApiProductLegacy(productId);
-    return product ? { ...product, source: product.source || "aliexpress-api" } : null;
-  });
-  if (dsApiProduct) return dsApiProduct;
-
-  const scrapingDogProduct =
-    SCRAPINGDOG_API_KEY &&
-    await tryCandidate("scrapingdog", async () => {
-      const modesToTry = SCRAPINGDOG_DYNAMIC ? [true, false] : [false, true];
-      let lastError = null;
-
-      for (const dynamic of modesToTry) {
+        let clientDataLabel = null;
         try {
-          const html = await withRetries(`scrapingdog-html-${dynamic ? "dynamic" : "static"}`, () =>
-            fetchScrapingDogHtml(canonicalUrl, { dynamic })
-          );
-          return {
-            ...extractHtmlProduct(html, canonicalUrl, dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"),
-            source: dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"
-          };
+            clientDataLabel = document.querySelector("#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3");
         } catch (error) {
-          lastError = error;
-          log("warn", "ScrapingDog mode failed", {
-            url: canonicalUrl,
-            dynamic,
-            error: error.message
-          });
+            console.warn("Skipped invalid selector in applyAccountCopy", "#section-account details[data-account-panel='preferences'] .account-subcard .text-\\[10px\\].font-black.text-slate-500.uppercase.tracking-\\[0\\.2em\\].mb-3", error);
         }
-      }
+        if (clientDataLabel) clientDataLabel.textContent = text.clientData;
 
-      throw lastError || new Error("ScrapingDog failed in both static and dynamic modes");
-    });
-  if (scrapingDogProduct) return scrapingDogProduct;
-
-  const playwrightCapturedProduct =
-    playwright?.chromium &&
-    await tryCandidate("playwright-captured", async () => {
-      const product = await withRetries("playwright-captured", () =>
-        legacyScrapeWithCapturedResponses(canonicalUrl)
-      );
-      return { ...product, source: product?.source || "playwright" };
-    });
-  if (playwrightCapturedProduct) return playwrightCapturedProduct;
-
-  const playwrightMinimalProduct =
-    playwright?.chromium &&
-    await tryCandidate("playwright-minimal", async () => {
-      const product = await withRetries("playwright-minimal", () =>
-        legacyMinimalPlaywrightScrape(canonicalUrl)
-      );
-      return { ...product, source: "playwright-minimal" };
-    });
-  if (playwrightMinimalProduct) return playwrightMinimalProduct;
-
-  if (hasUsefulPartialProductData(partialProduct)) {
-    const partialResponse = finalizeFetchedProduct(
-      { ...partialProduct, source: partialProduct.source || "partial-fallback" },
-      canonicalUrl
-    );
-
-    if (!isBadCachedProduct(partialResponse)) {
-      setCache(productCache, cacheKey, partialResponse, Math.min(CACHE_TTL_MS, 15 * 60 * 1000));
+        if (dom.accountPhone) dom.accountPhone.placeholder = text.phone;
+        if (dom.accountCity) dom.accountCity.placeholder = text.city;
+        if (dom.accountAddress) dom.accountAddress.placeholder = text.address;
+        if (dom.accountSavePrefs) dom.accountSavePrefs.textContent = text.save;
     }
 
-    return partialResponse;
-  }
-
-  return buildUnavailableProductResponse({ canonicalUrl, productId });
-}
-
-async function fetchExchangeRate() {
-  const cached = getCache(fxCache, "usd-tnd");
-  if (cached) return cached;
-
-  const providers = [
-    async () => {
-      const response = await axios.get(FX_API_URL, { timeout: 12_000, proxy: false });
-      const rate = Number(response.data?.rates?.TND);
-      if (!Number.isFinite(rate) || rate <= 0) throw new Error("Primary FX provider missing TND rate");
-      return { success: true, base: "USD", quote: "TND", rate, source: "primary", fetchedAt: new Date().toISOString() };
-    },
-    async () => {
-      const response = await axios.get(FX_FALLBACK_URL, { timeout: 12_000, proxy: false });
-      const rate = Number(response.data?.rates?.TND || response.data?.result);
-      if (!Number.isFinite(rate) || rate <= 0) throw new Error("Fallback FX provider missing TND rate");
-      return { success: true, base: "USD", quote: "TND", rate, source: "fallback", fetchedAt: new Date().toISOString() };
-    }
-  ];
-
-  for (const provider of providers) {
-    try {
-      const result = await provider();
-      setCache(fxCache, "usd-tnd", result, FX_CACHE_TTL_MS);
-      return result;
-    } catch (error) {
-      log("warn", "FX provider failed", { error: error.message });
-    }
-  }
-
-  const fallback = { success: true, base: "USD", quote: "TND", rate: FX_FALLBACK_RATE, source: "env-fallback", fetchedAt: new Date().toISOString() };
-  setCache(fxCache, "usd-tnd", fallback, FX_CACHE_TTL_MS);
-  return fallback;
-}
-
-function corsMiddleware(req, res, next) {
-  const origin = req.headers.origin;
-  if (!origin) {
-    res.header("Vary", "Origin");
-  } else if (CORS_ORIGINS.length === 0 || CORS_ORIGINS.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Vary", "Origin");
-  }
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  next();
-}
-
-function rateLimitMiddleware(req, res, next) {
-  const ip = getClientIp(req);
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip) || { count: 0, expiresAt: now + RATE_LIMIT_WINDOW_MS };
-  if (bucket.expiresAt < now) {
-    bucket.count = 0;
-    bucket.expiresAt = now + RATE_LIMIT_WINDOW_MS;
-  }
-  bucket.count += 1;
-  rateBuckets.set(ip, bucket);
-  if (bucket.count > RATE_LIMIT_MAX) {
-    return res.status(429).json({ success: false, error: "Ø¨Ø±Ø´Ø§ Ø·Ù„Ø¨Ø§ØªØŒ Ø¹Ø§ÙˆØ¯ Ø¨Ø¹Ø¯ Ø´ÙˆÙŠØ©." });
-  }
-  next();
-}
-
-app.use(corsMiddleware);
-app.use((req, res, next) => {
-  const requestId = crypto.randomUUID();
-  const start = Date.now();
-  res.locals.requestId = requestId;
-  res.setHeader("X-Request-Id", requestId);
-  res.on("finish", () => {
-    log("log", "request", {
-      requestId,
-      method: req.method,
-      path: req.originalUrl,
-      status: res.statusCode,
-      durationMs: Date.now() - start
-    });
-  });
-  next();
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(ROOT, "index.html"));
-});
-
-app.get(["/admin", "/admin.html"], (req, res) => {
-  res.sendFile(path.join(ROOT, "admin.html"));
-});
-
-app.get("/aliexpress/oauth/start", (req, res) => {
-  if (!ALIEXPRESS_APP_KEY) {
-    return res.status(500).json({ success: false, error: "AliExpress App Key ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
-  }
-
-  const callbackUrl = getAliExpressOAuthCallbackUrl(req);
-  if (!callbackUrl) {
-    return res.status(500).json({ success: false, error: "Ø±Ø§Ø¨Ø· callback ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
-  }
-
-  const authorizeUrl = new URL(ALIEXPRESS_OAUTH_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("force_auth", "true");
-  authorizeUrl.searchParams.set("client_id", ALIEXPRESS_APP_KEY);
-  authorizeUrl.searchParams.set("redirect_uri", callbackUrl);
-  if (req.query.state) {
-    authorizeUrl.searchParams.set("state", sanitizeText(req.query.state));
-  }
-
-  res.redirect(authorizeUrl.toString());
-});
-
-app.get("/aliexpress/oauth-callback", async (req, res, next) => {
-  try {
-    if (req.query.error) {
-      return res.status(400).send(`<!doctype html>
-<html lang="en"><meta charset="utf-8"><title>AliExpress OAuth Failed</title>
-<body style="font-family:Arial,sans-serif;padding:24px">
-<h1>AliExpress authorization failed</h1>
-<p>${sanitizeText(req.query.error_description || req.query.error)}</p>
-</body></html>`);
+    function applyFooterCredit() {
+        const footerLove = document.querySelector(".footer-love");
+        if (footerLove) {
+            footerLove.innerHTML = ' By <span class="footer-love-heart">&#10084;</span> Created with';
+        }
     }
 
-    const code = sanitizeText(req.query.code || "");
-    if (!code) {
-      return res.status(400).json({ success: false, error: "ÙƒÙˆØ¯ Ø§Ù„ØªÙÙˆÙŠØ¶ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
+    function applyRuntimeTranslations(lang) {
+        const setText = (selector, value) => {
+            try {
+                const element = document.querySelector(selector);
+                if (element) element.textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector in applyRuntimeTranslations", selector, error);
+            }
+        };
+        const setMany = (selector, index, value) => {
+            try {
+                const elements = document.querySelectorAll(selector);
+                if (elements[index]) elements[index].textContent = value;
+            } catch (error) {
+                console.warn("Skipped invalid selector list in applyRuntimeTranslations", selector, error);
+            }
+        };
+
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 0, rt("stat_shipping", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 1, rt("stat_delivery", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 2, rt("stat_rating", lang));
+        setMany("#runtime-preview-card .runtime-preview-stat-label", 3, rt("stat_reviews", lang));
+        if (dom.previewMeta) dom.previewMeta.textContent = rt("preview_ready", lang);
+        setText("#runtime-preview-link span", rt("action_open", lang));
+        setText("#runtime-create-alert", rt("action_alert", lang));
+        setText("#runtime-copy-referral-share", rt("action_share", lang));
+        setText("#runtime-trust-card .text-[10px].font-black.text-white", rt("trust_title", lang));
+        setText("#runtime-trust-card .text-[9px].text-slate-500.font-bold", rt("trust_desc", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 0, rt("stat_rating", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 1, rt("stat_reviews", lang));
+        setMany("#runtime-trust-card .text-[9px].text-slate-500.font-bold.mt-1", 2, lang === "ar" ? "المبيعات" : (lang === "fr" ? "Ventes" : "Sold"));
+        setText("#runtime-variants-card .text-[10px].font-black.text-white", rt("variant_title", lang));
+        setText("#runtime-variants-card .text-[9px].text-slate-500.font-bold", rt("variant_desc", lang));
+        setText("#runtime-variants-card span.px-3.py-1.rounded-full", rt("variant_auto", lang));
+        setText("#runtime-download-quote", rt("quote_pdf", lang));
+        setText("#runtime-export-csv", pickLanguageText(lang, "تصدير طلبات CSV", "Exporter commandes CSV", "Export Orders CSV"));
+        setText("#section-account details[data-account-panel='overview'] .text-sm.font-black.text-white", rt("account_overview", lang));
+        setText("#section-account details[data-account-panel='overview'] .text-[11px].text-slate-500.font-bold", rt("account_overview_desc", lang));
+        setText("#section-account details[data-account-panel='preferences'] .text-sm.font-black.text-white", rt("account_contact", lang));
+        setText("#section-account details[data-account-panel='preferences'] .text-[11px].text-slate-500.font-bold", rt("account_contact_desc", lang));
+        setText("#section-account details[data-account-panel='admin'] .text-sm.font-black.text-white", rt("account_admin", lang));
+        setText("#section-account details[data-account-panel='admin'] .text-[11px].text-slate-500.font-bold", rt("account_admin_desc", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-red-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_ban", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-amber-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_license", lang));
+        setText("#section-check .grid.grid-cols-1.md\\:grid-cols-3.gap-4.mt-8 .text-\\[10px\\].font-black.text-emerald-300.uppercase.tracking-\\[0\\.25em\\].mb-3", rt("safety_before", lang));
+        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 0, rt("safety_docs", lang));
+        setMany("#section-check .mt-6.grid.grid-cols-1.md\\:grid-cols-2.gap-4 .text-\\[10px\\].font-black.text-white.uppercase.tracking-\\[0\\.2em\\].mb-3", 1, rt("safety_notice", lang));
+        setText("#runtime-metric-orders-label", pickLanguageText(lang, "الطلبات المسجلة", "Commandes enregistrees", "Orders Logged"));
+        setText("#runtime-metric-promos-label", pickLanguageText(lang, "البروموات النشطة", "Promos actives", "Active Promos"));
+        setText("#runtime-metric-fetches-label", pickLanguageText(lang, "عمليات الجلب", "Collectes produit", "Product Fetches"));
+        setText("#runtime-metric-rate-label", pickLanguageText(lang, "سعر الدولار/الدينار", "Taux USD/TND", "Live USD/TND"));
+        setText("#runtime-breakdown-product-label", pickLanguageText(lang, "سعر المنتج", "Prix produit", "Product Price"));
+        setText("#runtime-breakdown-shipping-label", pickLanguageText(lang, "الشحن", "Livraison", "Shipping"));
+        setText("#runtime-breakdown-service-label", pickLanguageText(lang, "عمولة الخدمة", "Frais de service", "Service Fee"));
+        setText("#runtime-breakdown-total-label", pickLanguageText(lang, "الإجمالي النهائي", "Total final", "Final Total"));
+        setText("#runtime-budget-title", pickLanguageText(lang, "مخطط الميزانية الذكي", "Planificateur budget intelligent", "Smart Budget Planner"));
+        setText("#runtime-budget-desc", pickLanguageText(lang, "حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا", "Definissez votre budget en dinar et verifiez si le produit reste confortable.", "Set a budget in TND and see if the product still fits safely."));
+        setText("#runtime-budget-status", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        if (dom.budgetInput) dom.budgetInput.placeholder = pickLanguageText(lang, "الميزانية بالدينار", "Budget en TND", "Budget TND");
+        setText("#runtime-budget-buffer-5", pickLanguageText(lang, "هامش 5%", "Marge 5%", "5% buffer"));
+        setText("#runtime-budget-buffer-10", pickLanguageText(lang, "هامش 10%", "Marge 10%", "10% buffer"));
+        setText("#runtime-budget-buffer-15", pickLanguageText(lang, "هامش 15%", "Marge 15%", "15% buffer"));
+        setText("#runtime-budget-buffer-20", pickLanguageText(lang, "هامش 20%", "Marge 20%", "20% buffer"));
+        setText("#runtime-budget-remaining-label", pickLanguageText(lang, "الباقي", "Reste", "Remaining"));
+        setText("#runtime-budget-safe-total-label", pickLanguageText(lang, "الحد الآمن", "Depense sure", "Safe Spend"));
+        setText("#runtime-budget-max-usd-label", pickLanguageText(lang, "أقصى سعر بالدولار", "Prix max en USD", "Max Price in USD"));
+        setText("#runtime-budget-note", pickLanguageText(lang, "أدخل budget باش تشوف التوصية الذكية.", "Entrez un budget pour voir la recommandation intelligente.", "Enter a budget to see the smart recommendation."));
+        setText("#runtime-customs-title", pickLanguageText(lang, "مستشار الديوانة الذكي", "Conseiller douane intelligent", "Smart Customs Advisor"));
+        setText("#runtime-customs-desc", pickLanguageText(lang, "مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب", "Niveau de risque, documents possibles et alternative plus sure.", "Risk level, useful documents, and a safer alternative."));
+        setText("#runtime-quote-compare-title", pickLanguageText(lang, "مقارنة التسعير", "Comparaison de devis", "Quote Comparison"));
+        setText("#runtime-quote-compare-desc", pickLanguageText(lang, "قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review", "Comparez le calcul auto, les commandes similaires et la revue manuelle.", "Compare the auto quote, similar orders, and manual review."));
+        setText("#runtime-quote-auto-label", pickLanguageText(lang, "التسعير الآلي", "Devis auto", "Auto Quote"));
+        setText("#runtime-quote-similar-label", pickLanguageText(lang, "طلبات مشابهة", "Commandes similaires", "Similar Orders"));
+        setText("#runtime-quote-manual-label", pickLanguageText(lang, "الهدف اليدوي", "Cible manuelle", "Manual Target"));
+        setText("#runtime-quote-note", pickLanguageText(lang, "اجلب منتجًا أولًا باش نقارن الثقة في التسعير.", "Chargez d'abord un produit pour comparer la confiance du prix.", "Fetch a product first to compare pricing confidence."));
+        setText("#runtime-reseller-title", pickLanguageText(lang, "وضع الربح / إعادة البيع", "Mode profit / revente", "Profit / Reseller Mode"));
+        setText("#runtime-reseller-desc", pickLanguageText(lang, "أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even", "Entrez le prix de revente et la quantite pour voir la marge, le ROI et le seuil de rentabilite.", "Enter resale price and quantity to see margin, ROI, and break-even."));
+        setText("#runtime-reseller-status", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        if (dom.resellerPrice) dom.resellerPrice.placeholder = pickLanguageText(lang, "سعر البيع بالدينار", "Prix de revente TND", "Resale Price TND");
+        if (dom.resellerQty) dom.resellerQty.placeholder = pickLanguageText(lang, "الكمية", "Quantite", "Qty");
+        setText("#runtime-profit-unit-label", pickLanguageText(lang, "ربح / وحدة", "Profit / unite", "Profit / Unit"));
+        setText("#runtime-profit-total-label", pickLanguageText(lang, "الربح الكلي", "Profit total", "Total Profit"));
+        setText("#runtime-profit-roi-label", "ROI");
+        setText("#runtime-profit-break-even-label", pickLanguageText(lang, "سعر التعادل", "Seuil de rentabilite", "Break-Even"));
+        setText("#runtime-manual-quote-label", pickLanguageText(lang, "اطلب تسعيرة يدوية", "Demander un devis manuel", "Request Manual Quote"));
+        setText("#runtime-quick-order-label", pickLanguageText(lang, "اطلب توّا على واتساب", "Commander sur WhatsApp", "Order on WhatsApp"));
+        if (dom.voiceStopBtn) dom.voiceStopBtn.textContent = pickLanguageText(lang, "إيقاف", "Arreter", "Stop");
+        setText("#runtime-track-title", pickLanguageText(lang, "تتبع داخلي للطلبات", "Suivi interne des commandes", "Internal Order Tracking"));
+        setText("#runtime-track-desc", pickLanguageText(lang, "دخل مرجع الطلب متاعك وشوف آخر status وtracking note", "Entrez votre reference pour voir le dernier statut et la note de suivi.", "Enter your reference to see the latest status and tracking note."));
+        setText("#runtime-track-pill", pickLanguageText(lang, "مرجع الطلب", "Ref commande", "Order Ref"));
+        if (dom.trackRef) dom.trackRef.placeholder = pickLanguageText(lang, "مرجع الطلب", "Reference de commande", "Order Reference");
+        setText("#runtime-track-search-btn", pickLanguageText(lang, "شوف الحالة", "Voir le statut", "Check Status"));
+        setText("#posttrack-search-btn", pickLanguageText(lang, "تتبع", "Suivre", "Track"));
+        const postTrackInput = document.getElementById("posttrack-search-input");
+        if (postTrackInput) postTrackInput.placeholder = pickLanguageText(lang, "رقم التتبع", "Numero de suivi", "Tracking Number");
+        setText("#runtime-admin-promo-title", pickLanguageText(lang, "كود برومو", "Code promo", "Promo Code"));
+        setText("#runtime-admin-order-title", pickLanguageText(lang, "حالة الطلب", "Statut commande", "Order Status"));
+        setText("#runtime-admin-promos-label", pickLanguageText(lang, "البروموات", "Promos", "Promos"));
+        setText("#runtime-admin-orders-label", pickLanguageText(lang, "الطلبات", "Orders", "Orders"));
+        setText("#runtime-admin-activity-label", pickLanguageText(lang, "نشاط الإدارة", "Activite admin", "Admin Activity"));
+        setText("#runtime-admin-analytics-label", pickLanguageText(lang, "التحليلات", "Analytics", "Analytics"));
+        setText("#section-account details[data-account-panel='overview'] .account-summary-pill", pickLanguageText(lang, "جاهز", "Pret", "READY"));
+        setText("#admin-promo-type-percent", pickLanguageText(lang, "نسبة %", "Pourcentage %", "Percent %"));
+        setText("#admin-promo-type-fixed", pickLanguageText(lang, "مبلغ TND", "Montant TND", "Fixed TND"));
+        setText("#admin-order-status-pending", getStatusUi("pending").label);
+        setText("#admin-order-status-processing", getStatusUi("processing").label);
+        setText("#admin-order-status-shipped", getStatusUi("shipped").label);
+        setText("#admin-order-status-delivered", getStatusUi("delivered").label);
+        if (dom.adminUnlockStatus) dom.adminUnlockStatus.textContent = state.adminUnlocked ? pickLanguageText(lang, "مفتوحة", "Ouvert", "Unlocked") : pickLanguageText(lang, "مغلقة", "Verrouille", "Locked");
+        if (dom.adminUnlockBtn) dom.adminUnlockBtn.textContent = pickLanguageText(lang, "فتح اللوحة", "Ouvrir le panneau", "Unlock Panel");
+        if (dom.adminLockBtn) dom.adminLockBtn.textContent = pickLanguageText(lang, "إغلاق", "Fermer", "Lock");
+        if (dom.adminPromoSave) dom.adminPromoSave.textContent = pickLanguageText(lang, "حفظ البرومو", "Enregistrer promo", "Save Promo");
+        if (dom.adminOrderUpdate) dom.adminOrderUpdate.textContent = pickLanguageText(lang, "تحديث الطلب", "Mettre a jour", "Update Order");
+        if (dom.adminPin) dom.adminPin.placeholder = pickLanguageText(lang, "PIN الإدارة", "PIN admin", "Admin PIN");
+        if (dom.adminPromoLimit) dom.adminPromoLimit.placeholder = pickLanguageText(lang, "حد الاستخدام", "Limite d'utilisation", "Usage limit");
+        if (dom.adminOrderTracking) dom.adminOrderTracking.placeholder = pickLanguageText(lang, "تتبع / ملاحظة", "Suivi / note", "Tracking / note");
+
+        const contactOptions = dom.accountContactMethod?.querySelectorAll("option") || [];
+        if (contactOptions[0]) contactOptions[0].textContent = rt("contact_whatsapp", lang);
+        if (contactOptions[1]) contactOptions[1].textContent = rt("contact_call", lang);
+        if (contactOptions[2]) contactOptions[2].textContent = rt("contact_sms", lang);
+        applyAccountCopy(lang);
+        applyFooterCredit();
     }
 
-    const tokenData = await createAliExpressAccessToken(code);
-    const accessToken = sanitizeText(tokenData.access_token || tokenData.accessToken || "");
-    const refreshToken = sanitizeText(tokenData.refresh_token || tokenData.refreshToken || "");
-    if (!accessToken) {
-      throw new Error("AliExpress OAuth did not return an access token");
+    function applyLanguage(lang = "ar") {
+        const safeLang = UI_TRANSLATIONS[lang] ? lang : "ar";
+        window.localStorage.setItem("alexpress_lang", safeLang);
+        applyLanguageMeta(safeLang);
+        applyUiTranslations(safeLang);
+        applyRuntimeTranslations(safeLang);
+        if (typeof window.refreshCloudUiState === "function") window.refreshCloudUiState();
+        if (dom.previewMeta && dom.previewMeta.textContent === "Product Summary") {
+            dom.previewMeta.textContent = safeLang === "ar" ? "ملخص المنتج" : (safeLang === "fr" ? "Resume produit" : "Product Summary");
+        }
+        if (typeof window.renderCart === "function") window.renderCart();
+        if (typeof window.renderWishlist === "function") window.renderWishlist();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+        renderNotifications();
+        renderActivityLog();
+        renderSavedPacks();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderVoiceNote();
+        renderAdminAnalytics();
+        renderRepeatOrders();
+        renderCustomerProfile();
+        renderTrackingHint();
+        renderBundleDeals();
+        renderCartInsights();
+        if (state.currentProduct) renderPreview(state.currentProduct);
+        if (dom.trackStatusCard && !dom.trackStatusCard.classList.contains("hidden")) {
+            const activeOrder = findOrderByRef(dom.trackStatusRef?.textContent || "");
+            if (activeOrder) renderTrackLookupResult(activeOrder);
+        }
     }
 
-    upsertEnvEntries(ENV_FILE_PATH, {
-      ALIEXPRESS_ACCESS_TOKEN: accessToken,
-      ALIEXPRESS_REFRESH_TOKEN: refreshToken,
-      ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn),
-      ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn)
-    });
-    process.env.ALIEXPRESS_ACCESS_TOKEN = accessToken;
-    process.env.ALIEXPRESS_REFRESH_TOKEN = refreshToken;
-    process.env.ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn);
-    process.env.ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn);
-
-    log("log", "AliExpress OAuth token stored", {
-      account: sanitizeText(tokenData.account || ""),
-      expiresIn: Number(tokenData.expires_in || tokenData.expiresIn || 0),
-      refreshExpiresIn: Number(tokenData.refresh_expires_in || tokenData.refreshExpiresIn || 0)
-    });
-
-    res.send(`<!doctype html>
-<html lang="en"><meta charset="utf-8"><title>AliExpress Connected</title>
-<body style="font-family:Arial,sans-serif;padding:24px">
-<h1>AliExpress connected</h1>
-<p>Access token saved successfully.</p>
-<p>You can now retry product fetching from your site.</p>
-</body></html>`);
-  } catch (error) {
-    log("warn", "AliExpress OAuth callback failed", {
-      error: error.message,
-      code: error?.meta?.code ?? null,
-      requestId: error?.meta?.requestId || error?.requestId || null,
-      variant: error?.meta?.label || null,
-      responsePreview: error?.meta?.responsePreview || ""
-    });
-    const response = {
-      success: false,
-      error: error.message,
-      requestId: error?.meta?.requestId || error?.requestId || undefined
-    };
-    if (error?.meta?.label) response.variant = error.meta.label;
-    if (error?.meta?.code != null) response.code = error.meta.code;
-    res.status(error?.status || 502).json(response);
-  }
-});
-
-app.get("/api/health", (req, res) => {
-  const scrapeProxy = getScrapeProxyConfig();
-  const apiMode = getAliExpressApiMode();
-  res.json({
-    success: true,
-    status: "ok",
-    now: new Date().toISOString(),
-    playwright: Boolean(playwright?.chromium),
-    scrapingDogConfigured: Boolean(SCRAPINGDOG_API_KEY),
-    scrapingDogDynamicPreferred: SCRAPINGDOG_DYNAMIC,
-    aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
-    aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
-    aliexpressApiMode: apiMode,
-    affiliateApiConfigured: Boolean(ALIEXPRESS_AFFILIATE_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
-    affiliateApiEnabled: ALIEXPRESS_ENABLE_AFFILIATE_API,
-    affiliateTrackingIdConfigured: Boolean(ALIEXPRESS_TRACKING_ID),
-    scrapeProxyConfigured: Boolean(scrapeProxy),
-    scrapeProxyProtocol: scrapeProxy?.protocol || "",
-    scrapeProxyBypassConfigured: Boolean(SCRAPE_PROXY_BYPASS)
-  });
-});
-
-app.get("/api/exchange-rate", rateLimitMiddleware, async (req, res, next) => {
-  try {
-    const result = await fetchExchangeRate();
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/promos", rateLimitMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    promos: getPublicPromoState()
-  });
-});
-
-app.get("/api/product", rateLimitMiddleware, async (req, res) => {
-  const url = String(req.query.url || "").trim();
-
-  if (!url) {
-    return res.status(400).json({
-      success: false,
-      error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù†ØªØ¬"
-    });
-  }
-
-  // Anti-cache headers
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-
-  console.log("API HIT:", url);
-
-  try {
-    const product = await fetchProduct(url);   // â† Ù‡Ù†Ø§ Ø§Ù„Ø§Ø³ØªØ¯Ø¹Ø§Ø¡ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± ÙˆØ§Ù„Ø¢Ù…Ù†
-
-    console.log("SCRAPE DONE | source:", product.source, "| price:", product.price);
-
-    return res.json(product);
-
-  } catch (error) {
-    console.error("FETCH ERROR:", error.message);
-
-    // Ø¥Ø°Ø§ Ø­ØµÙ„ Ø®Ø·Ø£ØŒ Ù†Ø±Ø¬Ø¹ Ø§Ù„Ù€ fallback Ø§Ù„Ø¬Ù…ÙŠÙ„
-    const canonicalUrl = getCanonicalProductUrl(url) || url;
-    const productId = extractProductId(canonicalUrl);
-
-    const fallback = buildUnavailableProductResponse({
-      canonicalUrl,
-      productId,
-      alertText: "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¨Ø³Ø¨Ø¨ anti-bot"
-    });
-
-    return res.status(200).json(fallback);   // Ù†Ø±Ø¬Ø¹ 200 Ø­ØªÙ‰ Ù„Ùˆ fallback
-  }
-});
-
-app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
-  try {
-    const payload = req.body || {};
-    const previousOrder = payload.orderRef ? getOrderByRef(payload.orderRef) : null;
-    const order = upsertOrderRecord(payload);
-    if (!order) {
-      return res.status(400).json({ success: false, error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« orderRef" });
+    function clearImagePreview() {
+        if (dom.calcImage) dom.calcImage.value = "";
+        renderImagePreview("");
     }
 
-    const promoCode = sanitizeText(payload.promoCode || "").toUpperCase();
-    if (promoCode && previousOrder?.promoCode !== promoCode) {
-      const store = loadAdminStore();
-      const promo = store.promos.find((entry) => entry.code === promoCode);
-      if (promo) {
-        promo.used = Number(promo.used || 0) + 1;
-        promo.updatedAt = new Date().toISOString();
-        saveAdminStore(store);
-      }
+    function loadAccountPrefsIntoForm() {
+        const prefs = getAccountPrefs();
+        if (dom.accountPhone) dom.accountPhone.value = prefs.phone || "";
+        if (dom.accountCity) dom.accountCity.value = prefs.city || "";
+        if (dom.accountAddress) dom.accountAddress.value = prefs.address || "";
+        if (dom.accountContactMethod) dom.accountContactMethod.value = prefs.contactMethod || "whatsapp";
+        if (dom.accountPrefsStatus) {
+            const hasPrefs = Boolean(prefs.phone || prefs.city || prefs.address);
+            dom.accountPrefsStatus.textContent = hasPrefs ? rt("saved_yes") : rt("saved_no");
+            dom.accountPrefsStatus.className = `text-[9px] font-black ${hasPrefs ? "text-emerald-400" : "text-slate-500"}`;
+        }
     }
 
-    res.json({ success: true, order });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
-  const order = getOrderByRef(req.params.orderRef);
-  if (!order) {
-    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
-  }
-
-  res.json({ success: true, order });
-});
-
-app.post("/api/admin/login", rateLimitMiddleware, (req, res) => {
-  const pin = sanitizeText(req.body?.pin || "");
-  if (!pin || pin !== ADMIN_PIN) {
-    return res.status(401).json({ success: false, error: "PIN Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ­ÙŠØ­" });
-  }
-
-  const store = loadAdminStore();
-  res.json({
-    success: true,
-    token: createAdminToken(),
-    state: {
-      promos: store.promos,
-      orders: sortOrdersNewestFirst(store.orders),
-      analytics: buildAdminAnalytics(store),
-      settings: normalizeAdminSettings(store.settings || {})
+    function saveAccountPrefs() {
+        const prefs = {
+            phone: dom.accountPhone?.value.trim() || "",
+            city: dom.accountCity?.value.trim() || "",
+            address: dom.accountAddress?.value.trim() || "",
+            contactMethod: dom.accountContactMethod?.value || "whatsapp"
+        };
+        state.accountPrefs = prefs;
+        writeJsonStorage(ACCOUNT_PREFS_KEY, prefs);
+        loadAccountPrefsIntoForm();
+        toast(currentLanguageText("تم حفظ بياناتك السريعة.", "Vos informations rapides sont enregistrees.", "Your quick details were saved."));
     }
-  });
-});
 
-app.get("/api/admin/state", rateLimitMiddleware, requireAdminAuth, (req, res) => {
-  const store = loadAdminStore();
-  res.json({
-    success: true,
-    promos: store.promos,
-    orders: sortOrdersNewestFirst(store.orders),
-    analytics: buildAdminAnalytics(store),
-    settings: normalizeAdminSettings(store.settings || {})
-  });
-});
-
-app.put("/api/admin/settings", rateLimitMiddleware, requireAdminAuth, (req, res) => {
-  const store = loadAdminStore();
-  const incoming = req.body && typeof req.body === "object" ? req.body : {};
-  const current = normalizeAdminSettings(store.settings || {});
-
-  store.settings = normalizeAdminSettings({
-    ...current,
-    ...incoming,
-    calculator: {
-      ...current.calculator,
-      ...(incoming.calculator || {}),
-      thresholds: {
-        ...current.calculator.thresholds,
-        ...((incoming.calculator && incoming.calculator.thresholds) || {})
-      },
-      rates: {
-        ...current.calculator.rates,
-        ...((incoming.calculator && incoming.calculator.rates) || {})
-      }
-    },
-    storefront: {
-      ...current.storefront,
-      ...(incoming.storefront || {})
-    },
-    admin: {
-      ...current.admin,
-      ...(incoming.admin || {})
+    function getEffectiveRate() {
+        return Number(state.liveRate || FX_FALLBACK_RATE) * (1 + FX_MARKUP);
     }
-  });
 
-  saveAdminStore(store);
-  res.json({ success: true, settings: store.settings });
-});
+    function getRuntimeCalculatorSettings() {
+        const source = window.runtimeAdminSettings?.calculator || {};
+        const thresholds = source.thresholds && typeof source.thresholds === "object" ? source.thresholds : {};
+        const rates = source.rates && typeof source.rates === "object" ? source.rates : {};
 
-app.post("/api/admin/promos", rateLimitMiddleware, requireAdminAuth, (req, res) => {
-  const store = loadAdminStore();
-  const promo = normalizePromoRecord(req.body || {});
-  if (!promo || promo.value <= 0) {
-    return res.status(400).json({ success: false, error: "Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¨Ø±ÙˆÙ…Ùˆ ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
-  }
+        const lowThreshold = Math.max(0, Number(thresholds.low ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.low));
+        const midThreshold = Math.max(lowThreshold + 1, Number(thresholds.mid ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.mid));
+        const highThreshold = Math.max(midThreshold + 1, Number(thresholds.high ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.high));
 
-  const index = store.promos.findIndex((entry) => entry.code === promo.code);
-  if (index >= 0) {
-    store.promos[index] = {
-      ...store.promos[index],
-      ...promo,
-      used: Number(req.body?.used ?? store.promos[index].used ?? 0),
-      updatedAt: new Date().toISOString()
-    };
-  } else {
-    store.promos.unshift({ ...promo, used: Number(req.body?.used || 0), updatedAt: new Date().toISOString() });
-  }
-
-  saveAdminStore(store);
-  res.json({ success: true, promos: store.promos });
-});
-
-app.delete("/api/admin/promos/:code", rateLimitMiddleware, requireAdminAuth, (req, res) => {
-  const code = sanitizeText(req.params.code || "").toUpperCase();
-  const store = loadAdminStore();
-  store.promos = store.promos.filter((promo) => promo.code !== code);
-  saveAdminStore(store);
-  res.json({ success: true, promos: store.promos });
-});
-
-app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (req, res) => {
-  const current = getOrderByRef(req.params.orderRef);
-  if (!current) {
-    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
-  }
-
-  const updated = upsertOrderRecord({
-    ...current,
-    status: sanitizeText(req.body?.status || current.status || "pending"),
-    adminTracking: sanitizeText(req.body?.adminTracking || current.adminTracking || ""),
-    trackingHint: sanitizeText(req.body?.adminTracking || req.body?.trackingHint || current.trackingHint || "")
-  });
-
-  res.json({ success: true, order: updated });
-});
-
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
-});
-
-app.use((error, req, res, next) => {
-  const status = error.status || 500;
-  log("error", "request-failed", {
-    requestId: res.locals.requestId,
-    status,
-    error: error.message
-  });
-  res.status(status).json({
-    success: false,
-    error: status === 500 ? "Ø®Ø·Ø£ Ø¯Ø§Ø®Ù„ÙŠ ÙÙŠ Ø§Ù„Ø³ÙŠØ±ÙØ±" : error.message,
-    requestId: res.locals.requestId
-  });
-});
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of productCache.entries()) {
-    if (entry.expiresAt < now) productCache.delete(key);
-  }
-  for (const [key, entry] of fxCache.entries()) {
-    if (entry.expiresAt < now) fxCache.delete(key);
-  }
-  for (const [key, entry] of rateBuckets.entries()) {
-    if (entry.expiresAt < now) rateBuckets.delete(key);
-  }
-}, 60_000).unref();
-
-const server = app.listen(PORT, () => {
-  log("log", `AliExpress Tunisia server listening on port ${PORT}`, {
-    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
-  });
-});
-
-async function closeServer() {
-  await new Promise((resolve) => server.close(resolve));
-  if (browserPromise) {
-    try {
-      const browser = await browserPromise;
-      await browser.close();
-    } catch {
-      // ignore browser close errors
+        return {
+            thresholds: {
+                low: lowThreshold,
+                mid: midThreshold,
+                high: highThreshold
+            },
+            rates: {
+                low: Math.max(0.001, Number(rates.low ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.low)),
+                mid: Math.max(0.001, Number(rates.mid ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.mid)),
+                high: Math.max(0.001, Number(rates.high ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.high)),
+                base: Math.max(0.001, Number(rates.base ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.base))
+            },
+            serviceFeeTnd: Math.max(0, Number(source.serviceFeeTnd ?? DEFAULT_PUBLIC_CALCULATOR_SETTINGS.serviceFeeTnd))
+        };
     }
-  }
-  log("log", "HTTP server closed");
-}
 
-process.on("SIGINT", () => closeServer().finally(() => process.exit(0)));
-process.on("SIGTERM", () => closeServer().finally(() => process.exit(0)));
+    function resolveRuntimeRate(totalUsd) {
+        const numericTotal = Math.max(0, Number(totalUsd || 0));
+        const settings = getRuntimeCalculatorSettings();
+        let rate = Number(settings.rates.base || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.rates.base);
+
+        if (numericTotal > 0 && numericTotal < Number(settings.thresholds.low || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.low)) {
+            rate = Number(settings.rates.low || rate);
+        } else if (numericTotal < Number(settings.thresholds.mid || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.mid)) {
+            rate = Number(settings.rates.mid || rate);
+        } else if (numericTotal < Number(settings.thresholds.high || DEFAULT_PUBLIC_CALCULATOR_SETTINGS.thresholds.high)) {
+            rate = Number(settings.rates.high || rate);
+        }
+
+        return rate;
+    }
+
+    function calculatePricingData() {
+        const productUsd = parseLocaleNumber(dom.usdPrice?.value || "0");
+        const shippingUsd = parseLocaleNumber(dom.usdShip?.value || "0");
+        const settings = getRuntimeCalculatorSettings();
+        const subtotalUsd = productUsd + shippingUsd;
+        const rate = resolveRuntimeRate(subtotalUsd);
+        const productTnd = productUsd * rate;
+        const shippingTnd = shippingUsd * rate;
+        const subtotalTnd = productTnd + shippingTnd;
+        const serviceFee = subtotalTnd > 0 ? Number(settings.serviceFeeTnd || 0) : 0;
+        const finalTnd = subtotalTnd + serviceFee;
+
+        return {
+            productUsd,
+            shippingUsd,
+            productTnd,
+            shippingTnd,
+            subtotalUsd,
+            subtotalTnd,
+            serviceFee,
+            finalTnd,
+            rate
+        };
+    }
+
+    function renderBreakdown(pricing) {
+        if (!dom.breakdownCard) return;
+        const hasData = pricing.productUsd > 0 || pricing.shippingUsd > 0;
+        dom.breakdownCard.classList.toggle("hidden", !hasData);
+        if (!hasData) return;
+
+        if (dom.breakdownProduct) dom.breakdownProduct.textContent = formatTnd(pricing.productTnd);
+        if (dom.breakdownShipping) dom.breakdownShipping.textContent = pricing.shippingUsd === 0 ? rt("shipping_free") : formatTnd(pricing.shippingTnd);
+        if (dom.breakdownServiceLabel) dom.breakdownServiceLabel.textContent = currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee");
+        if (dom.breakdownService) dom.breakdownService.textContent = getServiceFeeDisplayText(pricing);
+        if (dom.breakdownTotal) dom.breakdownTotal.textContent = formatTnd(pricing.finalTnd);
+    }
+
+    function renderBudgetPlanner(pricing) {
+        if (dom.budgetCard) dom.budgetCard.classList.add("hidden");
+        return;
+        if (!dom.budgetCard || !dom.budgetInput || !dom.budgetBuffer || !dom.budgetStatus || !dom.budgetRemaining || !dom.budgetSafeTotal || !dom.budgetMaxUsd || !dom.budgetNote) {
+            return;
+        }
+
+        const prefs = getBudgetPrefs();
+        if (document.activeElement !== dom.budgetInput && prefs.budget && !dom.budgetInput.value) {
+            dom.budgetInput.value = prefs.budget;
+        }
+        if (prefs.buffer && dom.budgetBuffer.value !== prefs.buffer) {
+            dom.budgetBuffer.value = prefs.buffer;
+        }
+
+        const budget = Number.parseFloat(dom.budgetInput.value || prefs.budget || "0") || 0;
+        const buffer = Number.parseFloat(dom.budgetBuffer.value || prefs.buffer || "10") || 0;
+        const hasBudget = budget > 0;
+        const hasPricing = pricing.productUsd > 0 || pricing.shippingUsd > 0;
+
+        dom.budgetCard.classList.toggle("hidden", !hasBudget && !hasPricing);
+        if (!hasBudget && !hasPricing) return;
+
+        const safeSpend = Math.max(0, budget * (1 - (buffer / 100)));
+        const remaining = budget - pricing.finalTnd;
+        const subtotalThreshold = SERVICE_FEE_MIN_TND / SERVICE_FEE_PERCENT;
+        const safeSubtotalTnd = safeSpend >= subtotalThreshold * (1 + SERVICE_FEE_PERCENT)
+            ? safeSpend / (1 + SERVICE_FEE_PERCENT)
+            : Math.max(0, safeSpend - SERVICE_FEE_MIN_TND);
+        const maxProductUsd = Math.max(0, (safeSubtotalTnd / Math.max(pricing.rate || getEffectiveRate(), 0.0001)) - pricing.shippingUsd);
+
+        let statusText = "READY";
+        let statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-slate-500/10 text-slate-200";
+        let note = "أدخل budget باش تشوف التوصية الذكية.";
+
+        if (!hasBudget) {
+            note = "المنتج محضر. زيد budget بالدينار باش نوريولك margin الأمان.";
+        } else if (!hasPricing) {
+            note = `عندك safe spend حتى ${formatTnd(safeSpend)} بعد buffer ${buffer}%. كمل السعر والشحن باش نقارنوهم بالميزانية.`;
+        } else if (pricing.finalTnd <= safeSpend) {
+            statusText = "SAFE";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-300";
+            note = `المنتج داخل الـ safe zone. يبقالك ${formatTnd(Math.max(0, remaining))} من budget الكلي.`;
+        } else if (pricing.finalTnd <= budget) {
+            statusText = "TIGHT";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-amber-400/10 text-amber-300";
+            note = `المنتج داخل budget، أما buffer الأمان تقريبًا تستهلك. max product price المقترح هو ${maxProductUsd.toFixed(2)} USD مع نفس الشحن.`;
+        } else {
+            statusText = "OVER";
+            statusClasses = "px-3 py-1 rounded-full text-[10px] font-black bg-red-500/10 text-red-300";
+            note = `المنتج فوق budget بحوالي ${formatTnd(Math.abs(remaining))}. جرّب تنقص سعر المنتج، تبدل الشحن، أو اطلب manual quote.`;
+        }
+
+        dom.budgetStatus.textContent = statusText;
+        dom.budgetStatus.className = statusClasses;
+        dom.budgetRemaining.textContent = hasBudget && hasPricing ? formatTnd(remaining) : formatTnd(0);
+        dom.budgetRemaining.className = `text-lg font-black ${remaining < 0 ? "text-red-300" : "text-white"}`;
+        dom.budgetSafeTotal.textContent = formatTnd(safeSpend);
+        dom.budgetMaxUsd.textContent = `${maxProductUsd.toFixed(2)} USD`;
+        dom.budgetNote.textContent = note;
+    }
+
+    function getCartInsights() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        const deliveryWindows = items
+            .map((item) => parseDeliveryWindow(item.deliveryEstimate))
+            .filter(Boolean);
+        const freeShipping = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
+        const riskyItems = items.filter((item) => item?.restrictions?.banned || item?.restrictions?.restricted).length;
+        const totalUnits = items.reduce((sum, item) => sum + Number(item.qty || 1), 0);
+        const totalService = items.reduce((sum, item) => sum + (Number(item.serviceFeeTnd || 0) * Number(item.qty || 1)), 0);
+        const etaMin = deliveryWindows.length ? Math.min(...deliveryWindows.map((window) => window.min)) : null;
+        const etaMax = deliveryWindows.length ? Math.max(...deliveryWindows.map((window) => window.max)) : null;
+        const mixedEta = etaMin != null && etaMax != null && (etaMax - etaMin >= 10);
+        const splitRecommended = riskyItems > 0 || mixedEta;
+
+        let recommendation = rt("cart_rec_ready");
+        if (riskyItems > 0) {
+            recommendation = rt("cart_rec_risk");
+        } else if (mixedEta) {
+            recommendation = rt("cart_rec_eta");
+        } else if (totalUnits >= 6) {
+            recommendation = rt("cart_rec_large");
+        }
+
+        return {
+            totalUnits,
+            totalService,
+            freeShipping,
+            riskyItems,
+            etaLabel: etaMin != null && etaMax != null ? `${etaMin}-${etaMax} days` : "--",
+            splitRecommended,
+            recommendation
+        };
+    }
+
+    function renderCartInsights() {
+        if (!dom.cartInsightsCard || !dom.cartHealth || !dom.cartUnits || !dom.cartService || !dom.cartFreeShip || !dom.cartRisk || !dom.cartEta || !dom.cartRecommendation) {
+            return;
+        }
+
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        const hasItems = items.length > 0;
+        dom.cartInsightsCard.classList.toggle("hidden", !hasItems);
+        if (!hasItems) return;
+
+        const insights = getCartInsights();
+        dom.cartUnits.textContent = String(insights.totalUnits);
+        dom.cartService.textContent = formatTnd(insights.totalService);
+        dom.cartFreeShip.textContent = String(insights.freeShipping);
+        dom.cartRisk.textContent = String(insights.riskyItems);
+        dom.cartEta.textContent = `${rt("cart_eta")}: ${insights.etaLabel}`;
+        dom.cartRecommendation.textContent = insights.recommendation;
+        dom.cartHealth.textContent = insights.splitRecommended ? rt("cart_split") : rt("cart_ready");
+        dom.cartHealth.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            insights.splitRecommended ? "bg-amber-400/10 text-amber-300" : "bg-emerald-500/10 text-emerald-300"
+        }`;
+    }
+
+    function formatCompactCount(value) {
+        const count = Number(value || 0);
+        if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+        if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+        return String(count);
+    }
+
+    function buildDisplayProductTitle(title) {
+        const raw = String(title || "").replace(/\s+/g, " ").trim();
+        if (!raw) return "منتج AliExpress";
+        const words = raw.split(" ");
+        if (raw.length <= 42 && words.length <= 6) return raw;
+
+        const stopWords = new Set(["for", "with", "and", "the", "a", "an", "of", "to", "in", "on", "wholesale"]);
+        const picked = [];
+        const seen = new Set();
+
+        for (const word of words) {
+            const clean = word.replace(/[^\w-]/g, "");
+            const key = clean.toLowerCase();
+            if (!clean) continue;
+            if (picked.length >= 6) break;
+            if (seen.has(key) && !stopWords.has(key)) continue;
+            picked.push(word);
+            seen.add(key);
+        }
+
+        const compact = picked.join(" ").trim().slice(0, 42).trim();
+        return compact.length && compact.length < raw.length ? `${compact}...` : raw;
+    }
+
+    function renderSellerTrust(product) {
+        if (!dom.trustCard || !dom.trustBadge || !dom.trustRating || !dom.trustReviews || !dom.trustSold || !dom.trustNote) return;
+        if (!product || (Number(product.rating || 0) <= 0 && Number(product.reviewCount || 0) <= 0 && Number(product.soldCount || 0) <= 0)) {
+            dom.trustCard.classList.add("hidden");
+            return;
+        }
+
+        const trust = product.trustScore || { score: 60, label: rt("trust_desc") };
+        dom.trustCard.classList.remove("hidden");
+        dom.trustBadge.dir = "ltr";
+        dom.trustBadge.textContent = `${trust.score} / 100`;
+        dom.trustBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            trust.score >= 80 ? "bg-emerald-500/10 text-emerald-300" :
+            trust.score >= 65 ? "bg-blue-500/10 text-blue-300" :
+            "bg-amber-400/10 text-amber-300"
+        }`;
+        dom.trustRating.textContent = Number(product.rating || 0).toFixed(1);
+        dom.trustReviews.textContent = formatCompactCount(product.reviewCount || 0);
+        dom.trustSold.textContent = formatCompactCount(product.soldCount || 0);
+        dom.trustNote.textContent = product.restrictions?.banned
+            ? `${rt("trust_title")}: ${trust.label}. ${rt("cart_rec_risk")}`
+            : (product.restrictions?.restricted
+                ? `${rt("trust_title")}: ${trust.label}. ${rt("safety_license")}`
+                : `${rt("trust_title")}: ${trust.label}.`);
+    }
+
+    function renderVariants(product) {
+        if (!dom.variantsCard || !dom.variantGroups) return;
+        dom.variantsCard.classList.add("hidden");
+        state.selectedVariants = {};
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        dom.variantGroups.innerHTML = "";
+        renderVariantSummary();
+        return;
+
+        const groups = getProductOptionGroups(product);
+        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
+        if (!groups.length) {
+            state.selectedVariants = {};
+            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+            renderVariantSummary();
+            return;
+        }
+
+        const variantsHeader = dom.variantsCard.querySelector(".flex.items-center.justify-between.gap-3");
+        if (variantsHeader) variantsHeader.classList.add("hidden");
+
+        dom.variantGroups.innerHTML = `
+            <div class="space-y-2">
+                ${groups.map((group, index) => `
+                    <div class="space-y-2">
+                        <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${group.values.map((value) => `
+                                <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                    ${escapeHtml(value)}
+                                </span>
+                            `).join("")}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
+                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4">
+                <div class="text-[11px] md:text-xs text-amber-100 font-black leading-7 text-center">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+        return;
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
+                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
+                    المواصفات: لون، مقاس، طول، نسخة، pack...
+                </div>
+                <div class="space-y-2">
+                    ${groups.map((group, index) => `
+                        <div class="space-y-2">
+                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `Option ${index + 1}`)}</div>
+                            <div class="flex flex-wrap gap-2">
+                                ${group.values.map((value) => `
+                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                        ${escapeHtml(value)}
+                                    </span>
+                                `).join("")}
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+    }
+
+    function renderVariants(product) {
+        if (!dom.variantsCard || !dom.variantGroups) return;
+        const groups = getProductOptionGroups(product);
+        dom.variantsCard.classList.toggle("hidden", groups.length === 0);
+        if (!groups.length) {
+            state.selectedVariants = {};
+            if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+            renderVariantSummary();
+            return;
+        }
+
+        dom.variantGroups.innerHTML = `
+            <div class="rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 space-y-3">
+                <div class="text-[10px] text-amber-100 font-black leading-relaxed">
+                    السعر ينجم يتبدل إذا تختار لون أو مقاس أو طول مختلف. اكتب الخيار المطلوب في خانة المواصفات قبل ما تبعث الطلب.
+                </div>
+                <div class="text-[9px] text-slate-400 font-bold leading-relaxed">
+                    المواصفات: لون، مقاس، طول، نسخة، باك...
+                </div>
+                <div class="space-y-2">
+                    ${groups.map((group, index) => `
+                        <div class="space-y-2">
+                            <div class="text-[10px] font-black text-white">${escapeHtml(group.name || `الخيار ${index + 1}`)}</div>
+                            <div class="flex flex-wrap gap-2">
+                                ${group.values.map((value) => `
+                                    <span class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                                        ${escapeHtml(value)}
+                                    </span>
+                                `).join("")}
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `;
+        if (dom.previewVariantSummary) dom.previewVariantSummary.classList.add("hidden");
+        renderVariantSummary();
+    }
+
+    function renderCustomsAdvisor(product) {
+        if (dom.customsCard) dom.customsCard.classList.add("hidden");
+        return;
+        if (!dom.customsCard || !dom.customsLevel || !dom.customsNote || !dom.customsDocs || !dom.customsAlt) return;
+        if (!product) {
+            dom.customsCard.classList.add("hidden");
+            return;
+        }
+
+        const advisor = product.customsAdvisor || {};
+        dom.customsCard.classList.remove("hidden");
+        dom.customsLevel.textContent = String(advisor.level || "low").toUpperCase();
+        dom.customsLevel.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            advisor.level === "high" ? "bg-red-500/10 text-red-300" :
+            advisor.level === "medium" ? "bg-amber-400/10 text-amber-300" :
+            "bg-emerald-500/10 text-emerald-300"
+        }`;
+        dom.customsNote.textContent = advisor.note || currentLanguageText("ما فماش مشكل ديوانة ظاهر حتى الآن.", "Aucun souci douane detecte pour le moment.", "No customs issue detected yet.");
+        dom.customsDocs.innerHTML = (Array.isArray(advisor.docs) ? advisor.docs : []).map((doc) => `
+            <span class="px-3 py-1 rounded-full bg-black/20 border border-white/5 text-[9px] font-black text-slate-200">${escapeHtml(doc)}</span>
+        `).join("");
+        dom.customsAlt.textContent = advisor.saferAlternative || "";
+    }
+
+    function getSimilarOrderAverage(title) {
+        const normalized = String(title || "").trim().toLowerCase();
+        if (!normalized || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return 0;
+        const matches = orderHistory.flatMap((order) => Array.isArray(order.items) ? order.items : [])
+            .filter((item) => String(item.name || "").toLowerCase().includes(normalized.slice(0, 8)) || normalized.includes(String(item.name || "").toLowerCase().slice(0, 8)))
+            .map((item) => Number(item.totalWithFee || item.tnd || 0))
+            .filter((value) => value > 0);
+        if (!matches.length) return 0;
+        return matches.reduce((sum, value) => sum + value, 0) / matches.length;
+    }
+
+    function renderQuoteComparison(product) {
+        if (dom.quoteCompareCard) dom.quoteCompareCard.classList.add("hidden");
+        return;
+    }
+
+    function renderResellerMode() {
+        if (dom.resellerCard) dom.resellerCard.classList.add("hidden");
+        return;
+        if (!dom.resellerPrice || !dom.resellerQty || !dom.profitUnit || !dom.profitTotal || !dom.profitRoi || !dom.profitBreakEven || !dom.resellerStatus) return;
+        const pricing = calculatePricingData();
+        const resale = Number(dom.resellerPrice.value || 0);
+        const qty = Math.max(1, Number(dom.resellerQty.value || 1));
+        const cost = pricing.finalTnd;
+        const profitUnit = resale - cost;
+        const totalProfit = profitUnit * qty;
+        const roi = cost > 0 ? (profitUnit / cost) * 100 : 0;
+
+        dom.profitUnit.textContent = cost > 0 ? profitUnit.toFixed(3) : "0.000";
+        dom.profitTotal.textContent = cost > 0 ? totalProfit.toFixed(3) : "0.000";
+        dom.profitRoi.textContent = `${roi.toFixed(1)}%`;
+        dom.profitBreakEven.textContent = cost.toFixed(3);
+        dom.resellerStatus.textContent = cost <= 0 ? "READY" : (profitUnit > 0 ? "PROFIT" : "LOSS");
+        dom.resellerStatus.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            cost <= 0 ? "bg-slate-500/10 text-slate-200" :
+            profitUnit > 0 ? "bg-emerald-500/10 text-emerald-300" :
+            "bg-red-500/10 text-red-300"
+        }`;
+    }
+
+    function renderBundleDeals() {
+        if (!dom.bundleCard || !dom.bundleBadge || !dom.bundleSavings || !dom.bundleTitle || !dom.bundleNote) return;
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        dom.bundleCard.classList.toggle("hidden", items.length < 2);
+        if (items.length < 2) return;
+
+        const freeShippingCount = items.filter((item) => Number(item.shippingUsd || 0) === 0).length;
+        const serviceFees = items.reduce((sum, item) => sum + Number(item.serviceFeeTnd || 0), 0);
+        const estimatedSavings = (serviceFees * 0.2) + (freeShippingCount * 1.5);
+        const names = items.slice(0, 2).map((item) => item.name).filter(Boolean);
+
+        dom.bundleSavings.textContent = formatTnd(estimatedSavings);
+        dom.bundleTitle.textContent = names.length ? `${names.join(" + ")}` : rt("bundle_default");
+        dom.bundleBadge.textContent = estimatedSavings >= 8 ? "HOT" : rt("bundle_default");
+        dom.bundleNote.textContent = estimatedSavings >= 8
+            ? rt("bundle_note_hot")
+            : rt("bundle_note_low");
+    }
+
+    function renderVoiceNote() {
+        if (dom.voiceCard) {
+            dom.voiceCard.classList.add("hidden");
+            dom.voiceCard.style.display = "none";
+        }
+        if (!dom.voicePlayer || !dom.voiceStatus || !dom.voiceNote) return;
+        const hasVoice = Boolean(state.voiceNote?.url);
+        dom.voicePlayer.classList.toggle("hidden", !hasVoice);
+        if (hasVoice) {
+            dom.voicePlayer.src = state.voiceNote.url;
+            dom.voiceStatus.textContent = currentLanguageText("جاهز", "Pret", "Ready");
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black";
+            dom.voiceNote.textContent = state.voiceNote.label || currentLanguageText("تم إرفاق note صوتية.", "Note vocale ajoutee.", "Voice note attached.");
+        } else {
+            dom.voicePlayer.removeAttribute("src");
+            dom.voiceStatus.textContent = currentLanguageText("فارغ", "Vide", "Empty");
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black";
+            dom.voiceNote.textContent = currentLanguageText("ما فماش note صوتية مضافة توّا.", "Aucune note vocale pour le moment.", "No voice note attached yet.");
+        }
+    }
+
+    function setVoiceNoteFromBlob(blob, label) {
+        if (!blob) return;
+        if (state.voiceNote?.url && state.voiceNote.url.startsWith("blob:")) {
+            window.URL.revokeObjectURL(state.voiceNote.url);
+        }
+        state.voiceNote = {
+            url: window.URL.createObjectURL(blob),
+            label
+        };
+        renderVoiceNote();
+        pushActivityLog("voice", currentLanguageText("تم إرفاق note صوتية بالطلب الحالي.", "Note vocale ajoutee a la commande actuelle.", "Voice note attached to the current order."));
+    }
+
+    function renderPriceAlerts() {
+        if (!dom.alertWatchlist || !dom.alertCount) return;
+        const alerts = Array.isArray(state.priceAlerts) ? state.priceAlerts : [];
+        dom.alertCount.textContent = `${alerts.length} ${pickLanguageText(currentUiLanguage(), alerts.length === 1 ? "تنبيه" : "تنبيهات", alerts.length === 1 ? "alerte" : "alertes", alerts.length === 1 ? "alert" : "alerts")}`;
+        if (!alerts.length) {
+            dom.alertWatchlist.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش تنبيهات حتى الآن.", "Aucune alerte pour le moment.", "No alerts yet."))}</div>`;
+            return;
+        }
+        dom.alertWatchlist.innerHTML = alerts.map((alert) => `
+            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="text-[10px] font-black text-white">${escapeHtml(alert.title || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress Product"))}</div>
+                    <div class="text-[9px] text-slate-500 font-bold">${pickLanguageText(currentUiLanguage(), "السعر المستهدف", "Cible", "Target")} ${escapeHtml(formatUsd(alert.targetPriceUsd || 0))} • ${pickLanguageText(currentUiLanguage(), "الشحن", "livraison", "ship")} ${escapeHtml(formatUsd(alert.targetShippingUsd || 0))}</div>
+                </div>
+                <button type="button" data-remove-alert="${escapeHtml(alert.url)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-200 hover:bg-red-500/20 transition-colors">${pickLanguageText(currentUiLanguage(), "حذف", "Supprimer", "Delete")}</button>
+            </div>
+        `).join("");
+    }
+
+    function renderReferralCard() {
+        if (!dom.referralCode || !dom.referralCredits || !dom.referralTier || !dom.referralNote) return;
+        const referral = getReferralState();
+        dom.referralCode.textContent = referral.code;
+        dom.referralCredits.textContent = String(referral.credits || 0);
+        dom.referralTier.textContent = referral.credits >= 100 ? pickLanguageText(currentUiLanguage(), "سفير", "Ambassadeur", "Ambassador") : (referral.credits >= 40 ? pickLanguageText(currentUiLanguage(), "معزز", "Booster", "Booster") : pickLanguageText(currentUiLanguage(), "بداية", "Starter", "Starter"));
+        dom.referralNote.textContent = referral.appliedCodes?.length
+            ? pickLanguageText(currentUiLanguage(), `تم تطبيق ${referral.appliedCodes.length} code إحالة. الكريدي جاهز للبروموات الجاية.`, `${referral.appliedCodes.length} code(s) de parrainage appliques. Les credits sont prets pour les prochaines promos.`, `${referral.appliedCodes.length} referral code(s) applied. Credits are ready for future promos.`)
+            : currentLanguageText("شارك كودك باش تكبر رصيد المكافآت.", "Partagez votre code pour augmenter votre solde de recompenses.", "Share your code to grow your rewards balance.");
+    }
+
+    function renderAdminAnalytics() {
+        if (!dom.adminAnalytics) return;
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
+        const analytics = state.adminAnalytics || {};
+        const totalRevenue = analytics.totalRevenue != null ? analytics.totalRevenue : orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+        const topProducts = Array.isArray(analytics.topProducts) ? analytics.topProducts : [];
+        const topPromos = Array.isArray(analytics.topPromos) ? analytics.topPromos : [];
+        const repeatCustomers = Array.isArray(analytics.repeatCustomers) ? analytics.repeatCustomers : [];
+
+        dom.adminAnalytics.innerHTML = `
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
+                    <div class="text-lg font-black text-white">${orders.length}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">${pickLanguageText(currentUiLanguage(), "الطلبات", "Commandes", "Orders")}</div>
+                </div>
+                <div class="rounded-2xl border border-white/5 bg-slate-900/70 p-3 text-center">
+                    <div class="text-lg font-black text-amber-300" dir="ltr">${formatTnd(totalRevenue)}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">${pickLanguageText(currentUiLanguage(), "المداخيل", "Revenu", "Revenue")}</div>
+                </div>
+            </div>
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "أفضل المنتجات", "Top produits", "Top Products")}</div>
+            <div class="space-y-2">
+                ${(topProducts.length ? topProducts : [{ name: currentLanguageText("لا توجد بيانات منتجات بعد", "Pas encore de donnees produit", "No product data yet"), count: 0 }]).map((item) => `
+                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.name || item.id || currentLanguageText("غير معروف", "Inconnu", "Unknown"))}</span>
+                        <span class="text-[9px] text-amber-300 font-black">${escapeHtml(item.count || item.ordersCount || 0)}</span>
+                    </div>
+                `).join("")}
+            </div>
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "البرومو / الحرفاء المتكررين", "Promos / clients recurrents", "Promo / Repeat Clients")}</div>
+            <div class="space-y-2">
+                ${[...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].length ? [...(topPromos.slice(0, 2)), ...(repeatCustomers.slice(0, 2))].map((item) => `
+                    <div class="rounded-xl border border-white/5 bg-slate-900/70 p-3 flex items-center justify-between gap-3">
+                        <span class="text-[10px] text-slate-200 font-bold">${escapeHtml(item.code || item.id || currentLanguageText("حريف", "Client", "Client"))}</span>
+                        <span class="text-[9px] text-blue-300 font-black">${escapeHtml(item.used || item.ordersCount || 0)}</span>
+                    </div>
+                `).join("") : `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش analytics حتى الآن.", "Aucune analytics pour le moment.", "No analytics yet."))}</div>`}
+            </div>
+        `;
+    }
+
+    function getOrderTimelineSteps(order) {
+        const status = String(order?.status || "pending");
+        const steps = [
+            { key: "pending", label: pickLanguageText(currentUiLanguage(), "مراجعة", "Revision", "Review") },
+            { key: "processing", label: pickLanguageText(currentUiLanguage(), "شراء", "Achat", "Purchase") },
+            { key: "shipped", label: pickLanguageText(currentUiLanguage(), "عبور", "Transit", "Transit") },
+            { key: "delivered", label: pickLanguageText(currentUiLanguage(), "تسليم", "Livre", "Delivered") }
+        ];
+        const currentIndex = steps.findIndex((step) => step.key === status);
+        return steps.map((step, index) => ({
+            ...step,
+            active: currentIndex >= index,
+            current: currentIndex === index
+        }));
+    }
+
+    function renderTrackingTimeline(order) {
+        if (!dom.trackTimeline) return;
+        if (!order) {
+            dom.trackTimeline.innerHTML = "";
+            return;
+        }
+        dom.trackTimeline.innerHTML = getOrderTimelineSteps(order).map((step) => `
+            <div class="rounded-2xl border p-3 text-center ${step.active ? "bg-amber-400/10 border-amber-400/20 text-amber-300" : "bg-white/5 border-white/5 text-slate-500"}">
+                <div class="text-[9px] font-black uppercase">${escapeHtml(step.label)}</div>
+                <div class="text-[8px] font-bold mt-1">${step.current ? pickLanguageText(currentUiLanguage(), "الحالي", "Actuel", "Current") : (step.active ? pickLanguageText(currentUiLanguage(), "تم", "Fait", "Done") : pickLanguageText(currentUiLanguage(), "التالي", "Suivant", "Next"))}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderRepeatOrders() {
+        if (!dom.repeatOrders || typeof orderHistory === "undefined" || !Array.isArray(orderHistory)) return;
+        const orders = orderHistory.slice(0, 3).filter((order) => Array.isArray(order.items) && order.items.length);
+        dom.repeatOrders.classList.toggle("hidden", orders.length === 0);
+        if (!orders.length) return;
+        dom.repeatOrders.innerHTML = `
+            <div class="text-[10px] font-black text-white">${pickLanguageText(currentUiLanguage(), "مساعد إعادة الطلب", "Assistant re-commande", "Repeat-Order Assistant")}</div>
+            ${orders.map((order) => `
+                <div class="rounded-2xl border border-white/5 bg-black/20 p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
+                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml((order.items || []).map((item) => item.name).slice(0, 2).join(" + "))}</div>
+                    </div>
+                    <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">${pickLanguageText(currentUiLanguage(), "عاود اطلب", "Recommander", "Buy Again")}</button>
+                </div>
+            `).join("")}
+        `;
+    }
+
+    function createPriceAlertFromCurrentProduct() {
+        const product = state.currentProduct;
+        if (!product?.url) {
+            toast(currentLanguageText("اجلب منتجًا أولًا.", "Chargez d'abord un produit.", "Fetch a product first."));
+            return;
+        }
+        const alerts = getPriceAlerts().filter((entry) => entry.url !== product.url);
+        alerts.unshift({
+            url: product.url,
+            title: product.title || dom.calcName?.value.trim() || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress Product"),
+            targetPriceUsd: Number(product.price || dom.usdPrice?.value || 0),
+            targetShippingUsd: Number(product.shipping || dom.usdShip?.value || 0),
+            createdAt: new Date().toISOString()
+        });
+        savePriceAlerts(alerts);
+        pushActivityLog("alert", pickLanguageText(currentUiLanguage(), `تم إنشاء تنبيه سعر لـ ${product.title || "المنتج"}.`, `Alerte prix creee pour ${product.title || "produit"}.`, `Created price alert for ${product.title || "product"}.`));
+        toast(currentLanguageText("تم حفظ تنبيه هبوط السعر.", "Alerte de baisse de prix enregistree.", "Price-drop alert saved."));
+    }
+
+    function removePriceAlert(url) {
+        savePriceAlerts(getPriceAlerts().filter((entry) => entry.url !== url));
+        toast(currentLanguageText("تم حذف التنبيه.", "Alerte supprimee.", "Alert removed."));
+    }
+
+    function checkPriceAlerts(product) {
+        const alerts = getPriceAlerts();
+        const watch = alerts.find((entry) => entry.url === product?.url);
+        if (!watch) return;
+        const currentPrice = Number(product.price || 0);
+        const currentShipping = Number(product.shipping || 0);
+        if ((currentPrice > 0 && currentPrice < Number(watch.targetPriceUsd || 0)) || currentShipping < Number(watch.targetShippingUsd || 0)) {
+            toast(pickLanguageText(currentUiLanguage(), `تم رصد هبوط سعر لـ ${product.title || "تنبيه محفوظ"}!`, `Baisse de prix detectee pour ${product.title || "alerte enregistree"} !`, `Price drop detected for ${product.title || "saved alert"}!`));
+            pushActivityLog("alert", pickLanguageText(currentUiLanguage(), `تم رصد هبوط سعر لـ ${product.title || "تنبيه محفوظ"}.`, `Baisse de prix detectee pour ${product.title || "alerte enregistree"}.`, `Price drop detected for ${product.title || "saved alert"}.`));
+        }
+    }
+
+    function copyReferral(shareMode = false) {
+        const referral = getReferralState();
+        const text = shareMode
+            ? pickLanguageText(currentUiLanguage(), `استعمل كود الإحالة متاعي في Alexpress: ${referral.code}`, `Utilisez mon code de parrainage Alexpress : ${referral.code}`, `Use my Alexpress referral code: ${referral.code}`)
+            : referral.code;
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => toast(currentLanguageText("تم نسخ كود الإحالة.", "Code de parrainage copie.", "Referral copied.")));
+            return;
+        }
+        toast(currentLanguageText("النسخ غير متاح على هذا الجهاز.", "Presse-papiers indisponible.", "Clipboard unavailable."));
+    }
+
+    function applyReferralCode() {
+        const referral = getReferralState();
+        const code = String(dom.referralInput?.value || "").trim().toUpperCase();
+        if (!code || code === referral.code) {
+            toast(currentLanguageText("أدخل code إحالة صحيح.", "Entrez un code de parrainage valide.", "Enter a valid referral code."));
+            return;
+        }
+        if (referral.appliedCodes.includes(code)) {
+            toast(currentLanguageText("code الإحالة هذا مستعمل من قبل.", "Ce code de parrainage est deja utilise.", "This referral code is already used."));
+            return;
+        }
+        referral.appliedCodes.push(code);
+        referral.credits = Number(referral.credits || 0) + 20;
+        saveReferralState(referral);
+        if (dom.referralInput) dom.referralInput.value = "";
+        pushActivityLog("referral", pickLanguageText(currentUiLanguage(), `تم تطبيق code الإحالة ${code}.`, `Code de parrainage ${code} applique.`, `Applied referral code ${code}.`));
+        toast(currentLanguageText("تمت إضافة bonus الإحالة.", "Bonus de parrainage ajoute.", "Referral bonus added."));
+    }
+
+    function applyVariantSelection(group, value) {
+        const current = String(dom.calcNote?.value || "").trim();
+        const cleanedParts = current.split("|").map((part) => part.trim()).filter(Boolean).filter((part) => !part.toLowerCase().startsWith(String(group || "").toLowerCase()));
+        cleanedParts.push(`${group}: ${value}`);
+        if (dom.calcNote) dom.calcNote.value = cleanedParts.join(" | ");
+        state.selectedVariants = {
+            ...(state.selectedVariants || {}),
+            [group]: value
+        };
+        if (dom.variantGroups) {
+            dom.variantGroups.querySelectorAll("[data-variant-group][data-variant-value]").forEach((button) => {
+                const isMatch = button.getAttribute("data-variant-group") === String(group || "") && button.getAttribute("data-variant-value") === String(value || "");
+                button.classList.toggle("is-active", isMatch);
+            });
+        }
+        renderVariantSummary();
+        toast(pickLanguageText(currentUiLanguage(), `${group} تم تعيينو إلى ${value}`, `${group} defini sur ${value}`, `${group} set to ${value}`));
+    }
+
+    function renderVariantSummary() {
+        if (!dom.previewVariantSummary) return;
+        const selectedEntries = Object.entries(state.selectedVariants || {}).filter(([, value]) => String(value || "").trim());
+        const hasSelection = selectedEntries.length > 0;
+        dom.previewVariantSummary.classList.toggle("hidden", !hasSelection);
+        if (!hasSelection) return;
+        dom.previewVariantSummary.textContent = selectedEntries.map(([group, value]) => `${group}: ${value}`).join(" • ");
+    }
+
+    function loadOrderIntoCart(orderRef) {
+        if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || typeof cart === "undefined" || !Array.isArray(cart)) return;
+        const order = orderHistory.find((entry) => String(entry.orderRef || entry.id || "") === String(orderRef || ""));
+        if (!order || !Array.isArray(order.items)) return;
+        cart = cloneData(order.items);
+        if (typeof updateBadges === "function") updateBadges();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof saveData === "function") saveData();
+        if (typeof window.switchTab === "function") window.switchTab("cart");
+        pushActivityLog("repeat", pickLanguageText(currentUiLanguage(), `تم تحميل الطلب ${orderRef} من جديد في السلة.`, `Commande ${orderRef} rechargee dans le panier.`, `Loaded repeat order ${orderRef} into cart.`));
+        toast(currentLanguageText("تم تحميل الطلب من جديد في السلة.", "Commande rechargee dans le panier.", "Order loaded back into cart."));
+    }
+
+    async function startVoiceRecording() {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+            toast(currentLanguageText("تسجيل الصوت غير مدعوم على هذا الجهاز.", "L'enregistrement vocal n'est pas pris en charge sur cet appareil.", "Voice recording is not supported on this device."));
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            state.audioChunks = [];
+            recorder.ondataavailable = (event) => {
+                if (event.data?.size) state.audioChunks.push(event.data);
+            };
+            recorder.onstop = () => {
+                const blob = new Blob(state.audioChunks, { type: recorder.mimeType || "audio/webm" });
+                setVoiceNoteFromBlob(blob, pickLanguageText(currentUiLanguage(), `ملاحظة صوتية مسجلة (${Math.max(1, Math.round(blob.size / 1024))} KB)`, `Note vocale enregistree (${Math.max(1, Math.round(blob.size / 1024))} KB)`, `Recorded voice note (${Math.max(1, Math.round(blob.size / 1024))} KB)`));
+                stream.getTracks().forEach((track) => track.stop());
+            };
+            recorder.start();
+            state.mediaRecorder = recorder;
+            dom.voiceStatus.textContent = currentLanguageText("تسجيل", "REC", "REC");
+            dom.voiceStatus.className = "px-3 py-1 rounded-full bg-red-500/10 text-red-300 text-[10px] font-black";
+            dom.voiceNote.textContent = currentLanguageText("التسجيل قاعد يصير...", "Enregistrement en cours...", "Recording in progress...");
+        } catch {
+            toast(currentLanguageText("تم حظر الوصول للميكرو.", "Acces micro bloque.", "Microphone access was blocked."));
+        }
+    }
+
+    function stopVoiceRecording() {
+        if (state.mediaRecorder && state.mediaRecorder.state !== "inactive") {
+            state.mediaRecorder.stop();
+            state.mediaRecorder = null;
+        }
+    }
+
+    function renderAlerts(product) {
+        if (!dom.insightsCard || !dom.alerts || !dom.deliveryEstimate || !dom.riskBadge) return;
+
+        const alerts = (Array.isArray(product?.alerts) ? product.alerts : []).filter((alert) => {
+            const text = String(alert?.text || "");
+            return !/affiliate api|السعر exact|exact|manual quote|التسعيرة اليدوية/i.test(text);
+        });
+        const hasInsights = Boolean(product) || alerts.length > 0;
+        dom.insightsCard.classList.toggle("hidden", !hasInsights);
+        if (!hasInsights) return;
+
+        dom.deliveryEstimate.textContent = `التوصيل: ${product?.deliveryEstimate || "غير متوفر"}`;
+
+        const restrictionText = getRestrictionSummary(product);
+        dom.riskBadge.textContent = restrictionText || "تحذير";
+        dom.riskBadge.classList.toggle("hidden", !restrictionText);
+        dom.riskBadge.className = `px-3 py-1 rounded-full text-[10px] font-black ${
+            product?.restrictions?.banned
+                ? "bg-red-500/10 text-red-300"
+                : product?.restrictions?.restricted
+                    ? "bg-amber-400/10 text-amber-300"
+                    : "bg-emerald-500/10 text-emerald-300"
+        }`;
+
+        const renderedAlerts = [];
+        if (alerts.length) {
+            alerts.forEach((alert) => {
+                const tone =
+                    alert.level === "danger"
+                        ? "border-red-500/30 bg-red-500/10 text-red-200"
+                        : alert.level === "warning"
+                            ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+                            : "border-blue-500/30 bg-blue-500/10 text-blue-100";
+                renderedAlerts.push(`
+                    <div class="rounded-2xl border ${tone} p-3 text-[10px] md:text-xs font-bold leading-relaxed">
+                        ${escapeHtml(alert.text)}
+                    </div>
+                `);
+            });
+        } else {
+            renderedAlerts.push(`
+                <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[10px] md:text-xs font-bold text-emerald-100 leading-relaxed">
+                    المنتج ظاهر مبدئيًا مقبول للطلب، وإذا تحب نراجعولك التفاصيل يدويًا إحنا موجودين.
+                </div>
+            `);
+        }
+
+        dom.alerts.innerHTML = renderedAlerts.join("");
+    }
+
+    function renderRestrictionBanner(product) {
+        if (!dom.bannedError || !dom.bannedErrorText) return;
+        if (!product?.restrictions?.banned && !product?.restrictions?.restricted) {
+            dom.bannedError.classList.add("hidden");
+            return;
+        }
+
+        const text = product.restrictions.banned
+            ? "عذراً، المنتج هذا عندو خطر حجز كبير في تونس. اطلب تسعيرة يدوية قبل التأكيد."
+            : "ملاحظة: المنتج هذا ينجم يحتاج مراجعة أو تصريح قبل ما نكملوه.";
+        dom.bannedErrorText.textContent = text;
+        dom.bannedError.classList.remove("hidden");
+    }
+
+    function renderPricing() {
+        const pricing = calculatePricingData();
+
+        if (dom.tndResult) {
+            dom.tndResult.innerHTML = `${pricing.finalTnd.toFixed(3)} <span class="text-base md:text-xl text-amber-400/50">TND</span>`;
+        }
+        if (dom.rateBadge) {
+            dom.rateBadge.textContent = pricing.subtotalUsd > 0 ? `سعر الصرف: ${pricing.rate.toFixed(3)}` : "--";
+        }
+        if (dom.liveRateDisplay) {
+            dom.liveRateDisplay.textContent = `1 USD ≈ ${pricing.rate.toFixed(3)} TND`;
+        }
+        if (dom.previewPrice) {
+            const previewPriceText = getPreviewPriceText(state.currentProduct) || (state.currentProduct?.priceUnavailable ? "تسعيرة يدوية" : "");
+            dom.previewPrice.textContent = previewPriceText;
+            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
+        }
+        if (dom.quickOrderBtn) {
+            dom.quickOrderBtn.disabled = pricing.finalTnd <= 0;
+            dom.quickOrderBtn.classList.toggle("opacity-60", pricing.finalTnd <= 0);
+            dom.quickOrderBtn.classList.toggle("cursor-not-allowed", pricing.finalTnd <= 0);
+        }
+
+        renderBreakdown(pricing);
+        renderBudgetPlanner(pricing);
+        renderQuoteComparison(state.currentProduct);
+        renderResellerMode();
+        return pricing;
+    }
+
+    function renderPreview(product, options = {}) {
+        const resetSelection = Boolean(options.resetSelection);
+        if (resetSelection) {
+            state.baseProduct = cloneData(product);
+            state.selectedVariants = {};
+            state.activeVariantOffer = null;
+        }
+        state.currentProduct = product;
+        updateSpecsGuidance(getBaseProduct() || product);
+        if (!dom.previewCard) return;
+        const previewDescriptionNode = ensurePreviewDescriptionNode();
+        const currentLang = currentUiLanguage();
+
+        const pricing = calculatePricingData();
+        const sourceKey = String(product?.source || "scrape").toLowerCase();
+        const hasShippingValue = product?.shipping != null && product.shipping !== "" && Number.isFinite(Number(product.shipping));
+        const hasDeliveryValue = Boolean(String(product?.deliveryEstimate || "").trim());
+        const hasRatingValue = Number(product?.rating || 0) > 0;
+        const hasReviewValue = Number(product?.reviewCount || 0) > 0;
+        const hasSoldValue = Number(product?.soldCount || 0) > 0;
+        const sourceLabelMap = {
+            ar: {
+                "api+scrape": "بيانات مؤكدة",
+                "scrape": "جلب مباشر",
+                "partial-fallback": "بيانات جزئية",
+                "api-fallback": "بيانات الكاتالوج"
+            },
+            fr: {
+                "api+scrape": "Donnees verifiees",
+                "scrape": "Capture live",
+                "partial-fallback": "Donnees partielles",
+                "api-fallback": "Catalogue"
+            },
+            en: {
+                "api+scrape": "Verified Data",
+                "scrape": "Live Capture",
+                "partial-fallback": "Partial Data",
+                "api-fallback": "Catalog Data"
+            }
+        };
+        const sourceUiMap = {
+            "api+scrape": { label: sourceLabelMap[currentLang]["api+scrape"], classes: "runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20" },
+            "scrape": { label: sourceLabelMap[currentLang]["scrape"], classes: "runtime-preview-chip bg-sky-500/10 text-sky-300 border-sky-500/20" },
+            "partial-fallback": { label: sourceLabelMap[currentLang]["partial-fallback"], classes: "runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20" },
+            "api-fallback": { label: sourceLabelMap[currentLang]["api-fallback"], classes: "runtime-preview-chip bg-violet-500/10 text-violet-200 border-violet-500/20" }
+        };
+        const sourceUi = sourceUiMap[sourceKey] || {
+            label: String(product?.source || "scrape").replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+            classes: "runtime-preview-chip bg-white/5 text-slate-200 border-white/10"
+        };
+        const emptyDescription = currentLang === "ar"
+            ? "ما لقيناش وصف واضح للمنتج."
+            : (currentLang === "fr" ? "La description n'est pas disponible pour le moment." : "Description is not available yet.");
+        const metaLabel = product?.manualQuoteRecommended
+            ? rt("preview_review")
+            : rt("preview_ready");
+
+        if (dom.previewSkeleton) {
+            dom.previewSkeleton.classList.add("hidden");
+        }
+        dom.previewCard.classList.remove("hidden");
+        if (dom.previewImage) {
+            dom.previewImage.src = product.image || "https://placehold.co/120x120/0f172a/f8fafc?text=AX";
+        }
+        if (dom.previewTitle) {
+            const fullTitle = product.title || "منتج AliExpress";
+            dom.previewTitle.textContent = buildDisplayProductTitle(fullTitle);
+            dom.previewTitle.title = fullTitle;
+        }
+        if (dom.previewMeta) {
+            dom.previewMeta.textContent = metaLabel;
+            dom.previewMeta.className = `runtime-preview-chip ${
+                product?.manualQuoteRecommended
+                    ? "bg-amber-400/10 text-amber-300 border-amber-400/20"
+                    : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+            }`;
+        }
+        if (dom.previewPrice) {
+            const previewPriceText = getPreviewPriceText(product) || (product?.priceUnavailable ? "تسعيرة يدوية" : "");
+            dom.previewPrice.textContent = previewPriceText;
+            dom.previewPrice.classList.toggle("hidden", !previewPriceText);
+        }
+        if (dom.previewLink) {
+            dom.previewLink.href = product.url || "#";
+        }
+        if (dom.previewSource) {
+            dom.previewSource.textContent = sourceUi.label;
+            dom.previewSource.className = sourceUi.classes;
+        }
+        if (dom.previewTrust) {
+            const trust = product?.trustScore || null;
+            const hasTrustValue = Boolean(trust && Number.isFinite(Number(trust.score)));
+            const trustScore = hasTrustValue ? Number(trust.score) : 0;
+            const trustLabel = currentLang === "ar"
+                ? `ثقة ${trustScore}/100`
+                : (currentLang === "fr" ? `Confiance ${trustScore}/100` : `Trust ${trustScore}/100`);
+            dom.previewTrust.textContent = trustLabel;
+            dom.previewTrust.className = `runtime-preview-chip ${
+                trustScore >= 80
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                    : trustScore >= 65
+                        ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                        : "bg-amber-400/10 text-amber-300 border-amber-400/20"
+            }`;
+            dom.previewTrust.classList.toggle("hidden", !hasTrustValue);
+        }
+        if (dom.previewSold) {
+            const soldLabel = currentLang === "ar"
+                ? `${formatCompactCount(product?.soldCount || 0)} مبيعات`
+                : (currentLang === "fr" ? `${formatCompactCount(product?.soldCount || 0)} ventes` : `${formatCompactCount(product?.soldCount || 0)} sold`);
+            dom.previewSold.textContent = soldLabel;
+            dom.previewSold.classList.toggle("hidden", !hasSoldValue);
+        }
+        if (dom.previewRisk) {
+            let riskLabel = "";
+            let riskClass = "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+            if (product?.restrictions?.banned) {
+                riskLabel = currentLang === "ar" ? "خطر مرتفع" : (currentLang === "fr" ? "Risque eleve" : "High risk");
+                riskClass = "bg-red-500/10 text-red-300 border-red-500/20";
+            } else if (product?.restrictions?.restricted || product?.manualQuoteRecommended) {
+                riskLabel = currentLang === "ar" ? "راجع قبل الطلب" : (currentLang === "fr" ? "Verifier avant" : "Review first");
+                riskClass = "bg-amber-400/10 text-amber-300 border-amber-400/20";
+            }
+            dom.previewRisk.textContent = riskLabel;
+            dom.previewRisk.className = `runtime-preview-chip ${riskClass}`;
+            dom.previewRisk.classList.toggle("hidden", !riskLabel);
+        }
+        if (dom.previewShipping) {
+            dom.previewShipping.textContent = hasShippingValue
+                ? (Number(product.shipping) === 0 ? rt("shipping_free") : getShippingLabel(product.shipping))
+                : rt("reviews_na");
+        }
+        if (dom.previewDelivery) {
+            dom.previewDelivery.textContent = hasDeliveryValue ? product.deliveryEstimate : rt("reviews_na");
+        }
+        if (dom.previewRating) {
+            dom.previewRating.textContent = hasRatingValue ? Number(product.rating || 0).toFixed(1) : rt("rating_na");
+        }
+        if (dom.previewReviews) {
+            dom.previewReviews.textContent = hasReviewValue ? formatCompactCount(product.reviewCount || 0) : rt("reviews_na");
+        }
+        if (previewDescriptionNode) {
+            const descriptionText = String(product.description || "").trim();
+            previewDescriptionNode.textContent = descriptionText;
+            previewDescriptionNode.title = descriptionText;
+            previewDescriptionNode.classList.toggle("hidden", !descriptionText);
+        }
+        renderVariantSummary();
+
+        renderAlerts(product);
+        renderRestrictionBanner(product);
+        renderSellerTrust(product);
+        renderVariants(getBaseProduct() || product);
+        renderCustomsAdvisor(product);
+        renderQuoteComparison(product);
+        checkPriceAlerts(product);
+    }
+
+    function scheduleAutoPreview(delay = 700) {
+        if (!dom.calcLink) return;
+        const raw = String(dom.calcLink.value || "").trim();
+        if (!isAliExpressUrl(raw)) {
+            if (state.autoPreviewTimer) window.clearTimeout(state.autoPreviewTimer);
+            return;
+        }
+        if (raw === state.lastAutoPreviewUrl && state.currentProduct?.url === raw) return;
+        if (state.autoPreviewTimer) window.clearTimeout(state.autoPreviewTimer);
+        state.autoPreviewTimer = window.setTimeout(() => {
+            if (dom.scrapeBtn?.disabled) return;
+            state.lastAutoPreviewUrl = raw;
+            scrapeProduct();
+        }, delay);
+    }
+
+    function setError(message = "") {
+        if (!dom.scrapeError) return;
+        dom.scrapeError.textContent = message;
+        dom.scrapeError.classList.toggle("hidden", !message);
+        if (message && dom.previewSkeleton) {
+            dom.previewSkeleton.classList.add("hidden");
+        }
+    }
+
+    function setLoading(isLoading) {
+        if (dom.scrapeBtn) {
+            dom.scrapeBtn.disabled = isLoading;
+            dom.scrapeBtn.classList.toggle("opacity-70", isLoading);
+            dom.scrapeBtn.classList.toggle("cursor-not-allowed", isLoading);
+        }
+        if (dom.scrapeLoader) {
+            dom.scrapeLoader.classList.toggle("hidden", !isLoading);
+        }
+        if (dom.previewSkeleton) {
+            dom.previewSkeleton.classList.toggle("hidden", !isLoading);
+        }
+        if (isLoading && dom.previewCard) {
+            dom.previewCard.classList.add("hidden");
+        }
+        if (!isLoading && dom.calcLink) {
+            state.lastAutoPreviewUrl = String(dom.calcLink.value || "").trim();
+        }
+    }
+
+    async function loadLiveRate() {
+        state.liveRate = FX_FALLBACK_RATE;
+        if (dom.liveRateDisplay) {
+            dom.liveRateDisplay.textContent = `1 USD ≈ ${FX_FALLBACK_RATE.toFixed(3)} TND`;
+        }
+        if (dom.rateBadge) {
+            dom.rateBadge.textContent = `سعر الصرف: ${FX_FALLBACK_RATE.toFixed(3)}`;
+        }
+        renderPricing();
+        renderAccountStats();
+    }
+
+    async function scrapeProduct() {
+        const url = dom.calcLink?.value.trim() || "";
+        if (!isAliExpressUrl(url)) {
+            const message = currentLanguageText("يرجى إدخال رابط AliExpress صحيح", "Veuillez entrer un lien AliExpress valide", "Please enter a valid AliExpress link");
+            setError(message);
+            toast(message);
+            return;
+        }
+
+        setError("");
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/product?url=${encodeURIComponent(url)}`, {
+                cache: "no-store",
+                headers: {
+                    "cache-control": "no-cache"
+                }
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || currentLanguageText("فشل الجلب التلقائي، حاول مرة أخرى", "Le chargement automatique a echoue, reessayez", "Automatic fetch failed, please try again"));
+            }
+
+            state.baseProduct = cloneData(data);
+            state.currentProduct = cloneData(data);
+            state.activeVariantOffer = null;
+            incrementStat("fetches");
+            syncProductInputs(state.currentProduct);
+            renderPreview(state.currentProduct, { resetSelection: true });
+            renderPricing();
+            saveRecentLink(data);
+            pushActivityLog("fetch", data.title ? pickLanguageText(currentUiLanguage(), `تم جلب ${data.title}`, `${data.title} recupere`, `Fetched ${data.title}`) : currentLanguageText("تم جلب بيانات منتج AliExpress.", "Donnees produit AliExpress recuperees.", "Fetched AliExpress product data."));
+            if (data.priceUnavailable) {
+                setError("");
+            } else {
+                toast(data.manualQuoteRecommended ? currentLanguageText("تم الجلب. ننصحك بمراجعة يدوية قبل التأكيد.", "Produit charge. Nous conseillons une revue manuelle avant validation.", "Product fetched. We recommend a manual review before checkout.") : currentLanguageText("تم جلب البيانات بنجاح!", "Donnees chargees avec succes !", "Product data fetched successfully!"));
+            }
+        } catch (error) {
+            const message = error.message || currentLanguageText("خطأ في الاتصال بسيرفر الجلب", "Erreur de connexion au serveur de collecte", "Connection error with the fetch server");
+            setError(message);
+            toast(message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function buildCustomerSummaryLines() {
+        const prefs = getAccountPrefs();
+        const lines = [];
+        const contactMethodLabel = prefs.contactMethod === "call"
+            ? currentLanguageText("مكالمة", "Appel", "Call")
+            : (prefs.contactMethod === "message" || prefs.contactMethod === "sms")
+                ? currentLanguageText("SMS", "SMS", "SMS")
+                : currentLanguageText("واتساب", "WhatsApp", "WhatsApp");
+        if (prefs.phone) lines.push(`${currentLanguageText("الهاتف", "Telephone", "Phone")}: ${prefs.phone}`);
+        if (prefs.city) lines.push(`${currentLanguageText("المدينة", "Ville", "City")}: ${prefs.city}`);
+        if (prefs.address) lines.push(`${currentLanguageText("العنوان", "Adresse", "Address")}: ${prefs.address}`);
+        if (prefs.contactMethod) lines.push(`${currentLanguageText("طريقة التواصل", "Mode de contact", "Contact Method")}: ${contactMethodLabel}`);
+        return lines;
+    }
+
+    function buildManualQuoteMessage() {
+        const pricing = calculatePricingData();
+        const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
+        const title = dom.calcName?.value.trim() || state.currentProduct?.title || currentLanguageText("منتج من AliExpress", "Produit AliExpress", "AliExpress Product");
+        const note = getSpecsValueText(state.currentProduct);
+        const restrictions = getRestrictionSummary(state.currentProduct);
+
+        return [
+            currentLanguageText("سلام، نحب تسعيرة يدوية للمنتج هذا:", "Bonjour, je veux un devis manuel pour ce produit :", "Hello, I would like a manual quote for this product:"),
+            `${currentLanguageText("المنتج", "Produit", "Product")}: ${title}`,
+            `${currentLanguageText("الرابط", "Lien", "Link")}: ${link || currentLanguageText("غير متوفر", "Indisponible", "Not available")}`,
+            `${currentLanguageText("السعر", "Prix", "Price")}: ${formatUsd(pricing.productUsd)}`,
+            `${currentLanguageText("الشحن", "Livraison", "Shipping")}: ${pricing.shippingUsd === 0 ? rt("shipping_free") : formatUsd(pricing.shippingUsd)}`,
+            `${currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee")}: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
+            `${currentLanguageText("الإجمالي النهائي", "Total final", "Final Total")}: ${formatTnd(pricing.finalTnd)}`,
+            `${currentLanguageText("المواصفات", "Specifications", "Specs")}: ${note}`,
+            restrictions ? `${currentLanguageText("ملاحظة", "Note", "Note")}: ${restrictions}` : ""
+        ].filter(Boolean).join("\n");
+    }
+
+    function openWhatsAppMessage(message) {
+        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    }
+
+    function sendManualQuote() {
+        const link = dom.calcLink?.value.trim() || "";
+        if (!link && !dom.calcName?.value.trim()) {
+            toast(currentLanguageText("حط الرابط أو اسم المنتج أولاً", "Ajoutez d'abord le lien ou le nom du produit.", "Add the link or product name first."));
+            return;
+        }
+        incrementStat("manualQuotes");
+        saveRecentLink(state.currentProduct || { url: link, title: dom.calcName?.value.trim() || currentLanguageText("منتج AliExpress", "Produit AliExpress", "AliExpress product") });
+        pushActivityLog("quote", currentLanguageText("تم تجهيز طلب تسعيرة يدوية.", "Demande de devis manuel preparee.", "Prepared a manual quote request."));
+        openWhatsAppMessage([buildManualQuoteMessage()].concat(buildCustomerSummaryLines()).join("\n"));
+    }
+
+    function quickOrderFromForm() {
+        const pricing = calculatePricingData();
+        if (pricing.finalTnd <= 0) {
+            toast(currentLanguageText("كمّل بيانات المنتج أولاً", "Completez d'abord les infos du produit.", "Complete the product details first."));
+            return;
+        }
+
+        const title = dom.calcName?.value.trim() || state.currentProduct?.title || currentLanguageText("منتج من AliExpress", "Produit AliExpress", "AliExpress Product");
+        const note = getSpecsValueText(state.currentProduct);
+        const link = dom.calcLink?.value.trim() || state.currentProduct?.url || "";
+        const delivery = state.currentProduct?.deliveryEstimate || currentLanguageText("غير متوفر", "Indisponible", "Not available");
+        const shippingText = pricing.shippingUsd === 0 ? rt("shipping_free") : formatUsd(pricing.shippingUsd);
+
+        const message = [
+            currentLanguageText("سلام، نحب نطلب المنتج هذا:", "Bonjour, je veux commander ce produit :", "Hello, I want to order this product:"),
+            `${currentLanguageText("المنتج", "Produit", "Product")}: ${title}`,
+            `${currentLanguageText("الرابط", "Lien", "Link")}: ${link || currentLanguageText("غير متوفر", "Indisponible", "Not available")}`,
+            `${currentLanguageText("سعر المنتج", "Prix produit", "Product Price")}: ${formatUsd(pricing.productUsd)}`,
+            `${currentLanguageText("الشحن", "Livraison", "Shipping")}: ${shippingText}`,
+            `${currentLanguageText("عمولة الخدمة", "Frais de service", "Service Fee")}: ${getServiceFeeDisplayText(pricing, state.currentProduct)}`,
+            `${currentLanguageText("الإجمالي النهائي", "Total final", "Final Total")}: ${formatTnd(pricing.finalTnd)}`,
+            `${currentLanguageText("التوصيل المتوقع", "Livraison estimee", "Estimated Delivery")}: ${delivery}`,
+            `${currentLanguageText("المواصفات", "Specifications", "Specs")}: ${note}`
+        ].join("\n");
+
+        saveRecentLink(state.currentProduct || { url: link, title });
+        pushActivityLog("quick-order", pickLanguageText(currentUiLanguage(), `تم تجهيز طلب سريع لـ ${title}.`, `Commande rapide preparee pour ${title}.`, `Prepared quick order for ${title}.`));
+        openWhatsAppMessage([message].concat(buildCustomerSummaryLines()).join("\n"));
+    }
+
+    function renderSavedPacks() {
+        if (!dom.savedPacks || !dom.packCount || !dom.savePackBtn) return;
+        const packs = Array.isArray(state.savedPacks) ? state.savedPacks : [];
+        dom.packCount.textContent = `${packs.length} ${pickLanguageText(currentUiLanguage(), packs.length === 1 ? "تجميعة" : "تجميعات", packs.length === 1 ? "pack" : "packs", packs.length === 1 ? "pack" : "packs")}`;
+
+        const cartItems = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        dom.savePackBtn.disabled = cartItems.length === 0;
+        dom.savePackBtn.classList.toggle("opacity-60", cartItems.length === 0);
+        dom.savePackBtn.classList.toggle("cursor-not-allowed", cartItems.length === 0);
+
+        if (!packs.length) {
+            dom.savedPacks.innerHTML = `<div class="text-[10px] text-slate-500 italic">${escapeHtml(currentLanguageText("ما فماش تجميعات محفوظة حتى الآن.", "Aucun pack enregistre pour le moment.", "No saved packs yet."))}</div>`;
+            return;
+        }
+
+        dom.savedPacks.innerHTML = packs.map((pack) => `
+            <div class="rounded-2xl border border-white/5 bg-black/20 p-4 space-y-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-black text-white">${escapeHtml(pack.name || currentLanguageText("تجميعة محفوظة", "Pack enregistre", "Saved Pack"))}</div>
+                        <div class="text-[9px] text-slate-500 font-bold">${escapeHtml(pack.itemCount || 0)} ${pickLanguageText(currentUiLanguage(), "عنصر", "article(s)", "items")} • ${escapeHtml(formatTnd(pack.total || 0))} • ${escapeHtml(formatDateLabel(pack.createdAt))}</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" data-pack-load="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[9px] font-black hover:bg-emerald-400 transition-colors">${pickLanguageText(currentUiLanguage(), "تحميل", "Charger", "Load")}</button>
+                        <button type="button" data-pack-delete="${escapeHtml(pack.id)}" class="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[9px] font-black hover:bg-red-500/20 transition-colors">${pickLanguageText(currentUiLanguage(), "حذف", "Supprimer", "Delete")}</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    ${(Array.isArray(pack.items) ? pack.items.slice(0, 3) : []).map((item) => `
+                        <span class="px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-[9px] font-black text-slate-200">
+                            ${escapeHtml(item.name || currentLanguageText("عنصر", "Article", "Item"))}
+                        </span>
+                    `).join("")}
+                    ${(Array.isArray(pack.items) && pack.items.length > 3) ? `<span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-slate-400">+${pack.items.length - 3} ${pickLanguageText(currentUiLanguage(), "أكثر", "plus", "more")}</span>` : ""}
+                </div>
+            </div>
+        `).join("");
+    }
+
+    function saveCurrentPack() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        if (!items.length) {
+            toast(currentLanguageText("السلة فارغة، ما نجمناش نحفظو pack.", "Le panier est vide, impossible d'enregistrer un pack.", "The cart is empty, so the pack could not be saved."));
+            return;
+        }
+
+        const packName = (dom.packName?.value || "").trim() || `Pack ${formatDateLabel(new Date())}`;
+        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
+        const packs = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((pack) => pack.name !== packName);
+        packs.unshift({
+            id: `${Date.now()}`,
+            name: packName,
+            createdAt: new Date().toISOString(),
+            itemCount: items.reduce((sum, item) => sum + Number(item.qty || 1), 0),
+            total,
+            items: cloneData(items)
+        });
+        saveSavedPacks(packs);
+        if (dom.packName) dom.packName.value = "";
+        pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم حفظ التجميعة ${packName}.`, `Pack ${packName} enregistre.`, `Saved pack ${packName}.`));
+        toast(currentLanguageText("تم حفظ الـ pack بنجاح.", "Pack enregistre avec succes.", "Pack saved successfully."));
+    }
+
+    function loadSavedPack(id) {
+        const pack = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
+        if (!pack || typeof cart === "undefined" || !Array.isArray(cart)) return;
+        cart = cloneData(pack.items || []);
+        if (typeof updateBadges === "function") updateBadges();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof saveData === "function") saveData();
+        if (typeof window.switchTab === "function") window.switchTab("cart");
+        pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم تحميل التجميعة ${pack.name}.`, `Pack ${pack.name} charge.`, `Loaded pack ${pack.name}.`));
+        toast(currentLanguageText("تم تحميل الـ pack إلى السلة.", "Pack charge dans le panier.", "Pack loaded into cart."));
+    }
+
+    function deleteSavedPack(id) {
+        const deleted = (Array.isArray(state.savedPacks) ? state.savedPacks : []).find((item) => String(item.id) === String(id));
+        const next = (Array.isArray(state.savedPacks) ? state.savedPacks : []).filter((item) => String(item.id) !== String(id));
+        saveSavedPacks(next);
+        if (deleted) {
+            pushActivityLog("pack", pickLanguageText(currentUiLanguage(), `تم حذف التجميعة ${deleted.name}.`, `Pack ${deleted.name} supprime.`, `Deleted pack ${deleted.name}.`));
+        }
+        toast(currentLanguageText("تم حذف الـ pack.", "Pack supprime.", "Pack deleted."));
+    }
+
+    function downloadBlob(filename, content, type) {
+        const blob = new Blob([content], { type });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.URL.revokeObjectURL(url);
+    }
+
+    function downloadQuoteDocument() {
+        const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+        if (!items.length) {
+            toast(currentLanguageText("السلة فارغة، ما فماش quote باش نخرجوها.", "Le panier est vide, aucun devis a exporter.", "The cart is empty, so there is no quote to export."));
+            return;
+        }
+
+        const paymentSelect = document.getElementById("payment-method");
+        const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || currentLanguageText("غير محدد", "Non defini", "Not selected");
+        const quoteRef = `QT-${Date.now().toString().slice(-8)}`;
+        const total = items.reduce((sum, item) => sum + (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1)), 0);
+        const customerLines = buildCustomerSummaryLines();
+        const rows = items.map((item, index) => `
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${index + 1}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.name || currentLanguageText("عنصر", "Article", "Item"))}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.note || "-")}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${Number(item.qty || 1)}</td>
+                <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1)))}</td>
+            </tr>
+        `).join("");
+
+        const html = `<!DOCTYPE html>
+<html lang="${escapeHtml(currentUiLanguage())}">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(currentLanguageText("عرض سعر Alexpress", "Devis Alexpress", "Alexpress Quote"))} ${quoteRef}</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+.hero { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
+.badge { display:inline-block; background:#fef3c7; color:#92400e; padding:6px 12px; border-radius:999px; font-weight:700; font-size:12px; }
+.card { border:1px solid #e2e8f0; border-radius:16px; padding:20px; margin-bottom:20px; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { text-align:left; padding:10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+.muted { color:#64748b; font-size:12px; }
+</style>
+</head>
+<body>
+    <div class="hero">
+        <div>
+            <div class="badge">${escapeHtml(currentLanguageText("عرض سعر Alexpress Tunisie", "Devis Alexpress Tunisie", "Alexpress Tunisie Quote"))}</div>
+            <h1 style="margin:14px 0 8px;">${escapeHtml(currentLanguageText("عرض سعر", "Devis", "Quote"))} ${quoteRef}</h1>
+            <div class="muted">${escapeHtml(currentLanguageText("تم الإنشاء", "Genere", "Generated"))} ${escapeHtml(new Date().toLocaleString("en-GB"))}</div>
+        </div>
+        <div style="text-align:right;">
+            <div><strong>${escapeHtml(currentLanguageText("الإجمالي", "Total", "Total"))}:</strong> ${escapeHtml(formatTnd(total))}</div>
+            <div><strong>${escapeHtml(currentLanguageText("الدفع", "Paiement", "Payment"))}:</strong> ${escapeHtml(paymentLabel)}</div>
+            <div><strong>${escapeHtml(currentLanguageText("العناصر", "Articles", "Items"))}:</strong> ${items.length}</div>
+        </div>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;">${escapeHtml(currentLanguageText("ملخص الحريف", "Resume client", "Customer Summary"))}</h3>
+        <div class="muted">${customerLines.length ? customerLines.map((line) => escapeHtml(line)).join("<br>") : escapeHtml(currentLanguageText("لا توجد بيانات حريف محفوظة بعد.", "Aucune info client enregistree pour le moment.", "No customer info saved yet."))}</div>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;">${escapeHtml(currentLanguageText("تفاصيل الطلب", "Lignes de commande", "Order Lines"))}</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>${escapeHtml(currentLanguageText("المنتج", "Produit", "Product"))}</th>
+                    <th>${escapeHtml(currentLanguageText("المواصفات", "Notes", "Notes"))}</th>
+                    <th>${escapeHtml(currentLanguageText("الكمية", "Qte", "Qty"))}</th>
+                    <th>${escapeHtml(currentLanguageText("الإجمالي", "Total", "Total"))}</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>
+</body>
+</html>`;
+
+        const quoteWindow = window.open("", "_blank", "noopener,noreferrer");
+        if (!quoteWindow) {
+            downloadBlob(`alexpress-quote-${quoteRef}.html`, html, "text/html;charset=utf-8");
+            toast(currentLanguageText("فتح الطباعة ما نجحش، هبطنا quote HTML بدلها.", "L'impression ne s'est pas ouverte, un fichier HTML a ete telecharge a la place.", "Print preview failed, so an HTML quote was downloaded instead."));
+            return;
+        }
+        quoteWindow.document.open();
+        quoteWindow.document.write(html);
+        quoteWindow.document.close();
+        quoteWindow.focus();
+        window.setTimeout(() => quoteWindow.print(), 300);
+    }
+
+    function exportOrdersCsv() {
+        const orders = typeof orderHistory !== "undefined" && Array.isArray(orderHistory) ? orderHistory : [];
+        if (!orders.length) {
+            toast(currentLanguageText("ما فماش طلبات باش نصدرهم.", "Aucune commande a exporter.", "There are no orders to export."));
+            return;
+        }
+
+        const rows = [
+            ["orderRef", "date", "status", "paymentMethod", "totalTnd", "itemsCount", "promoCode", "tracking", "items"]
+        ];
+
+        orders.forEach((order) => {
+            rows.push([
+                order.orderRef || order.id || "",
+                order.date || "",
+                order.status || "pending",
+                order.paymentMethod || "",
+                Number(order.total || 0).toFixed(3),
+                Number(order.itemsCount || (Array.isArray(order.items) ? order.items.length : 0)),
+                order.promoCode || "",
+                order.adminTracking || order.trackingHint || "",
+                Array.isArray(order.items) ? order.items.map((item) => item.name).join(" | ") : ""
+            ]);
+        });
+
+        const csv = rows.map((row) => row.map((cell) => {
+            const value = String(cell ?? "");
+            return `"${value.replace(/"/g, '""')}"`;
+        }).join(",")).join("\n");
+
+        downloadBlob(`alexpress-orders-${formatDateLabel(new Date()).replace(/\//g, "-")}.csv`, csv, "text/csv;charset=utf-8");
+        toast(currentLanguageText("تم تصدير orders CSV.", "CSV des commandes exporte.", "Orders CSV exported."));
+    }
+
+    function getCurrentProductMeta() {
+        const pricing = calculatePricingData();
+        return {
+            image: state.currentProduct?.image || "",
+            rating: Number(state.currentProduct?.rating || 0),
+            shippingUsd: pricing.shippingUsd,
+            productUsd: pricing.productUsd,
+            serviceFeeTnd: pricing.serviceFee,
+            serviceFeeDisplay: getServiceFeeDisplayText(pricing, state.currentProduct),
+            finalTnd: pricing.finalTnd,
+            deliveryEstimate: state.currentProduct?.deliveryEstimate || "",
+            alerts: state.currentProduct?.alerts || [],
+            restrictions: state.currentProduct?.restrictions || null,
+            trustScore: state.currentProduct?.trustScore || null,
+            reviewCount: Number(state.currentProduct?.reviewCount || 0),
+            soldCount: Number(state.currentProduct?.soldCount || 0),
+            source: state.currentProduct?.source || "manual",
+            hasOptions: productHasOptions(state.currentProduct)
+        };
+    }
+
+    function patchGetFormData() {
+        if (typeof original.getFormData !== "function") return;
+
+        window._getFormData = function patchedGetFormData() {
+            const item = original.getFormData();
+            if (!item) return item;
+
+            const meta = getCurrentProductMeta();
+            item.image = meta.image;
+            item.rating = meta.rating;
+            item.shippingUsd = meta.shippingUsd;
+            item.productUsd = meta.productUsd;
+            item.serviceFeeTnd = meta.serviceFeeTnd;
+            item.serviceFeeDisplay = meta.serviceFeeDisplay;
+            item.totalWithFee = meta.finalTnd;
+            item.deliveryEstimate = meta.deliveryEstimate;
+            item.alerts = meta.alerts;
+            item.restrictions = meta.restrictions;
+            item.trustScore = meta.trustScore;
+            item.reviewCount = meta.reviewCount;
+            item.soldCount = meta.soldCount;
+            item.source = meta.source;
+            item.hasOptions = meta.hasOptions;
+
+            return item;
+        };
+    }
+
+    function patchRenderWishlist() {
+        if (typeof window.renderWishlist !== "function" || window.renderWishlist.__runtimeWrapped) return;
+
+        const wrapped = function patchedRenderWishlist() {
+            const list = document.getElementById("wishlist-items-list");
+            const items = typeof wishlist !== "undefined" && Array.isArray(wishlist) ? wishlist : [];
+            if (!list) return;
+
+            if (!items.length) {
+                list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${typeof t === "function" ? t("wish_empty") : "Wishlist is empty."}</div>`;
+                return;
+            }
+
+            list.innerHTML = items.map((item) => {
+                const totalTnd = Number(item.totalWithFee || item.tnd || 0);
+                const productUsd = Number(item.productUsd || item.usd || 0);
+                const shippingText = Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0);
+                const imgHtml = item.image
+                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
+                    : `<div class="w-20 h-20 rounded-2xl border border-pink-500/20 bg-black/20 flex items-center justify-center text-pink-300 shrink-0"><i class="fas fa-heart text-lg"></i></div>`;
+
+                return `
+                    <div class="bg-slate-900/40 p-4 rounded-3xl border border-pink-500/15 space-y-4 auto-align shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+                        <div class="flex flex-col md:flex-row gap-4 md:items-start">
+                            ${imgHtml}
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div class="text-sm md:text-base font-black text-white leading-relaxed break-words">${escapeHtml(item.name || "Product")}</div>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black">
+                                    ${item.note ? `<span class="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300">${escapeHtml(item.note)}</span>` : ""}
+                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">${escapeHtml(shippingText)}</span>
+                                </div>
+                                ${item.link && item.link !== "https://" ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-blue-300 hover:text-white transition-colors break-all"><i class="fas fa-up-right-from-square"></i><span>${typeof t === "function" ? t("cart_prod_link") : "Product Link"}</span></a>` : ""}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">USD</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(productUsd)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("total"))}</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatTnd(totalTnd)}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="moveToCartFromWishlist(${Number(item.id || 0)})" class="px-4 py-2 rounded-2xl bg-amber-400 text-black text-[10px] font-black hover:bg-amber-300 transition-colors">${typeof t === "function" ? t("wish_move_cart") : "Move to Cart"}</button>
+                            <button onclick="removeWishlist(${Number(item.id || 0)})" class="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-slate-300 text-[10px] font-black hover:text-red-300 hover:border-red-400/30 transition-colors">${escapeHtml(rt("remove"))}</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        };
+
+        wrapped.__runtimeWrapped = true;
+        window.renderWishlist = wrapped;
+    }
+
+    function buildOrderMessage(items, paymentLabel, finalTotal, orderRef) {
+        const lines = [`🚀 *طلب جديد Alexpress Tunisie*`, ``, `🧾 *المرجع:* ${orderRef}`, `💳 *الدفع:* ${paymentLabel}`, ``];
+
+        items.forEach((item, index) => {
+            lines.push(`📦 *منتج ${index + 1}:* ${item.name}`);
+            lines.push(`🔗 الرابط: ${item.link || "غير متوفر"}`);
+            lines.push(`🔢 الكمية: ${item.qty || 1}`);
+            lines.push(`📝 المواصفات: ${item.note || (item.hasOptions ? "يرجى تحديد اللون / المقاس / الطول المطلوب" : "بدون ملاحظات")}`);
+            lines.push(`💵 سعر المنتج: ${formatUsd(item.productUsd || item.usd || 0)}`);
+            lines.push(`🚚 الشحن: ${Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0)}`);
+            lines.push(`🧰 عمولة الخدمة: ${item.serviceFeeDisplay || (item.hasOptions ? "مشمولة" : formatTnd(item.serviceFeeTnd || 0))}`);
+            lines.push(`💰 الإجمالي: ${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}`);
+            if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
+            if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: خطر ديوانة مرتفع`);
+            else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: يلزم تثبت قبل الطلب`);
+            lines.push(`────────────`);
+        });
+
+        if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
+            lines.push(`🎟️ التخفيض: ${discountType === "percent" ? `${currentDiscount}%` : `${currentDiscount} TND`}`);
+        }
+
+        lines.push(`💵 *TOTAL:* ${formatTnd(finalTotal)}`);
+        lines.push(`📲 نحب تأكيد الطلب والمتابعة.`);
+        return lines.join("\n");
+    }
+
+    function pushOrderHistory(entry) {
+        if (typeof orderHistory === "undefined") return;
+        orderHistory.unshift(entry);
+        if (orderHistory.length > 20) orderHistory.pop();
+    }
+
+    function clearCartState() {
+        if (typeof cart !== "undefined") {
+            cart = [];
+        }
+        if (typeof currentDiscount !== "undefined") currentDiscount = 0;
+        if (typeof discountType !== "undefined") discountType = "";
+        document.getElementById("promo-code")?.setAttribute("value", "");
+        const promoInput = document.getElementById("promo-code");
+        if (promoInput) promoInput.value = "";
+        document.getElementById("promo-message")?.classList.add("hidden");
+        document.getElementById("discount-badge")?.classList.add("hidden");
+        if (typeof updateBadges === "function") updateBadges();
+        if (typeof renderCart === "function") renderCart();
+        if (typeof saveData === "function") saveData();
+    }
+
+    function decodeHtmlEntities(value = "") {
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = String(value || "");
+        return textarea.value;
+    }
+
+    function normalizeOrderLink(value = "") {
+        let link = decodeHtmlEntities(String(value || "").trim());
+        if (!link) return "";
+        link = link
+            .replace(/^https:\/\/https:\/\//i, "https://")
+            .replace(/^http:\/\/https:\/\//i, "https://")
+            .replace(/^https:\/\/http:\/\//i, "http://")
+            .replace(/^http:\/\/http:\/\//i, "http://");
+        return link;
+    }
+
+    function buildCustomerSummaryLines() {
+        const prefs = getAccountPrefs();
+        const contactMethodMap = {
+            whatsapp: "whatsapp",
+            call: "اتصال",
+            message: "SMS",
+            sms: "SMS"
+        };
+        const lines = [];
+        if (prefs.phone) lines.push(`الهاتف: ${prefs.phone}`);
+        if (prefs.city) lines.push(`المدينة: ${prefs.city}`);
+        if (prefs.address) lines.push(`العنوان: ${prefs.address}`);
+        if (prefs.contactMethod) lines.push(`طريقة التواصل: ${contactMethodMap[String(prefs.contactMethod).toLowerCase()] || prefs.contactMethod}`);
+        return lines;
+    }
+
+    function buildOrderMessage(items, paymentLabel, finalTotal, orderRef) {
+        const lines = [
+            `🚀 *طلب جديد Alexpress Tunisie*`,
+            ``,
+            `🧾 *المرجع:* ${orderRef}`,
+            `💳 *الدفع:* ${paymentLabel}`,
+            ``
+        ];
+
+        items.forEach((item, index) => {
+            const cleanLink = normalizeOrderLink(item.link);
+            const specs = item.note || (item.hasOptions ? "يرجى تحديد اللون / المقاس / الطول المطلوب" : "بدون ملاحظات");
+            const shippingText = Number(item.shippingUsd || 0) === 0 ? "شحن مجاني" : formatUsd(item.shippingUsd || 0);
+            const serviceText = item.serviceFeeDisplay || (item.hasOptions ? "مشمولة" : formatTnd(item.serviceFeeTnd || 0));
+            const lineTotal = formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1));
+
+            lines.push(`📦 *منتج ${index + 1}:* ${item.name || "منتج من AliExpress"}`);
+            lines.push(`🔗 الرابط: ${cleanLink || "غير متوفر"}`);
+            lines.push(`🔢 الكمية: ${item.qty || 1}`);
+            lines.push(`📝 المواصفات: ${specs}`);
+            lines.push(`💵 سعر المنتج: ${formatUsd(item.productUsd || item.usd || 0)}`);
+            lines.push(`🚚 الشحن: ${shippingText}`);
+            lines.push(`🧰 عمولة الخدمة: ${serviceText}`);
+            lines.push(`💰 الإجمالي: ${lineTotal}`);
+            if (item.deliveryEstimate) lines.push(`⏱️ التوصيل المتوقع: ${item.deliveryEstimate}`);
+            if (item.restrictions?.banned) lines.push(`⚠️ تنبيه: المنتج هذا فيه خطر ديوانة مرتفع.`);
+            else if (item.restrictions?.restricted) lines.push(`⚠️ تنبيه: المنتج هذا يحتاج تثبّت أو مراجعة قبل الطلب.`);
+            lines.push(`────────────`);
+        });
+
+        if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
+            lines.push(`🎟️ *التخفيض:* ${discountType === "percent" ? `${currentDiscount}%` : `${currentDiscount} TND`}`);
+        }
+
+        lines.push(`💵 *TOTAL:* ${formatTnd(finalTotal)}`);
+        lines.push(`📲 نحب تأكيد الطلب والمتابعة.`);
+        return lines.join("\n");
+    }
+
+    function patchRenderCart() {
+        if (typeof window.renderCart !== "function" || window.renderCart.__runtimeWrapped) return;
+        const wrapped = function patchedRenderCart() {
+            const list = document.getElementById("cart-items-list");
+            const footer = document.getElementById("cart-footer");
+            const totalDisplay = document.getElementById("cart-total-display");
+            const items = typeof cart !== "undefined" && Array.isArray(cart) ? cart : [];
+
+            if (!list || !footer || !totalDisplay) {
+                renderCartInsights();
+                renderBundleDeals();
+                renderSavedPacks();
+                return;
+            }
+
+            if (!items.length) {
+                list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${typeof t === "function" ? t("cart_empty") : "The cart is empty."}</div>`;
+                totalDisplay.textContent = "TND 0.000";
+                footer.classList.add("hidden");
+                renderCartInsights();
+                renderBundleDeals();
+                renderSavedPacks();
+                return;
+            }
+
+            footer.classList.remove("hidden");
+
+            let subtotal = 0;
+            list.innerHTML = items.map((item) => {
+                const qty = Math.max(1, Number(item.qty || 1));
+                const lineTotal = Number(item.totalWithFee || item.tnd || 0) * qty;
+                subtotal += lineTotal;
+                const shippingText = Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0);
+                const ratingText = Number(item.rating || 0) > 0 ? Number(item.rating || 0).toFixed(1) : rt("rating_na");
+                const reviewText = Number(item.reviewCount || 0) > 0 ? formatCompactCount(item.reviewCount || 0) : rt("reviews_na");
+                const imgHtml = item.image
+                    ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name || "Item")}" class="w-20 h-20 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0">`
+                    : `<div class="w-20 h-20 rounded-2xl border border-white/10 bg-black/20 flex items-center justify-center text-slate-500 shrink-0"><i class="fas fa-box text-xl"></i></div>`;
+
+                return `
+                    <div class="bg-slate-900/55 p-4 md:p-5 rounded-3xl border border-white/5 space-y-4 auto-align shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+                        <div class="flex flex-col md:flex-row gap-4 md:items-start">
+                            ${imgHtml}
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div class="text-sm md:text-base font-black text-white leading-relaxed break-words">${escapeHtml(item.name || "Product")}</div>
+                                <div class="flex flex-wrap gap-2 text-[9px] font-black">
+                                    ${item.note ? `<span class="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-300">${escapeHtml(item.note)}</span>` : ""}
+                                    ${item.deliveryEstimate ? `<span class="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300">${escapeHtml(item.deliveryEstimate)}</span>` : ""}
+                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">${escapeHtml(shippingText)}</span>
+                                </div>
+                                ${item.link && item.link !== "https://" ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black text-blue-300 hover:text-white transition-colors break-all"><i class="fas fa-up-right-from-square"></i><span>${typeof t === "function" ? t("prod_link") : "Product Link"}</span></a>` : ""}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">USD</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${formatUsd(item.productUsd || item.usd || 0)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_rating"))}</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(ratingText)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("stat_reviews"))}</div>
+                                <div class="text-sm font-black text-white mt-1" dir="ltr">${escapeHtml(reviewText)}</div>
+                            </div>
+                            <div class="rounded-2xl bg-black/25 border border-white/5 p-3 text-center">
+                                <div class="text-[9px] text-slate-500 font-black uppercase">${escapeHtml(rt("total"))}</div>
+                                <div class="text-sm font-black text-amber-300 mt-1" dir="ltr">${formatTnd(lineTotal)}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 border-t border-white/5 pt-4">
+                            <div class="flex items-center bg-black/40 rounded-2xl px-3 py-2 gap-4 border border-white/5" dir="ltr">
+                                <button onclick="changeQty(${item.id}, -1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">-</button>
+                                <span class="text-xs font-black text-white min-w-[18px] text-center">${qty}</span>
+                                <button onclick="changeQty(${item.id}, 1)" class="text-amber-400 font-black text-sm hover:text-white transition-colors">+</button>
+                            </div>
+                            <button onclick="removeItem(${item.id})" class="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-[10px] font-black hover:bg-red-500/20 transition-colors">${escapeHtml(rt("remove"))}</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            let finalTotal = subtotal;
+            if (typeof currentDiscount !== "undefined" && Number(currentDiscount || 0) > 0) {
+                if (typeof discountType !== "undefined" && discountType === "percent") {
+                    finalTotal = subtotal - (subtotal * (Number(currentDiscount || 0) / 100));
+                } else {
+                    finalTotal = Math.max(0, subtotal - Number(currentDiscount || 0));
+                }
+            }
+
+            totalDisplay.textContent = `TND ${Number(finalTotal || 0).toFixed(3)}`;
+            renderCartInsights();
+            renderBundleDeals();
+            renderSavedPacks();
+        };
+        wrapped.__runtimeWrapped = true;
+        window.renderCart = wrapped;
+    }
+
+    function patchSendOrder() {
+        if (typeof window.sendOrder !== "function") return;
+
+        window.sendOrder = function patchedSendOrder(channel) {
+            if (typeof cart === "undefined" || !Array.isArray(cart) || cart.length === 0) {
+                toast(currentLanguageText("السلة فارغة.. ابدأ بالحساب!", "Le panier est vide. Commencez par calculer un produit.", "The cart is empty. Start by calculating a product."));
+                return;
+            }
+
+            const paymentSelect = document.getElementById("payment-method");
+            const paymentLabel = paymentSelect?.options?.[paymentSelect.selectedIndex]?.text || currentLanguageText("غير محدد", "Non defini", "Not selected");
+            const orderRef = `AX-${Date.now().toString().slice(-8)}`;
+            const dateLocale = currentUiLanguage() === "fr" ? "fr-FR" : (currentUiLanguage() === "en" ? "en-GB" : "ar-TN");
+
+            let subtotal = 0;
+            cart.forEach((item) => {
+                subtotal += (Number(item.totalWithFee || item.tnd || 0) * Number(item.qty || 1));
+            });
+
+            let finalTotal = subtotal;
+            if (typeof currentDiscount !== "undefined" && currentDiscount > 0) {
+                if (typeof discountType !== "undefined" && discountType === "percent") {
+                    finalTotal = subtotal - (subtotal * (currentDiscount / 100));
+                } else {
+                    finalTotal = Math.max(0, subtotal - currentDiscount);
+                }
+            }
+
+            const message = [buildOrderMessage(cart, paymentLabel, finalTotal, orderRef)]
+                .concat(buildCustomerSummaryLines())
+                .join("\n");
+            const referral = getReferralState();
+            const orderEntry = {
+                id: Date.now(),
+                orderRef,
+                date: new Date().toLocaleString(dateLocale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+                total: finalTotal,
+                itemsCount: cart.length,
+                items: JSON.parse(JSON.stringify(cart)),
+                status: "pending",
+                paymentMethod: paymentLabel,
+                trackingHint: currentLanguageText("بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.", "Une fois commande, nous vous enverrons le numero de suivi sur WhatsApp.", "Once we place it, we will send the tracking number on WhatsApp."),
+                adminTracking: "",
+                promoCode: state.activePromoCode || "",
+                customer: getAccountPrefs(),
+                referralCode: referral.code,
+                loyaltyCredit: Math.max(0, Math.round(finalTotal * 0.03))
+            };
+            pushOrderHistory(orderEntry);
+            persistOrderToBackend(orderEntry);
+            pushActivityLog("order", pickLanguageText(currentUiLanguage(), `تم تسجيل طلب جديد ${orderRef}.`, `Nouvelle commande ${orderRef} enregistree.`, `Placed new order ${orderRef}.`));
+            referral.credits = Number(referral.credits || 0) + Number(orderEntry.loyaltyCredit || 0);
+            saveReferralState(referral);
+
+            if (typeof saveData === "function") saveData();
+            if (typeof window.renderHistory === "function") window.renderHistory();
+            if (state.activePromoCode) {
+                markPromoUsed(state.activePromoCode);
+                state.activePromoCode = "";
+            }
+
+            const encoded = encodeURIComponent(message);
+            const urls = {
+                whatsapp: `https://wa.me/${WHATSAPP_NUMBER}?text=${encoded}`,
+                messenger: `https://m.me/alexpresstunisie?text=${encoded}`,
+                instagram: `https://ig.me/m/alexpress.tunisie?text=${encoded}`
+            };
+            window.open(urls[channel] || urls.whatsapp, "_blank", "noopener,noreferrer");
+
+            clearCartState();
+            renderVoiceNote();
+            toast(currentLanguageText("تم تجهيز الطلب وإرساله!", "Commande preparee et envoyee !", "Order prepared and sent!"));
+        };
+    }
+
+    function patchPromoLogic() {
+        window.applyPromo = applyPromoCode;
+    }
+
+    function renderHistoryCard(order) {
+        const status = order.status || "pending";
+        const statusUi = getStatusUi(status);
+        const items = Array.isArray(order.items) ? order.items : [];
+        const trackingText = order.adminTracking || order.trackingHint || currentLanguageText("سيتم إرسال رقم التتبع بعد الشراء.", "Le numero de suivi sera envoye apres l'achat.", "The tracking number will be sent after purchase.");
+        const steps = ["pending", "processing", "shipped", "delivered"];
+
+        const itemsHtml = items.map((item) => `
+            <div class="rounded-2xl border border-white/5 bg-black/20 p-3 space-y-1">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-black text-white">${escapeHtml(item.name || currentLanguageText("منتج", "Produit", "Product"))}</div>
+                        <div class="text-[9px] text-slate-400 break-all">${escapeHtml(item.link || "")}</div>
+                    </div>
+                    <div class="text-[10px] font-black text-amber-400 shrink-0">${formatTnd((item.totalWithFee || item.tnd || 0) * (item.qty || 1))}</div>
+                </div>
+                <div class="flex flex-wrap gap-2 text-[9px] text-slate-400">
+                    <span>${currentLanguageText("الكمية", "Qte", "Qty")}: ${Number(item.qty || 1)}</span>
+                    <span>${Number(item.shippingUsd || 0) === 0 ? rt("shipping_free") : formatUsd(item.shippingUsd || 0)}</span>
+                    ${item.deliveryEstimate ? `<span>${escapeHtml(item.deliveryEstimate)}</span>` : ""}
+                </div>
+            </div>
+        `).join("");
+
+        return `
+            <div class="bg-slate-900/60 rounded-2xl border border-white/5 overflow-hidden">
+                <div class="p-4 flex items-start justify-between gap-4">
+                    <div class="space-y-1 min-w-0">
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-[10px] font-black text-slate-500">#${escapeHtml(order.orderRef || String(order.id || ""))}</span>
+                            <span class="text-[9px] px-2 py-1 rounded-md border ${statusUi.classes} font-bold">${statusUi.label}</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400">${escapeHtml(order.date || "")}</div>
+                        <div class="text-[10px] text-blue-300 font-bold">${escapeHtml(trackingText)}</div>
+                        <div class="flex flex-wrap gap-2 pt-2">
+                            ${steps.map((step, index) => {
+                                const active = steps.indexOf(status) >= index;
+                                return `<span class="text-[8px] px-2 py-1 rounded-full border ${active ? "bg-amber-400/10 text-amber-300 border-amber-400/20" : "bg-white/5 text-slate-500 border-white/5"}">${escapeHtml(getStatusUi(step).label)}</span>`;
+                            }).join("")}
+                        </div>
+                    </div>
+                    <div class="text-left rtl:text-left ltr:text-right shrink-0">
+                        <div class="text-sm font-black text-blue-400" dir="ltr">${formatTnd(order.total || 0)}</div>
+                        <div class="text-[9px] text-slate-500 mt-1">${Number(order.itemsCount || items.length || 0)} ${pickLanguageText(currentUiLanguage(), "منتج", "article(s)", "items")}</div>
+                    </div>
+                </div>
+                <details class="group/details border-t border-white/5">
+                    <summary class="p-3 text-[10px] font-bold text-slate-400 cursor-pointer hover:bg-white/5 transition-colors flex justify-between items-center outline-none select-none">
+                        <span>${currentLanguageText("شوف التفاصيل", "Voir les details", "View Details")}</span>
+                        <i class="fas fa-chevron-down group-open/details:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="p-3 pt-0 space-y-2 pb-4">
+                        ${itemsHtml || `<div class="text-[10px] text-slate-500">${escapeHtml(currentLanguageText("لا توجد تفاصيل عناصر.", "Aucun detail produit.", "No item details."))}</div>`}
+                        ${order.paymentMethod ? `<div class="text-[9px] text-slate-500 mt-3 border-t border-white/5 pt-3"><i class="fas fa-wallet mr-1"></i> ${escapeHtml(currentLanguageText("الدفع", "Paiement", "Payment"))}: <strong class="text-white">${escapeHtml(order.paymentMethod)}</strong></div>` : ""}
+                        <button type="button" data-repeat-order="${escapeHtml(order.orderRef || String(order.id || ""))}" class="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-[9px] font-black hover:bg-blue-500 transition-colors">${pickLanguageText(currentUiLanguage(), "عاود اطلب", "Recommander", "Buy Again")}</button>
+                    </div>
+                </details>
+            </div>
+        `;
+    }
+
+    function patchRenderHistory() {
+        if (!dom.historyList) return;
+
+        window.renderHistory = function patchedRenderHistory() {
+            if (typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
+                dom.historyList.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${escapeHtml(currentLanguageText("لا يوجد سجل طلبات حتى الآن", "Aucun historique de commande pour le moment", "No order history yet"))}</div>`;
+                return;
+            }
+
+            dom.historyList.innerHTML = orderHistory.map(renderHistoryCard).join("");
+            renderTrackingHint();
+            renderAccountStats();
+            renderAdminOrders();
+            renderRepeatOrders();
+        };
+    }
+
+    function renderTrackingHint() {
+        if (!dom.trackResult || typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) return;
+        const latest = orderHistory.slice(0, 3);
+        const hintHtml = latest.map((order) => `
+            <div class="rounded-2xl border border-white/5 bg-slate-900/40 p-3">
+                <div class="text-[10px] font-black text-white">${escapeHtml(order.orderRef || String(order.id || ""))}</div>
+                <div class="text-[9px] text-slate-400 mt-1">${escapeHtml(order.adminTracking || order.trackingHint || currentLanguageText("سيتم إرسال رقم التتبع بعد الشراء.", "Le numero de suivi sera envoye apres l'achat.", "The tracking number will be sent after purchase."))}</div>
+            </div>
+        `).join("");
+
+        let host = document.getElementById("runtime-track-orders");
+        if (!host) {
+            dom.trackResult.insertAdjacentHTML("afterbegin", `<div id="runtime-track-orders" class="mt-6 space-y-3"></div>`);
+            host = document.getElementById("runtime-track-orders");
+        }
+        if (!host) return;
+
+        host.innerHTML = `
+            <div class="space-y-3">
+                <div class="text-[10px] font-black text-slate-400">${escapeHtml(currentLanguageText("آخر الطلبات المسجلة عندك:", "Dernieres commandes enregistrees :", "Latest saved orders:"))}</div>
+                ${hintHtml}
+            </div>`;
+    }
+
+    function patchHistoryFilters() {
+        if (typeof window.renderHistory !== "function" || window.renderHistory.__historyFilterWrapped) return;
+        const originalRenderHistory = window.renderHistory;
+        const wrapped = function patchedHistoryWithFilters() {
+            originalRenderHistory();
+            if (!dom.historyList || typeof orderHistory === "undefined" || !Array.isArray(orderHistory) || orderHistory.length === 0) {
+                renderNotifications();
+                return;
+            }
+
+            const search = String(dom.historySearch?.value || "").trim().toLowerCase();
+            const status = String(dom.historyStatus?.value || "all").trim().toLowerCase();
+            if (!search && status === "all") {
+                renderNotifications();
+                return;
+            }
+
+            const filtered = orderHistory.filter((order) => {
+                const haystack = [
+                    order.orderRef,
+                    order.status,
+                    order.paymentMethod,
+                    ...(Array.isArray(order.items) ? order.items.map((item) => item.name) : [])
+                ].join(" ").toLowerCase();
+                const statusOk = status === "all" || String(order.status || "pending").toLowerCase() === status;
+                const searchOk = !search || haystack.includes(search);
+                return statusOk && searchOk;
+            });
+
+            dom.historyList.innerHTML = filtered.length
+                ? filtered.map(renderHistoryCard).join("")
+                : `<div class="text-center py-12 text-slate-600 text-xs italic">${escapeHtml(currentLanguageText("ما لقيناش طلبات تطابق الفلترة.", "Aucune commande ne correspond aux filtres.", "No matching orders found."))}</div>`;
+            renderNotifications();
+        };
+        wrapped.__historyFilterWrapped = true;
+        window.renderHistory = wrapped;
+    }
+
+    function patchCollectionActions() {
+        const wrappers = [
+            "addItemToCart",
+            "addItemToWishlist",
+            "removeItem",
+            "removeWishlist",
+            "moveToCartFromWishlist",
+            "changeQty"
+        ];
+
+        wrappers.forEach((name) => {
+            if (typeof window[name] !== "function" || window[name].__runtimeWrapped) return;
+            const originalFn = window[name];
+            const wrapped = function patchedCollectionAction(...args) {
+                const result = originalFn.apply(this, args);
+                window.setTimeout(() => {
+                    renderAccountStats();
+                    renderCartInsights();
+                    renderBundleDeals();
+                    renderSavedPacks();
+                }, 0);
+                return result;
+            };
+            wrapped.__runtimeWrapped = true;
+            window[name] = wrapped;
+        });
+    }
+
+    function bindEvents() {
+        dom.scrapeBtn?.addEventListener("click", scrapeProduct);
+        dom.createAlertBtn?.addEventListener("click", createPriceAlertFromCurrentProduct);
+        dom.shareReferralBtn?.addEventListener("click", () => copyReferral(true));
+        dom.manualQuoteBtn?.addEventListener("click", sendManualQuote);
+        dom.quickOrderBtn?.addEventListener("click", quickOrderFromForm);
+        dom.clearLinksBtn?.addEventListener("click", clearRecentLinks);
+        dom.imageClearBtn?.addEventListener("click", clearImagePreview);
+        dom.accountSavePrefs?.addEventListener("click", saveAccountPrefs);
+        dom.referralApply?.addEventListener("click", applyReferralCode);
+        dom.referralCopy?.addEventListener("click", () => copyReferral(false));
+        dom.downloadQuoteBtn?.addEventListener("click", downloadQuoteDocument);
+        dom.exportCsvBtn?.addEventListener("click", exportOrdersCsv);
+        dom.savePackBtn?.addEventListener("click", saveCurrentPack);
+        dom.voiceRecordBtn?.addEventListener("click", startVoiceRecording);
+        dom.voiceStopBtn?.addEventListener("click", stopVoiceRecording);
+        dom.trackSearchBtn?.addEventListener("click", searchTrackedOrderRemote);
+        dom.trackRef?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                searchTrackedOrderRemote();
+            }
+        });
+        dom.historySearch?.addEventListener("input", () => {
+            if (typeof window.renderHistory === "function") window.renderHistory();
+        });
+        dom.historyStatus?.addEventListener("change", () => {
+            if (typeof window.renderHistory === "function") window.renderHistory();
+        });
+        dom.adminUnlockBtn?.addEventListener("click", unlockAdminRemote);
+        dom.adminLockBtn?.addEventListener("click", lockAdminRemote);
+        dom.adminPromoSave?.addEventListener("click", saveAdminPromoRemote);
+        dom.adminOrderUpdate?.addEventListener("click", updateAdminOrderRemote);
+        dom.calcLink?.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                scrapeProduct();
+            }
+        });
+        dom.calcLink?.addEventListener("input", () => scheduleAutoPreview(900));
+        dom.calcLink?.addEventListener("paste", () => window.setTimeout(() => scheduleAutoPreview(250), 50));
+        dom.calcLink?.addEventListener("blur", () => scheduleAutoPreview(150));
+        dom.calcImage?.addEventListener("change", (event) => {
+            const file = event.target?.files?.[0];
+            if (!file) {
+                renderImagePreview("");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => renderImagePreview(String(reader.result || ""));
+            reader.readAsDataURL(file);
+        });
+        dom.voiceUpload?.addEventListener("change", (event) => {
+            const file = event.target?.files?.[0];
+            if (!file) return;
+            setVoiceNoteFromBlob(file, pickLanguageText(currentUiLanguage(), `ملاحظة صوتية مرفوعة: ${file.name}`, `Note vocale importee : ${file.name}`, `Uploaded voice note: ${file.name}`));
+        });
+        dom.recentLinks?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-recent-index]");
+            if (!trigger) return;
+            useRecentLink(Number(trigger.getAttribute("data-recent-index")));
+        });
+        dom.variantGroups?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-variant-group][data-variant-value]");
+            if (!trigger) return;
+            applyVariantSelection(trigger.getAttribute("data-variant-group"), trigger.getAttribute("data-variant-value"));
+        });
+        dom.budgetInput?.addEventListener("input", () => {
+            saveBudgetPrefs({
+                budget: dom.budgetInput?.value || "",
+                buffer: dom.budgetBuffer?.value || "10"
+            });
+            renderPricing();
+        });
+        dom.budgetBuffer?.addEventListener("change", () => {
+            saveBudgetPrefs({
+                budget: dom.budgetInput?.value || "",
+                buffer: dom.budgetBuffer?.value || "10"
+            });
+            renderPricing();
+        });
+        dom.savedPacks?.addEventListener("click", (event) => {
+            const loadTrigger = event.target.closest("[data-pack-load]");
+            if (loadTrigger) {
+                loadSavedPack(loadTrigger.getAttribute("data-pack-load"));
+                return;
+            }
+            const deleteTrigger = event.target.closest("[data-pack-delete]");
+            if (deleteTrigger) {
+                deleteSavedPack(deleteTrigger.getAttribute("data-pack-delete"));
+            }
+        });
+        dom.alertWatchlist?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-remove-alert]");
+            if (!trigger) return;
+            removePriceAlert(trigger.getAttribute("data-remove-alert"));
+        });
+        dom.repeatOrders?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-repeat-order]");
+            if (!trigger) return;
+            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
+        });
+        dom.historyList?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-repeat-order]");
+            if (!trigger) return;
+            loadOrderIntoCart(trigger.getAttribute("data-repeat-order"));
+        });
+        dom.adminPromos?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-remove-promo]");
+            if (!trigger) return;
+            removeAdminPromoRemote(Number(trigger.getAttribute("data-remove-promo")));
+        });
+        dom.adminOrders?.addEventListener("click", (event) => {
+            const trigger = event.target.closest("[data-fill-order]");
+            if (!trigger) return;
+            fillAdminOrder(trigger.getAttribute("data-fill-order"));
+        });
+        dom.usdPrice?.addEventListener("input", renderPricing);
+        dom.usdShip?.addEventListener("input", renderPricing);
+        dom.resellerPrice?.addEventListener("input", renderResellerMode);
+        dom.resellerQty?.addEventListener("input", renderResellerMode);
+        dom.calcName?.addEventListener("input", () => {
+            if (state.currentProduct && dom.previewTitle && dom.calcName.value.trim()) {
+                dom.previewTitle.textContent = buildDisplayProductTitle(dom.calcName.value.trim());
+            }
+        });
+    }
+
+    function patchGlobals() {
+        window.calculateTND = renderPricing;
+        window.autoScrapeProduct = scrapeProduct;
+        window.changeLanguage = applyLanguage;
+        patchPromoLogic();
+        patchGetFormData();
+        patchRenderWishlist();
+        patchRenderCart();
+        patchRenderHistory();
+        patchHistoryFilters();
+        patchSendOrder();
+    }
+
+    function boot() {
+        state.recentLinks = readJsonStorage(RECENT_LINKS_KEY, []);
+        state.accountPrefs = readJsonStorage(ACCOUNT_PREFS_KEY, {
+            phone: "",
+            city: "",
+            address: "",
+            contactMethod: "whatsapp"
+        });
+        state.budgetPrefs = readJsonStorage(BUDGET_PREFS_KEY, {
+            budget: "",
+            buffer: "10"
+        });
+        state.savedPacks = readJsonStorage(SAVED_PACKS_KEY, []);
+        state.priceAlerts = readJsonStorage(PRICE_ALERTS_KEY, []);
+        state.referral = readJsonStorage(REFERRAL_STATE_KEY, {
+            code: buildReferralCode(),
+            credits: 0,
+            appliedCodes: [],
+            usedOwnCode: false
+        });
+        state.adminPromos = readJsonStorage(ADMIN_PROMOS_KEY, []);
+        state.adminToken = getStoredAdminToken();
+        state.adminUnlocked = Boolean(state.adminToken);
+        state.activityLog = readJsonStorage(ACTIVITY_LOG_KEY, []);
+        state.stats = readJsonStorage(LOCAL_STATS_KEY, { fetches: 0, manualQuotes: 0 });
+        repairTabLayout();
+        patchGlobals();
+        patchCollectionActions();
+        patchTabSwitching();
+        applyCalculatorUiCleanup();
+        applyAccountUiCleanup();
+        bindEvents();
+        initAccountPanels();
+        applyLanguage(window.localStorage.getItem("alexpress_lang") || "ar");
+        renderRecentLinks();
+        loadAccountPrefsIntoForm();
+        if (typeof window.renderWishlist === "function") window.renderWishlist();
+        renderSavedPacks();
+        renderPriceAlerts();
+        renderReferralCard();
+        renderVoiceNote();
+        renderAccountStats();
+        renderAdminPromos();
+        renderAdminOrders();
+        renderActivityLog();
+        renderNotifications();
+        loadLiveRate();
+        renderPricing();
+        renderResellerMode();
+        renderCartInsights();
+        renderBundleDeals();
+        if (typeof window.renderHistory === "function") window.renderHistory();
+        renderTrackingHint();
+        refreshPublicPromos();
+        if (state.adminToken) {
+            refreshAdminState().catch(() => {
+                state.adminUnlocked = false;
+                state.adminToken = "";
+                setStoredAdminToken("");
+                lockAdminRemote();
+            });
+        }
+        window.setInterval(loadLiveRate, RATE_REFRESH_MS);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot, { once: true });
+    } else {
+        boot();
+    }
+})();
