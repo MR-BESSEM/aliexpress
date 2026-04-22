@@ -7,6 +7,22 @@ This project is ready to run on a Linux VPS with Node.js, Nginx, PM2, and Playwr
 1. Clone the repo to `/var/www/aliexpress`
 2. Copy `.env.example` to `.env`
 3. Fill in your production env vars
+   For Affiliate API mode, set at least:
+
+```bash
+ALIEXPRESS_APP_KEY=your_app_key
+ALIEXPRESS_APP_SECRET=your_app_secret
+ALIEXPRESS_AFFILIATE_API_BASE_URL=https://eco.taobao.com/router/rest
+ALIEXPRESS_AFFILIATE_PRODUCT_METHOD=aliexpress.affiliate.productdetail.get
+ALIEXPRESS_TRACKING_ID=your_tracking_id
+```
+
+   If the VPS IP is blocked by AliExpress, add an HTTP/HTTPS proxy:
+
+```bash
+SCRAPE_PROXY_URL=http://username:password@proxy-host:port
+SCRAPE_PROXY_BYPASS=127.0.0.1,localhost
+```
 4. Install dependencies:
 
 ```bash
@@ -47,6 +63,13 @@ curl http://127.0.0.1:3000/api/health
 sudo nginx -t
 sudo systemctl restart nginx
 ```
+
+Health check fields to confirm after reload:
+
+- `affiliateApiConfigured: true`
+- `affiliateTrackingIdConfigured: true`
+- `scrapeProxyConfigured: true` when proxy is enabled
+- `scrapeProxyProtocol: "http"` or `"https"` when proxy is parsed correctly
 
 ## Recommended Cloudflare mode
 

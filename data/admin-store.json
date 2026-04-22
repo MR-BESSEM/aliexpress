@@ -1,0 +1,145 @@
+{
+  "promos": [],
+  "orders": [
+    {
+      "id": 1775310491576,
+      "orderRef": "AX-10491575",
+      "date": "04‏/04‏/2026 02:48 م",
+      "total": 11.5,
+      "itemsCount": 1,
+      "items": [
+        {
+          "id": 1775310473462,
+          "name": "منتج AliExpress #4e96276462c679b642dab042588db1f4",
+          "link": "https://https:&#x2F;&#x2F;s.click.aliexpress.com&#x2F;e&#x2F;_EQ3lEq4",
+          "note": "",
+          "qty": 1,
+          "hasImage": false,
+          "image": "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+          "rating": 2,
+          "shippingUsd": 0,
+          "productUsd": 1,
+          "serviceFeeTnd": 7,
+          "serviceFeeDisplay": "7.000 TND",
+          "totalWithFee": 11.5,
+          "deliveryEstimate": "من 12 حتى 25 يوم",
+          "alerts": [
+            {
+              "level": "warning",
+              "text": "ما قدرناش نجيبولك السعر exact توّا بسبب حماية AliExpress. استعمل التسعيرة اليدوية أو ابعثنا الرابط على واتساب."
+            }
+          ],
+          "restrictions": {
+            "banned": false,
+            "restricted": false,
+            "category": "",
+            "reasons": []
+          },
+          "trustScore": {
+            "score": 40,
+            "label": "متوسط"
+          },
+          "reviewCount": 0,
+          "soldCount": 0,
+          "source": "partial-fallback",
+          "hasOptions": false
+        }
+      ],
+      "status": "pending",
+      "paymentMethod": "تطبيق D17",
+      "trackingHint": "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.",
+      "adminTracking": "",
+      "promoCode": "",
+      "customer": {
+        "phone": "666",
+        "city": "Jjuyy",
+        "address": "Uuuu",
+        "contactMethod": "whatsapp"
+      },
+      "voiceNote": null,
+      "referralCode": "ALEX-F9Y9WE",
+      "loyaltyCredit": 0,
+      "updatedAt": "2026-04-19T20:00:36.312Z"
+    },
+    {
+      "id": 1775434752566,
+      "orderRef": "AX-34752566",
+      "date": "06‏/04‏/2026 01:19 ص",
+      "total": 13.545,
+      "itemsCount": 1,
+      "items": [
+        {
+          "id": 1775434749868,
+          "name": "Micro USB fast Charging Cable For...",
+          "link": "https://https:&#x2F;&#x2F;ar.aliexpress.com&#x2F;item&#x2F;33017076238.html?",
+          "note": "",
+          "qty": 1,
+          "hasImage": false,
+          "image": "https://ae01.alicdn.com/kf/HTB1hA4yWXzqK1RjSZFoq6zfcXXau.jpg",
+          "rating": 4.6,
+          "shippingUsd": 2.67,
+          "productUsd": 0.34,
+          "serviceFeeTnd": 0,
+          "serviceFeeDisplay": "مشمولة",
+          "totalWithFee": 13.545,
+          "deliveryEstimate": "من 10 حتى 20 يوم",
+          "alerts": [],
+          "restrictions": {
+            "banned": false,
+            "restricted": false,
+            "category": "",
+            "reasons": []
+          },
+          "trustScore": {
+            "score": 85,
+            "label": "ممتاز"
+          },
+          "reviewCount": 6232,
+          "soldCount": 1000,
+          "source": "playwright",
+          "hasOptions": true
+        }
+      ],
+      "status": "pending",
+      "paymentMethod": "تطبيق D17",
+      "trackingHint": "بعد ما نطلبوهولك، نبعثولك رقم التتبع على واتساب.",
+      "adminTracking": "",
+      "promoCode": "",
+      "customer": {
+        "phone": "",
+        "city": "",
+        "address": "",
+        "contactMethod": "whatsapp"
+      },
+      "voiceNote": null,
+      "referralCode": "ALEX-GD7OS2",
+      "loyaltyCredit": 0,
+      "updatedAt": "2026-04-19T20:00:34.431Z"
+    }
+  ],
+  "settings": {
+    "calculator": {
+      "thresholds": {
+        "low": 30,
+        "mid": 100,
+        "high": 150
+      },
+      "rates": {
+        "low": 4.5,
+        "mid": 4.3,
+        "high": 4.1,
+        "base": 3.9
+      },
+      "serviceFeeTnd": 0
+    },
+    "storefront": {
+      "whatsappNumber": "21627498276",
+      "messengerHandle": "alexpresstunisie",
+      "instagramHandle": "alexpress.tunisie"
+    },
+    "admin": {
+      "autoRefreshSeconds": 1
+    }
+  },
+  "updatedAt": "2026-04-19T20:00:36.313Z"
+}

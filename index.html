@@ -244,6 +244,26 @@
             --panel-shadow: 0 18px 48px rgba(0, 0, 0, 0.30);
             --text-soft: #94a3b8;
         }
+        @keyframes auroraDrift {
+            0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+            50% { transform: translate3d(1.5%, -2%, 0) scale(1.06); opacity: 1; }
+            100% { transform: translate3d(-2%, 2%, 0) scale(1.02); opacity: 0.82; }
+        }
+        @keyframes gridShift {
+            0% { transform: translate3d(0, 0, 0); opacity: 0.18; }
+            50% { transform: translate3d(-18px, 10px, 0); opacity: 0.26; }
+            100% { transform: translate3d(10px, -14px, 0); opacity: 0.18; }
+        }
+        @keyframes orbFloat {
+            0% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(24px, -32px, 0) scale(1.08); }
+            100% { transform: translate3d(-18px, 18px, 0) scale(0.96); }
+        }
+        @keyframes beamSweep {
+            0% { transform: translate3d(-6%, -2%, 0) rotate(-9deg); opacity: 0.18; }
+            50% { transform: translate3d(5%, 2%, 0) rotate(-5deg); opacity: 0.28; }
+            100% { transform: translate3d(-4%, 4%, 0) rotate(-11deg); opacity: 0.16; }
+        }
         body {
             background:
                 radial-gradient(circle at top center, rgba(15, 23, 42, 0.9), transparent 35%),
@@ -261,6 +281,115 @@
             mask-image: radial-gradient(circle at center, rgba(0,0,0,0.45), transparent 82%);
             z-index: -1;
             opacity: 0.22;
+            animation: gridShift 26s ease-in-out infinite alternate;
+            will-change: transform, opacity;
+        }
+        body::before {
+            animation: auroraDrift 20s ease-in-out infinite alternate;
+            will-change: transform, opacity;
+        }
+        .site-backdrop {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .site-backdrop-orb,
+        .site-backdrop-beam,
+        .site-backdrop-noise {
+            position: absolute;
+            inset: auto;
+            will-change: transform, opacity;
+        }
+        .site-backdrop-orb {
+            border-radius: 9999px;
+            filter: blur(24px);
+            mix-blend-mode: screen;
+            opacity: 0.34;
+            animation: orbFloat 18s ease-in-out infinite alternate;
+        }
+        .site-backdrop-orb--amber {
+            top: 8%;
+            right: -6%;
+            width: 28rem;
+            height: 28rem;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.26) 0%, rgba(251, 191, 36, 0.08) 38%, transparent 70%);
+        }
+        .site-backdrop-orb--blue {
+            top: 26%;
+            left: -10%;
+            width: 24rem;
+            height: 24rem;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.20) 0%, rgba(14, 165, 233, 0.07) 42%, transparent 72%);
+            animation-duration: 22s;
+        }
+        .site-backdrop-orb--slate {
+            right: 18%;
+            bottom: -8%;
+            width: 22rem;
+            height: 22rem;
+            background: radial-gradient(circle, rgba(148, 163, 184, 0.10) 0%, rgba(30, 41, 59, 0.16) 45%, transparent 72%);
+            animation-duration: 24s;
+        }
+        .site-backdrop-beam {
+            top: -20%;
+            left: 18%;
+            width: 52rem;
+            height: 120%;
+            background: linear-gradient(180deg, rgba(251, 191, 36, 0.00), rgba(251, 191, 36, 0.07), rgba(59, 130, 246, 0.05), rgba(251, 191, 36, 0.00));
+            filter: blur(12px);
+            transform: rotate(-9deg);
+            transform-origin: top center;
+            animation: beamSweep 24s ease-in-out infinite alternate;
+        }
+        .site-backdrop-noise {
+            inset: 0;
+            opacity: 0.06;
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,0.20) 0 0.7px, transparent 1px),
+                radial-gradient(circle at 80% 30%, rgba(255,255,255,0.16) 0 0.7px, transparent 1px),
+                radial-gradient(circle at 30% 80%, rgba(255,255,255,0.14) 0 0.7px, transparent 1px);
+            background-size: 180px 180px, 240px 240px, 210px 210px;
+        }
+        .light-mode .site-backdrop-orb {
+            opacity: 0.22;
+            mix-blend-mode: multiply;
+        }
+        .light-mode .site-backdrop-beam {
+            opacity: 0.12;
+        }
+        .light-mode .site-backdrop-noise {
+            opacity: 0.03;
+        }
+        @media (max-width: 767px) {
+            .site-backdrop-orb--amber {
+                width: 18rem;
+                height: 18rem;
+                right: -18%;
+            }
+            .site-backdrop-orb--blue {
+                width: 16rem;
+                height: 16rem;
+                left: -18%;
+            }
+            .site-backdrop-orb--slate {
+                width: 15rem;
+                height: 15rem;
+                right: 8%;
+            }
+            .site-backdrop-beam {
+                left: -10%;
+                width: 34rem;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            body::before,
+            body::after,
+            .site-backdrop-orb,
+            .site-backdrop-beam {
+                animation: none !important;
+            }
         }
         main {
             max-width: 1140px !important;
@@ -344,6 +473,138 @@
         #section-track .glass-card {
             backdrop-filter: blur(20px);
         }
+        #section-check .safety-hero {
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(239, 68, 68, 0.14), transparent 30%),
+                radial-gradient(circle at top left, rgba(251, 191, 36, 0.10), transparent 26%),
+                linear-gradient(180deg, rgba(10, 16, 26, 0.94), rgba(10, 15, 24, 0.88));
+            border: 1px solid rgba(248, 113, 113, 0.14);
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.26);
+        }
+        #section-check .safety-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.03em;
+        }
+        #section-check .safety-pill strong {
+            color: #fff;
+        }
+        #section-check .safety-bucket {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.4rem;
+            padding: 1.15rem;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(10, 15, 23, 0.76));
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+        }
+        #section-check .safety-bucket::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 40%, transparent 70%, rgba(255,255,255,0.02));
+        }
+        #section-check .safety-bucket-head {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 0.9rem;
+        }
+        #section-check .safety-bucket-icon {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #section-check .safety-bucket-title {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        #section-check .safety-bucket-copy {
+            font-size: 11px;
+            color: #cbd5e1;
+            font-weight: 700;
+            line-height: 1.7;
+        }
+        #section-check .safety-bucket-copy div {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+        }
+        #section-check .safety-bucket-copy div::before {
+            content: "•";
+            color: rgba(255,255,255,0.45);
+            margin-top: 0.05rem;
+        }
+        #section-check .safety-bucket--danger {
+            border-color: rgba(248, 113, 113, 0.18);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-icon {
+            background: rgba(239, 68, 68, 0.14);
+        }
+        #section-check .safety-bucket--danger .safety-bucket-title {
+            color: #fca5a5;
+        }
+        #section-check .safety-bucket--warning {
+            border-color: rgba(251, 191, 36, 0.18);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-icon {
+            background: rgba(251, 191, 36, 0.14);
+        }
+        #section-check .safety-bucket--warning .safety-bucket-title {
+            color: #fcd34d;
+        }
+        #section-check .safety-bucket--safe {
+            border-color: rgba(52, 211, 153, 0.18);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-icon {
+            background: rgba(16, 185, 129, 0.14);
+        }
+        #section-check .safety-bucket--safe .safety-bucket-title {
+            color: #86efac;
+        }
+        #section-check .safety-doc-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 1.3rem;
+            padding: 1.15rem;
+        }
+        #section-check > .glass-card > h2[data-i18n="saf_title"],
+        #section-check > .glass-card > p[data-i18n="saf_desc1"] {
+            display: none;
+        }
+        #section-check .legacy-safety-grid {
+            display: none;
+        }
+        #section-check .safety-doc-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #e2e8f0;
+            font-size: 10px;
+            font-weight: 900;
+        }
         #runtime-preview-card {
             background:
                 linear-gradient(145deg, rgba(10, 18, 30, 0.98), rgba(16, 28, 44, 0.94)),
@@ -361,6 +622,97 @@
                 radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 28%),
                 radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.08), transparent 24%);
             pointer-events: none;
+        }
+        @keyframes previewSkeletonShimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+        .preview-skeleton-line,
+        .preview-skeleton-box,
+        .preview-skeleton-chip,
+        .preview-skeleton-action,
+        .preview-skeleton-stat {
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.1) 18%, rgba(255,255,255,0.04) 36%),
+                rgba(15, 23, 42, 0.78);
+            background-size: 220% 100%;
+            animation: previewSkeletonShimmer 1.35s linear infinite;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        #runtime-preview-skeleton {
+            max-width: 760px;
+            margin-inline: auto;
+        }
+        .preview-skeleton-box {
+            border-radius: 1.35rem;
+            width: 96px;
+            height: 96px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+        }
+        .preview-skeleton-line {
+            height: 0.9rem;
+            border-radius: 999px;
+        }
+        .preview-skeleton-line--title {
+            height: 1.15rem;
+            width: 82%;
+        }
+        .preview-skeleton-line--subtitle {
+            width: 58%;
+        }
+        .preview-skeleton-line--desc {
+            width: 100%;
+            height: 0.72rem;
+        }
+        .preview-skeleton-line--desc-short {
+            width: 72%;
+            height: 0.72rem;
+        }
+        .preview-skeleton-chip {
+            width: 92px;
+            height: 1.55rem;
+            border-radius: 999px;
+        }
+        .preview-skeleton-stat {
+            min-height: 70px;
+            border-radius: 1rem;
+        }
+        .preview-skeleton-action {
+            height: 40px;
+            border-radius: 1rem;
+        }
+        @media (max-width: 768px) {
+            .preview-skeleton-box {
+                width: 84px;
+                height: 84px;
+            }
+        }
+        @keyframes footerGlowFloat {
+            0%, 100% {
+                transform: translateY(0);
+                text-shadow: 0 0 0 rgba(251, 191, 36, 0);
+            }
+            50% {
+                transform: translateY(-2px);
+                text-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+            }
+        }
+        .footer-love {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: #fbbf24;
+            animation: footerGlowFloat 2.8s ease-in-out infinite;
+        }
+        .footer-love-heart {
+            display: inline-block;
+            animation: footerGlowFloat 1.8s ease-in-out infinite;
         }
         #runtime-preview-image {
             width: 96px !important;
@@ -537,17 +889,14 @@
                 grid-template-columns: 1fr;
             }
         }
-        #runtime-variant-groups button.is-active {
-            background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(59, 130, 246, 0.16));
-            border-color: rgba(251, 191, 36, 0.45);
-            color: #fff;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
         #runtime-breakdown-card,
         #runtime-quote-compare-card,
         #runtime-cart-insights-card,
         #runtime-bundle-card {
             background: linear-gradient(180deg, rgba(8, 14, 24, 0.88), rgba(11, 18, 29, 0.82));
+        }
+        #runtime-cart-insights-card {
+            display: none !important;
         }
         #cart-footer .bg-slate-900\/40,
         #cart-footer .bg-slate-900\/80 {
@@ -739,16 +1088,24 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Firebase Instances
-        window.firebaseCore = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot };
+        window.firebaseCore = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot };
     </script>
 </head>
 <body class="custom-scrollbar overflow-x-hidden transition-all duration-300">
 
-<div class="min-h-screen flex flex-col">
+<div class="site-backdrop" aria-hidden="true">
+    <div class="site-backdrop-beam"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--amber"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--blue"></div>
+    <div class="site-backdrop-orb site-backdrop-orb--slate"></div>
+    <div class="site-backdrop-noise"></div>
+</div>
+
+<div class="min-h-screen flex flex-col relative z-10">
     <!-- Top Navigation -->
     <header class="sticky top-0 z-50 glass-card border-b border-white/5 py-3 px-3 md:px-6 flex flex-wrap items-center justify-between gap-y-3">
         <div class="flex items-center gap-2 shrink-0">
@@ -838,19 +1195,19 @@
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-align">
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-orders" class="text-xl font-black text-amber-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders Logged</div>
+                    <div id="runtime-metric-orders-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Orders Logged</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-promos" class="text-xl font-black text-emerald-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Promos</div>
+                    <div id="runtime-metric-promos-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Active Promos</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
                     <div id="runtime-metric-fetches" class="text-xl font-black text-blue-400">0</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
+                    <div id="runtime-metric-fetches-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Product Fetches</div>
                 </div>
                 <div class="glass-card p-4 rounded-2xl text-center">
-                    <div id="runtime-metric-rate" class="text-xl font-black text-white">3.800</div>
-                    <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
+                    <div id="runtime-metric-rate" class="text-xl font-black text-white">4.500</div>
+                    <div id="runtime-metric-rate-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Live USD/TND</div>
                 </div>
             </div>
 
@@ -1043,6 +1400,44 @@
                         </div>
                         <div id="runtime-scrape-error" class="hidden mt-2 text-[10px] text-red-400 font-black"></div>
                     </div>
+                    <div id="runtime-preview-skeleton" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
+                        <div class="relative z-10 space-y-4">
+                            <div class="runtime-preview-main flex flex-col md:flex-row auto-align">
+                                <div class="runtime-preview-media">
+                                    <div class="preview-skeleton-box"></div>
+                                </div>
+                                <div class="runtime-preview-copy flex-1 min-w-0 space-y-3">
+                                    <div class="flex flex-wrap gap-2 items-center">
+                                        <span class="preview-skeleton-chip"></span>
+                                        <span class="preview-skeleton-chip"></span>
+                                        <span class="preview-skeleton-chip"></span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="preview-skeleton-line preview-skeleton-line--title"></div>
+                                        <div class="preview-skeleton-line preview-skeleton-line--subtitle"></div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="preview-skeleton-line preview-skeleton-line--desc"></div>
+                                        <div class="preview-skeleton-line preview-skeleton-line--desc-short"></div>
+                                    </div>
+                                    <div class="runtime-preview-summary">
+                                        <div class="preview-skeleton-line" style="width: 140px; height: 1.7rem;"></div>
+                                    </div>
+                                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                        <div class="preview-skeleton-stat"></div>
+                                    </div>
+                                    <div class="runtime-preview-actions">
+                                        <div class="preview-skeleton-action"></div>
+                                        <div class="preview-skeleton-action"></div>
+                                        <div class="preview-skeleton-action"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div id="runtime-preview-card" class="hidden glass-card relative overflow-hidden p-4 md:p-5 rounded-3xl border border-white/5">
                         <div class="relative z-10 space-y-4">
                             <div class="runtime-preview-main flex flex-col md:flex-row auto-align">
@@ -1053,12 +1448,16 @@
                                     <div class="flex flex-wrap gap-2 items-center">
                                         <span id="runtime-preview-source" class="runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20 uppercase">SCRAPE</span>
                                         <span id="runtime-preview-meta" class="runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Tunisia Ready</span>
-                                        <span id="runtime-preview-variant-summary" class="hidden runtime-preview-chip bg-fuchsia-500/10 text-fuchsia-200 border-fuchsia-500/20">No option selected</span>
                                     </div>
                                     <h3 id="runtime-preview-title" class="text-lg md:text-[1.35rem] font-black text-white leading-snug max-w-4xl">اسم المنتج</h3>
                                     <p id="runtime-preview-description" class="text-xs text-slate-300 leading-6 max-w-4xl">وصف المنتج يظهر هنا تلقائيًا بعد الجلب.</p>
                                     <div class="runtime-preview-summary">
-                                        <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.000 TND</div>
+                                        <div id="runtime-preview-price" class="hidden text-2xl md:text-3xl font-black text-amber-400" dir="ltr">0.00 USD</div>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <span id="runtime-preview-trust" class="hidden runtime-preview-chip bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Trust 0/100</span>
+                                        <span id="runtime-preview-sold" class="hidden runtime-preview-chip bg-blue-500/10 text-blue-300 border-blue-500/20">0 sold</span>
+                                        <span id="runtime-preview-risk" class="hidden runtime-preview-chip bg-amber-400/10 text-amber-300 border-amber-400/20">Review</span>
                                     </div>
                                     <div class="grid grid-cols-2 xl:grid-cols-4 gap-2.5">
                                         <div class="runtime-preview-stat">
@@ -1070,11 +1469,11 @@
                                             <div id="runtime-preview-delivery" class="runtime-preview-stat-value">12-25 days</div>
                                         </div>
                                         <div class="runtime-preview-stat">
-                                            <div class="runtime-preview-stat-label">Rating</div>
+                                            <div class="runtime-preview-stat-label">التقييم</div>
                                             <div id="runtime-preview-rating" class="runtime-preview-stat-value">0.0</div>
                                         </div>
                                         <div class="runtime-preview-stat">
-                                            <div class="runtime-preview-stat-label">Reviews</div>
+                                            <div class="runtime-preview-stat-label">المراجعات</div>
                                             <div id="runtime-preview-reviews" class="runtime-preview-stat-value">0</div>
                                         </div>
                                     </div>
@@ -1093,36 +1492,26 @@
                     <div id="runtime-trust-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Seller Trust Score</div>
-                                <div class="text-[9px] text-slate-500 font-bold">تقييم سريع حسب rating والـ reviews والشحن والـ customs risk</div>
+                                <div class="text-[10px] font-black text-white">ثقة البائع</div>
+                                <div class="text-[9px] text-slate-500 font-bold">تقييم سريع حسب التقييم والمراجعات والشحن ومخاطر الديوانة</div>
                             </div>
                             <span id="runtime-trust-badge" dir="ltr" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">0 / 100</span>
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-rating" class="text-lg font-black text-white">0.0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Rating</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">التقييم</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-reviews" class="text-lg font-black text-blue-300">0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Reviews</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المراجعات</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-trust-sold" class="text-lg font-black text-amber-300">0</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Sold</div>
+                                <div class="text-[9px] text-slate-500 font-bold mt-1">المبيعات</div>
                             </div>
                         </div>
-                        <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Fetch a product to see the trust summary.</div>
-                    </div>
-                    <div id="runtime-variants-card" class="hidden bg-fuchsia-500/5 p-4 rounded-2xl border border-fuchsia-500/20 space-y-4">
-                        <div class="flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-black text-white">ملاحظة على الخيارات</div>
-                                <div class="text-[9px] text-slate-500 font-bold">إذا المنتج فيه لون أو مقاس أو طول، السعر ينجم يتبدل حسب الخيار</div>
-                            </div>
-                            <span class="px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-300 text-[10px] font-black">SPEC</span>
-                        </div>
-                        <div id="runtime-variant-groups" class="space-y-3"></div>
+                        <div id="runtime-trust-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">إجلب منتج باش يبان تقييم الثقة متاعو.</div>
                     </div>
                     <div id="runtime-recent-links-card" class="hidden bg-slate-950/60 p-4 rounded-2xl border border-white/5 space-y-3">
                         <div class="flex items-center justify-between gap-3">
@@ -1179,16 +1568,18 @@
                         </div>
                     </div>
                     <div class="bg-black/40 p-5 md:p-6 rounded-2xl border border-white/5 text-center">
-                        <div id="tnd-result" class="text-2xl md:text-4xl font-black text-amber-400" dir="ltr">0.000 TND</div>
+                        <div id="tnd-result" class="text-2xl md:text-4xl font-black text-amber-400" dir="ltr">مشمولة</div>
                         <div id="rate-badge" class="mt-2 text-[8px] text-slate-600 font-bold tracking-widest">--</div>
                     </div>
                     <div id="runtime-breakdown-card" class="hidden bg-slate-950/60 p-4 md:p-5 rounded-2xl border border-white/5 space-y-3">
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
                             <span>سعر المنتج</span>
+                            <span id="runtime-breakdown-product-label">Ø³Ø¹Ø± Ø§Ù„Ù…Ù†ØªØ¬</span>
                             <span id="runtime-breakdown-product" dir="ltr">0.000 TND</span>
                         </div>
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
                             <span>الشحن</span>
+                            <span id="runtime-breakdown-shipping-label">Ø§Ù„Ø´Ø­Ù†</span>
                             <span id="runtime-breakdown-shipping" dir="ltr">0.000 TND</span>
                         </div>
                         <div class="flex items-center justify-between text-[10px] md:text-xs font-bold text-slate-300">
@@ -1197,7 +1588,8 @@
                         </div>
                         <div class="pt-3 border-t border-white/5 flex items-center justify-between text-xs md:text-sm font-black text-amber-400">
                             <span>الإجمالي النهائي</span>
-                            <span id="runtime-breakdown-total" dir="ltr">0.000 TND</span>
+                            <span id="runtime-breakdown-total-label">Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ</span>
+                            <span id="runtime-breakdown-total" dir="ltr">مشمولة</span>
                         </div>
                     </div>
                     <div id="runtime-insights-card" class="hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-3">
@@ -1210,32 +1602,32 @@
                     <div id="runtime-budget-card" class="hidden bg-emerald-500/5 p-4 md:p-5 rounded-2xl border border-emerald-500/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Smart Budget Planner</div>
-                                <div class="text-[9px] text-slate-500 font-bold">حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا</div>
+                                <div id="runtime-budget-title" class="text-[10px] font-black text-white">Smart Budget Planner</div>
+                                <div id="runtime-budget-desc" class="text-[9px] text-slate-500 font-bold">حدد budget بالدينار وخلي المنصة تقولك إذا المنتج مريح ولا لا</div>
                             </div>
                             <span id="runtime-budget-status" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">READY</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
                             <input id="runtime-budget-input" type="number" min="0" step="1" placeholder="Budget TND" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400 ltr-input" dir="ltr">
                             <select id="runtime-budget-buffer" class="w-full sm:w-[160px] bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-emerald-400">
-                                <option value="5">5% buffer</option>
-                                <option value="10" selected>10% buffer</option>
-                                <option value="15">15% buffer</option>
-                                <option value="20">20% buffer</option>
+                                <option id="runtime-budget-buffer-5" value="5">5% buffer</option>
+                                <option id="runtime-budget-buffer-10" value="10" selected>10% buffer</option>
+                                <option id="runtime-budget-buffer-15" value="15">15% buffer</option>
+                                <option id="runtime-budget-buffer-20" value="20">20% buffer</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-remaining" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Remaining</div>
+                                <div id="runtime-budget-remaining-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Remaining</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-safe-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Safe Spend</div>
+                                <div id="runtime-budget-safe-total-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Safe Spend</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-budget-max-usd" class="text-lg font-black text-amber-300" dir="ltr">0.00 USD</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Max Product USD</div>
+                                <div id="runtime-budget-max-usd-label" class="text-[9px] text-slate-500 font-bold mt-1">أقصى سعر بالدولار</div>
                             </div>
                         </div>
                         <div id="runtime-budget-note" class="text-[10px] font-bold text-slate-300 leading-relaxed">أدخل budget باش تشوف التوصية الذكية.</div>
@@ -1243,8 +1635,8 @@
                     <div id="runtime-customs-card" class="hidden bg-red-500/5 p-4 md:p-5 rounded-2xl border border-red-500/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Smart Customs Advisor</div>
-                                <div class="text-[9px] text-slate-500 font-bold">مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب</div>
+                                <div id="runtime-customs-title" class="text-[10px] font-black text-white">Smart Customs Advisor</div>
+                                <div id="runtime-customs-desc" class="text-[9px] text-slate-500 font-bold">مستوى المخاطر + الوثائق الممكنة + بديل أسلم للطلب</div>
                             </div>
                             <span id="runtime-customs-level" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-black">LOW</span>
                         </div>
@@ -1255,23 +1647,23 @@
                     <div id="runtime-quote-compare-card" class="hidden hidden bg-blue-500/5 p-4 md:p-5 rounded-2xl border border-blue-500/20 space-y-4" style="display:none !important;">
                         <div class="flex items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Auto-Quote Comparison</div>
-                                <div class="text-[9px] text-slate-500 font-bold">قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review</div>
+                                <div id="runtime-quote-compare-title" class="text-[10px] font-black text-white">Auto-Quote Comparison</div>
+                                <div id="runtime-quote-compare-desc" class="text-[9px] text-slate-500 font-bold">قارن بين التسعيرة التلقائية ومتوسط الطلبات المشابهة والـ manual review</div>
                             </div>
                             <span id="runtime-quote-compare-status" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">LIVE</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-auto" class="text-lg font-black text-white" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Auto Quote</div>
+                                <div id="runtime-quote-auto-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Auto Quote</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-similar" class="text-lg font-black text-amber-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Similar Orders</div>
+                                <div id="runtime-quote-similar-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Similar Orders</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-quote-manual" class="text-lg font-black text-blue-300" dir="ltr">0.000 TND</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Manual Target</div>
+                                <div id="runtime-quote-manual-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Manual Target</div>
                             </div>
                         </div>
                         <div id="runtime-quote-note" class="text-[10px] text-slate-300 font-bold leading-relaxed">Fetch a product to compare pricing confidence.</div>
@@ -1279,8 +1671,8 @@
                     <div id="runtime-reseller-card" class="hidden bg-amber-400/5 p-4 md:p-5 rounded-2xl border border-amber-400/20 space-y-4">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <div class="text-[10px] font-black text-white">Profit / Reseller Mode</div>
-                                <div class="text-[9px] text-slate-500 font-bold">أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even</div>
+                                <div id="runtime-reseller-title" class="text-[10px] font-black text-white">Profit / Reseller Mode</div>
+                                <div id="runtime-reseller-desc" class="text-[9px] text-slate-500 font-bold">أدخل سعر البيع والكمية باش تشوف المارجن والـ ROI والـ break-even</div>
                             </div>
                             <span id="runtime-reseller-status" class="px-3 py-1 rounded-full bg-slate-500/10 text-slate-200 text-[10px] font-black">READY</span>
                         </div>
@@ -1291,30 +1683,30 @@
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-unit" class="text-lg font-black text-white" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Profit / Unit</div>
+                                <div id="runtime-profit-unit-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Profit / Unit</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-total" class="text-lg font-black text-emerald-300" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Profit</div>
+                                <div id="runtime-profit-total-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Total Profit</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-roi" class="text-lg font-black text-blue-300" dir="ltr">0%</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">ROI</div>
+                                <div id="runtime-profit-roi-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">ROI</div>
                             </div>
                             <div class="rounded-2xl border border-white/5 bg-black/20 p-4 text-center">
                                 <div id="runtime-profit-break-even" class="text-lg font-black text-amber-300" dir="ltr">0.000</div>
-                                <div class="text-[9px] text-slate-500 font-bold uppercase mt-1">Break-Even</div>
+                                <div id="runtime-profit-break-even-label" class="text-[9px] text-slate-500 font-bold uppercase mt-1">Break-Even</div>
                             </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button id="runtime-manual-quote" type="button" class="py-3 bg-slate-800 border border-slate-700 text-white font-black rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
                             <i class="fas fa-headset"></i>
-                            <span>اطلب تسعيرة يدوية</span>
+                            <span id="runtime-manual-quote-label">اطلب تسعيرة يدوية</span>
                         </button>
                         <button id="runtime-quick-order" type="button" class="py-3 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 transition-all flex items-center justify-center gap-2 text-xs shadow-lg">
                             <i class="fab fa-whatsapp"></i>
-                            <span>اطلب توّا على واتساب</span>
+                            <span id="runtime-quick-order-label">اطلب توّا على واتساب</span>
                         </button>
                     </div>
                     
@@ -1371,18 +1763,18 @@
                 <p class="text-slate-400 text-[10px] md:text-xs mb-8" data-i18n="track_desc">أدخل رقم التتبع الخاص بك لرؤية حالة شحنتك.</p>
                 
                 <div data-ptwidget-type="search" data-ptwidget-result-container-id="search-result" class="auto-align">
-                    <input class="search-input" type="text" placeholder="Tracking Number">
-                    <button class="search-btn">TRACK</button>
+                    <input id="posttrack-search-input" class="search-input" type="text" placeholder="Tracking Number">
+                    <button id="posttrack-search-btn" class="search-btn">TRACK</button>
                 </div>
                 <div id="search-result" class="mt-8 auto-align"></div>
 
                 <div class="mt-8 bg-slate-900/60 p-5 rounded-3xl border border-white/5 space-y-4 auto-align">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <h3 class="text-sm font-black text-white">تتبع داخلي للطلبات</h3>
-                            <p class="text-[10px] text-slate-500 font-bold">دخل مرجع الطلب متاعك وشوف آخر status وtracking note</p>
+                            <h3 id="runtime-track-title" class="text-sm font-black text-white">تتبع داخلي للطلبات</h3>
+                            <p id="runtime-track-desc" class="text-[10px] text-slate-500 font-bold">دخل مرجع الطلب متاعك وشوف آخر status وtracking note</p>
                         </div>
-                        <span class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">AX REF</span>
+                        <span id="runtime-track-pill" class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 text-[10px] font-black">AX REF</span>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <input id="runtime-track-ref" type="text" placeholder="AX-12345678" class="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
@@ -1532,6 +1924,18 @@
                 <h2 class="text-xl md:text-2xl font-black mb-6 text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
                 <p class="text-[10px] text-slate-400 mb-6 text-center" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصاً من الديوانة التونسية:</p>
                 
+                <div class="safety-hero rounded-[2rem] p-5 md:p-7 mb-8">
+                    <div class="relative z-10 space-y-4">
+                        <h2 class="text-xl md:text-2xl font-black text-amber-400 text-center" data-i18n="saf_title">الأمان والديوانة ⚠️</h2>
+                        <p class="text-[10px] text-slate-300 text-center max-w-2xl mx-auto leading-relaxed" data-i18n="saf_desc1">أهم المواد الممنوعة أو التي تتطلب ترخيصًا من الديوانة التونسية.</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <span class="safety-pill">🚫 <strong>ممنوع</strong> منتجات تتحجز</span>
+                            <span class="safety-pill">📄 <strong>ترخيص</strong> بعض الفئات تحتاج مراجعة</span>
+                            <span class="safety-pill">✅ <strong>نصيحة</strong> تأكد قبل التأكيد</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="banned-list"></div>
 
                 <div class="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
@@ -1558,7 +1962,7 @@
                     <div id="customs-result" class="hidden mt-4 p-4 rounded-xl text-xs leading-relaxed bg-blue-500/10 border border-blue-500/30 text-blue-500 md:text-blue-300 relative z-10 text-center font-bold"></div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 legacy-safety-grid">
                     <div class="bg-slate-900/70 border border-red-500/20 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-red-300 uppercase tracking-[0.25em] mb-3">ممنوع 100%</div>
                         <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
@@ -1580,10 +1984,49 @@
                     <div class="bg-slate-900/70 border border-emerald-500/20 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-emerald-300 uppercase tracking-[0.25em] mb-3">قبل ما تطلب</div>
                         <div class="space-y-2 text-[11px] text-slate-300 font-bold leading-relaxed">
-                            <div>اختار title واضح و product specs واضحة</div>
-                            <div>تجنب listings الغامضة أو فيها hidden keywords</div>
-                            <div>خلي invoice والسعر ظاهرين</div>
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة أو اللي فيها كلمات مخفية</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
                             <div>إذا عندك شك في الديوانة ابعث الطلب للمراجعة اليدوية</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <div class="safety-bucket safety-bucket--danger auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">🚫</div>
+                            <div class="safety-bucket-title">ممنوع 100%</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>درون و GPS trackers</div>
+                            <div>Spy cameras و أجهزة تنصت</div>
+                            <div>Vapes و أسلحة و لوازم صيد</div>
+                            <div>TV boxes و أجهزة لاسلكية حساسة</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--warning auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">📄</div>
+                            <div class="safety-bucket-title">قد يطلب ترخيص</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>هواتف و إلكترونيات حساسة</div>
+                            <div>أجهزة إرسال / استقبال</div>
+                            <div>مكملات غذائية و مواد شبه طبية</div>
+                            <div>بطاريات كبيرة أو wireless modules</div>
+                        </div>
+                    </div>
+                    <div class="safety-bucket safety-bucket--safe auto-align">
+                        <div class="safety-bucket-head">
+                            <div class="safety-bucket-icon">✅</div>
+                            <div class="safety-bucket-title">قبل ما تطلب</div>
+                        </div>
+                        <div class="safety-bucket-copy">
+                            <div>اختار اسم واضح ومواصفات مفهومة</div>
+                            <div>تجنب الإعلانات الغامضة</div>
+                            <div>خلي الفاتورة والسعر ظاهرين</div>
+                            <div>إذا شكيت اطلب مراجعة يدوية</div>
                         </div>
                     </div>
                 </div>
@@ -1592,10 +2035,10 @@
                     <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
                         <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">وثائق تنجم تنفع</div>
                         <div class="flex flex-wrap gap-2">
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Seller Invoice</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Order Screenshot</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Product Specs</span>
-                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">Tracking Proof</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">فاتورة البائع</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">صورة الطلب</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">مواصفات المنتج</span>
+                            <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-slate-200">إثبات التتبع</span>
                         </div>
                     </div>
                     <div class="bg-black/20 border border-white/5 rounded-2xl p-5 auto-align">
@@ -1735,12 +2178,12 @@
                             <div id="runtime-admin-panel" class="hidden space-y-4">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div class="account-subcard space-y-3">
-                                        <div class="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em]">Promo Code</div>
+                                        <div id="runtime-admin-promo-title" class="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em]">Promo Code</div>
                                         <input id="admin-promo-code" type="text" placeholder="CODE10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         <div class="grid grid-cols-2 gap-2">
                                             <select id="admin-promo-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
-                                                <option value="percent">%</option>
-                                                <option value="fixed">TND</option>
+                                                <option id="admin-promo-type-percent" value="percent">%</option>
+                                                <option id="admin-promo-type-fixed" value="fixed">TND</option>
                                             </select>
                                             <input id="admin-promo-value" type="number" placeholder="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         </div>
@@ -1752,13 +2195,13 @@
                                     </div>
 
                                     <div class="account-subcard space-y-3">
-                                        <div class="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Order Status</div>
+                                        <div id="runtime-admin-order-title" class="text-[10px] font-black text-blue-300 uppercase tracking-[0.2em]">Order Status</div>
                                         <input id="admin-order-ref" type="text" placeholder="AX-12345678" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400 ltr-input" dir="ltr">
                                         <select id="admin-order-status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
-                                            <option value="pending">قيد المراجعة</option>
-                                            <option value="processing">تم الشراء</option>
-                                            <option value="shipped">في الطريق</option>
-                                            <option value="delivered">تم التسليم</option>
+                                            <option id="admin-order-status-pending" value="pending">قيد المراجعة</option>
+                                            <option id="admin-order-status-processing" value="processing">تم الشراء</option>
+                                            <option id="admin-order-status-shipped" value="shipped">في الطريق</option>
+                                            <option id="admin-order-status-delivered" value="delivered">تم التسليم</option>
                                         </select>
                                         <input id="admin-order-tracking" type="text" placeholder="Tracking / note" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-amber-400">
                                         <button id="admin-order-update" type="button" class="w-full bg-blue-600 text-white font-black rounded-xl py-3 text-xs hover:bg-blue-500 transition-colors">تحديث الطلب</button>
@@ -1767,24 +2210,24 @@
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div class="account-subcard">
-                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Promos</div>
+                                        <div id="runtime-admin-promos-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Promos</div>
                                         <div id="runtime-admin-promos" class="space-y-2"></div>
                                     </div>
                                     <div class="account-subcard">
-                                        <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Orders</div>
+                                        <div id="runtime-admin-orders-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Orders</div>
                                         <div id="runtime-admin-orders" class="space-y-2"></div>
                                     </div>
                                 </div>
 
                                 <div class="account-subcard">
-                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Admin Activity</div>
+                                    <div id="runtime-admin-activity-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Admin Activity</div>
                                     <div id="runtime-admin-activity" class="space-y-2">
                                         <div class="text-[10px] text-slate-500 italic">No activity yet.</div>
                                     </div>
                                 </div>
 
                                 <div class="account-subcard">
-                                    <div class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Analytics</div>
+                                    <div id="runtime-admin-analytics-label" class="text-[10px] font-black text-white uppercase tracking-[0.2em] mb-3">Analytics</div>
                                     <div id="runtime-admin-analytics" class="space-y-3">
                                         <div class="text-[10px] text-slate-500 italic">Analytics loading...</div>
                                     </div>
@@ -2192,9 +2635,18 @@
             </div>
 
             <div class="text-center md:text-left rtl:text-left ltr:text-right">
-                <p class="text-[8px] text-slate-600 font-black uppercase tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. All Rights Reserved.</p>
-                <div class="text-[10px] font-bold">
-                    <span class="text-slate-500">Designed by </span>
+                <div class="mb-3">
+                    <a href="/admin" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20 hover:bg-amber-400 hover:text-black transition-all text-[10px] font-black shadow-sm">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Admin Login</span>
+                    </a>
+                </div>
+                <p class="text-[8px] text-slate-600 font-black tracking-widest mb-1">&copy; 2026 Alexpress Tunisie. جميع الحقوق محفوظة.</p>
+                <div class="text-[10px] font-bold flex items-center justify-center md:justify-start gap-2 flex-wrap">
+                    <span class="footer-love">
+                        معمول بحب
+                        <span class="footer-love-heart">❤</span>
+                    </span>
                     <a href="https://www.facebook.com/MR.Besssem" target="_blank" class="text-amber-400 hover:text-white transition-colors">BESSEM BAATOUR</a>
                 </div>
             </div>
@@ -2358,10 +2810,96 @@
     // --- Firebase Logic & Account System ---
     let db, auth, userId, appId;
     let isCloudSyncing = false;
+    let isCloudEnabled = false;
+    let cloudState = 'checking';
     window.availablePromos = []; // Global for promos
 
+    function getCloudUiCopy() {
+        const lang = localStorage.getItem('alexpress_lang') || 'ar';
+        const copy = {
+            ar: {
+                checking: 'جاري التحقق...',
+                connected: 'متصل فعليًا',
+                syncing: 'جاري التزامن...',
+                local: 'محفوظ محليًا',
+                offline: 'السحابة غير متاحة',
+                cloudIdPending: 'جاري التحقق...',
+                cloudIdOffline: 'محلي فقط'
+            },
+            fr: {
+                checking: 'Verification...',
+                connected: 'Cloud actif',
+                syncing: 'Synchronisation...',
+                local: 'Sauvegarde locale',
+                offline: 'Cloud indisponible',
+                cloudIdPending: 'Verification...',
+                cloudIdOffline: 'Local seulement'
+            },
+            en: {
+                checking: 'Checking...',
+                connected: 'Cloud connected',
+                syncing: 'Syncing...',
+                local: 'Saved locally',
+                offline: 'Cloud offline',
+                cloudIdPending: 'Checking...',
+                cloudIdOffline: 'Local only'
+            }
+        };
+        return copy[lang] || copy.ar;
+    }
+
+    function setCloudStatusLabel(value) {
+        document.querySelectorAll('#user-uid-display, #user-uid-display-clone').forEach((el) => {
+            el.textContent = value;
+        });
+    }
+
+    function setCloudSyncState(nextState) {
+        cloudState = nextState;
+        const copy = getCloudUiCopy();
+        const textMap = {
+            checking: copy.checking,
+            connected: copy.connected,
+            syncing: copy.syncing,
+            local: copy.local,
+            offline: copy.offline
+        };
+        const classMap = {
+            checking: 'text-amber-300',
+            connected: 'text-emerald-300',
+            syncing: 'text-blue-300',
+            local: 'text-slate-300',
+            offline: 'text-red-300'
+        };
+
+        document.querySelectorAll('#sync-status-text').forEach((el) => {
+            el.textContent = textMap[nextState] || copy.offline;
+            el.classList.remove('text-emerald-300', 'text-amber-300', 'text-blue-300', 'text-slate-300', 'text-red-300', 'text-green-400');
+            el.classList.add(classMap[nextState] || 'text-red-300');
+        });
+    }
+
+    function refreshCloudUiState() {
+        const copy = getCloudUiCopy();
+        if (userId) {
+            setCloudStatusLabel(userId);
+        } else {
+            setCloudStatusLabel(cloudState === 'checking' ? copy.cloudIdPending : copy.cloudIdOffline);
+        }
+        setCloudSyncState(cloudState);
+    }
+    window.refreshCloudUiState = refreshCloudUiState;
+
     async function initFirebase() {
-        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
+        if (!window.firebaseCore) {
+            cloudState = 'offline';
+            refreshCloudUiState();
+            return false;
+        }
+
+        const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence, getFirestore, doc, getDoc, setDoc, onSnapshot } = window.firebaseCore;
+        cloudState = 'checking';
+        refreshCloudUiState();
         
         // 🔴 Configuration Firebase officielle
         const firebaseConfig = {
@@ -2377,7 +2915,14 @@
         const app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-        appId = firebaseConfig.projectId; 
+        appId = firebaseConfig.projectId;
+        isCloudEnabled = true;
+
+        try {
+            await setPersistence(auth, browserLocalPersistence);
+        } catch (error) {
+            console.warn("Firebase persistence unavailable:", error);
+        }
 
         // Promo Codes Listener - MOVED HERE AFTER db INIT
         onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'promos'), (snapshot) => {
@@ -2388,27 +2933,47 @@
 
         // Auth (Login)
         try {
-            await signInAnonymously(auth);
+            if (!auth.currentUser) {
+                await signInAnonymously(auth);
+            }
         } catch (error) {
             console.error("Erreur Auth:", error);
+            isCloudEnabled = false;
+            cloudState = 'offline';
+            refreshCloudUiState();
+            return false;
         }
+
+        setTimeout(() => {
+            if (!userId) {
+                isCloudEnabled = false;
+                cloudState = 'offline';
+                refreshCloudUiState();
+            }
+        }, 6000);
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
-                document.getElementById('user-uid-display').textContent = userId;
-                const uidCloneEl = document.getElementById('user-uid-display-clone');
-                if (uidCloneEl) uidCloneEl.textContent = userId;
+                try { localStorage.setItem('alexpress_user_id', userId); } catch (e) {}
+                cloudState = 'connected';
+                refreshCloudUiState();
                 loadCloudData(); // Fetch initial data from cloud
+            } else {
+                cloudState = 'offline';
+                refreshCloudUiState();
             }
         });
+        return true;
     }
 
     // Sync Local to Cloud
     async function syncToCloud() {
-        if (!userId || isCloudSyncing) return;
+        if (!isCloudEnabled || !db || !appId || !userId || isCloudSyncing) return;
         const { doc, setDoc } = window.firebaseCore;
         isCloudSyncing = true;
+        cloudState = 'syncing';
+        refreshCloudUiState();
         try {
             await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'), {
                 cart: cart,
@@ -2416,8 +2981,13 @@
                 history: orderHistory,
                 lastSync: Date.now()
             }, { merge: true });
+            cloudState = 'connected';
+            refreshCloudUiState();
         } catch (e) {
             console.error("Cloud Sync Error", e);
+            isCloudEnabled = false;
+            cloudState = 'local';
+            refreshCloudUiState();
         } finally {
             isCloudSyncing = false;
         }
@@ -2425,23 +2995,49 @@
 
     // Load from Cloud (On Start)
     async function loadCloudData() {
+        if (!isCloudEnabled || !db || !appId || !userId) return;
         const { doc, getDoc } = window.firebaseCore;
         try {
             const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', userId, 'data', 'profile'));
+            let shouldSyncLocalBackToCloud = false;
             if (docSnap.exists()) {
                 const cloudData = docSnap.data();
-                if (cloudData.cart) cart = cloudData.cart;
-                if (cloudData.wishlist) wishlist = cloudData.wishlist;
-                if (cloudData.history) orderHistory = cloudData.history;
+                const cloudCart = Array.isArray(cloudData.cart) ? recalculateStoredCollection(cloudData.cart) : null;
+                const cloudWishlist = Array.isArray(cloudData.wishlist) ? recalculateStoredCollection(cloudData.wishlist) : null;
+                const cloudHistory = Array.isArray(cloudData.history) ? cloudData.history : null;
+
+                if (cloudCart && cloudCart.length > 0) {
+                    cart = cloudCart;
+                } else if ((!cloudCart || cloudCart.length === 0) && Array.isArray(cart) && cart.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
+
+                if (cloudWishlist && cloudWishlist.length > 0) {
+                    wishlist = cloudWishlist;
+                } else if ((!cloudWishlist || cloudWishlist.length === 0) && Array.isArray(wishlist) && wishlist.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
+
+                if (cloudHistory && cloudHistory.length > 0) {
+                    orderHistory = cloudHistory;
+                } else if ((!cloudHistory || cloudHistory.length === 0) && Array.isArray(orderHistory) && orderHistory.length > 0) {
+                    shouldSyncLocalBackToCloud = true;
+                }
                 
                 renderCart();
                 renderWishlist();
                 renderHistory();
                 updateBadges();
                 updateAccountStats();
+                if (shouldSyncLocalBackToCloud) syncToCloud();
+            } else if ((Array.isArray(cart) && cart.length > 0) || (Array.isArray(wishlist) && wishlist.length > 0) || (Array.isArray(orderHistory) && orderHistory.length > 0)) {
+                syncToCloud();
             }
         } catch (e) {
             console.error("Error loading cloud data", e);
+            isCloudEnabled = false;
+            cloudState = 'local';
+            refreshCloudUiState();
         }
     }
 
@@ -2590,7 +3186,127 @@
     let orderHistory = [];
     let currentDiscount = 0; 
     let discountType = ''; 
-    const rates = { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 };
+    const defaultPublicSettings = {
+        calculator: {
+            thresholds: { low: 10, mid: 50, high: 150 },
+            rates: { low: 4.5, mid: 4.3, high: 4.1, base: 3.8 },
+            serviceFeeTnd: 0
+        },
+        storefront: {
+            whatsappNumber: '21627498276',
+            messengerHandle: 'alexpresstunisie',
+            instagramHandle: 'alexpress.tunisie'
+        }
+    };
+    window.runtimeAdminSettings = JSON.parse(JSON.stringify(defaultPublicSettings));
+
+    function normalizeRuntimeSettings(raw = {}) {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const calculator = source.calculator && typeof source.calculator === 'object' ? source.calculator : {};
+        const thresholds = calculator.thresholds && typeof calculator.thresholds === 'object' ? calculator.thresholds : {};
+        const rates = calculator.rates && typeof calculator.rates === 'object' ? calculator.rates : {};
+        const storefront = source.storefront && typeof source.storefront === 'object' ? source.storefront : {};
+
+        const lowThreshold = Math.max(0, Number(thresholds.low || defaultPublicSettings.calculator.thresholds.low));
+        const midThreshold = Math.max(lowThreshold + 1, Number(thresholds.mid || defaultPublicSettings.calculator.thresholds.mid));
+        const highThreshold = Math.max(midThreshold + 1, Number(thresholds.high || defaultPublicSettings.calculator.thresholds.high));
+
+        return {
+            calculator: {
+                thresholds: {
+                    low: lowThreshold,
+                    mid: midThreshold,
+                    high: highThreshold
+                },
+                rates: {
+                    low: Math.max(0.001, Number(rates.low || defaultPublicSettings.calculator.rates.low)),
+                    mid: Math.max(0.001, Number(rates.mid || defaultPublicSettings.calculator.rates.mid)),
+                    high: Math.max(0.001, Number(rates.high || defaultPublicSettings.calculator.rates.high)),
+                    base: Math.max(0.001, Number(rates.base || defaultPublicSettings.calculator.rates.base))
+                },
+                serviceFeeTnd: Math.max(0, Number(calculator.serviceFeeTnd || defaultPublicSettings.calculator.serviceFeeTnd))
+            },
+            storefront: {
+                whatsappNumber: String(storefront.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber).trim().replace(/\D/g, '') || defaultPublicSettings.storefront.whatsappNumber,
+                messengerHandle: String(storefront.messengerHandle || defaultPublicSettings.storefront.messengerHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.messengerHandle,
+                instagramHandle: String(storefront.instagramHandle || defaultPublicSettings.storefront.instagramHandle).trim().replace(/^@/, '') || defaultPublicSettings.storefront.instagramHandle
+            }
+        };
+    }
+
+    function getRuntimeSettings() {
+        return window.runtimeAdminSettings || defaultPublicSettings;
+    }
+
+    function getCalculatorSettings() {
+        return getRuntimeSettings().calculator || defaultPublicSettings.calculator;
+    }
+
+    function resolveUsdToTndRate(totalUSD) {
+        const settings = getCalculatorSettings();
+        let rate = Number(settings.rates.base || defaultPublicSettings.calculator.rates.base);
+        if (totalUSD > 0 && totalUSD < Number(settings.thresholds.low || defaultPublicSettings.calculator.thresholds.low)) rate = Number(settings.rates.low || rate);
+        else if (totalUSD < Number(settings.thresholds.mid || defaultPublicSettings.calculator.thresholds.mid)) rate = Number(settings.rates.mid || rate);
+        else if (totalUSD < Number(settings.thresholds.high || defaultPublicSettings.calculator.thresholds.high)) rate = Number(settings.rates.high || rate);
+        return rate;
+    }
+
+    function convertUsdTotalToTnd(totalUSD) {
+        const numericTotal = Math.max(0, Number(totalUSD || 0));
+        const settings = getCalculatorSettings();
+        const rate = resolveUsdToTndRate(numericTotal);
+        const convertedTnd = numericTotal * rate;
+        const serviceFeeTnd = Number(settings.serviceFeeTnd || 0);
+        return {
+            rate,
+            convertedTnd,
+            serviceFeeTnd,
+            totalTnd: convertedTnd + serviceFeeTnd
+        };
+    }
+
+    function recalculateStoredItem(item = {}) {
+        const usd = Number(item.usd || 0);
+        const calc = convertUsdTotalToTnd(usd);
+        return Object.assign({}, item, { usd, tnd: calc.totalTnd });
+    }
+
+    function recalculateStoredCollection(list = []) {
+        return Array.isArray(list) ? list.map(recalculateStoredItem) : [];
+    }
+
+    function updateCalculatorRuntimePanels(priceUsd, shippingUsd, calc) {
+        const rateBadge = document.getElementById('rate-badge');
+        const liveRateDisplay = document.getElementById('live-rate-display');
+        const runtimeMetricRate = document.getElementById('runtime-metric-rate');
+        const runtimeBreakdownProduct = document.getElementById('runtime-breakdown-product');
+        const runtimeBreakdownShipping = document.getElementById('runtime-breakdown-shipping');
+        const runtimeBreakdownService = document.getElementById('runtime-breakdown-service');
+        const runtimeBreakdownTotal = document.getElementById('runtime-breakdown-total');
+
+        if (rateBadge) {
+            rateBadge.textContent = (priceUsd + shippingUsd) > 0
+                ? `Rate ${calc.rate.toFixed(3)} | Fee ${calc.serviceFeeTnd.toFixed(3)}`
+                : '--';
+        }
+        if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ~ ${calc.rate.toFixed(3)} TND`;
+        if (runtimeMetricRate) runtimeMetricRate.textContent = calc.rate.toFixed(3);
+        if (runtimeBreakdownProduct) runtimeBreakdownProduct.textContent = `${(priceUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownShipping) runtimeBreakdownShipping.textContent = `${(shippingUsd * calc.rate).toFixed(3)} TND`;
+        if (runtimeBreakdownService) runtimeBreakdownService.textContent = `${calc.serviceFeeTnd.toFixed(3)} TND`;
+        if (runtimeBreakdownTotal) runtimeBreakdownTotal.textContent = `${calc.totalTnd.toFixed(3)} TND`;
+    }
+
+    async function loadPublicSettings() {
+        try {
+            const response = await fetch('/api/settings');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.success === false) return;
+            window.runtimeAdminSettings = normalizeRuntimeSettings(data.settings || {});
+        } catch (e) {
+            console.error('Error loading public settings', e);
+        }
+    }
 
     // --- NEW SECURITY MEASURES (XSS & SPAM PROTECTION) ---
     let isActionLocked = false;
@@ -2621,6 +3337,78 @@
         } catch (e) { return null; }
     }
 
+    function readStorageCollection(primaryKey, backupKey) {
+        try {
+            const primaryRaw = localStorage.getItem(primaryKey);
+            const primaryData = decryptData(primaryRaw);
+            const backupRaw = localStorage.getItem(backupKey);
+            const backupData = backupRaw ? JSON.parse(backupRaw) : [];
+
+            if (Array.isArray(primaryData) && primaryData.length > 0) return primaryData;
+            if (Array.isArray(backupData) && backupData.length > 0) return backupData;
+            if (Array.isArray(primaryData)) return primaryData;
+            return Array.isArray(backupData) ? backupData : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function sanitizeStorageImage(image) {
+        if (typeof image !== 'string') return '';
+        const trimmed = image.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('data:')) return '';
+        return trimmed.length > 2048 ? trimmed.slice(0, 2048) : trimmed;
+    }
+
+    function sanitizeStoredItem(item = {}) {
+        const clone = Object.assign({}, item);
+        if ('image' in clone) clone.image = sanitizeStorageImage(clone.image);
+        return clone;
+    }
+
+    function sanitizeStoredCollection(list = []) {
+        return Array.isArray(list) ? list.map(sanitizeStoredItem) : [];
+    }
+
+    function buildPersistentSnapshot() {
+        return {
+            cart: sanitizeStoredCollection(cart),
+            wishlist: sanitizeStoredCollection(wishlist),
+            history: Array.isArray(orderHistory)
+                ? orderHistory.map((entry) => Object.assign({}, entry, {
+                    items: sanitizeStoredCollection(entry && Array.isArray(entry.items) ? entry.items : [])
+                }))
+                : []
+        };
+    }
+
+    function writeEmergencyState(snapshot) {
+        try { sessionStorage.setItem('alexpress_state_backup', JSON.stringify(snapshot)); } catch (e) {}
+        try { window.name = JSON.stringify({ __alexpressState: snapshot }); } catch (e) {}
+    }
+
+    function readEmergencyState() {
+        try {
+            const sessionRaw = sessionStorage.getItem('alexpress_state_backup');
+            if (sessionRaw) {
+                const sessionState = JSON.parse(sessionRaw);
+                if (sessionState && typeof sessionState === 'object') return sessionState;
+            }
+        } catch (e) {}
+
+        try {
+            const rawName = String(window.name || '').trim();
+            if (!rawName) return null;
+            const namedState = JSON.parse(rawName);
+            if (namedState && namedState.__alexpressState && typeof namedState.__alexpressState === 'object') {
+                return namedState.__alexpressState;
+            }
+        } catch (e) {}
+
+        return null;
+    }
+
     // --- NEW PRO FEATURE: Social Proof Notifications ---
     const spData = {
         ar: { names: ["أحمد من سوسة", "مريم من تونس", "خليل من صفاقس"], actions: ["شرا Smartwatch ⌚", "شرات Ecouteurs 🎧", "شرا SSD 1TB 💻"], times: ["منذ دقيقتين", "منذ 5 دقائق", "منذ لحظات"] },
@@ -2644,30 +3432,49 @@
 
     // --- Data Persistence ---
     function saveData() {
-        localStorage.setItem('alexpress_cart', encryptData(cart));
-        localStorage.setItem('alexpress_wishlist', encryptData(wishlist));
-        localStorage.setItem('alexpress_history', encryptData(orderHistory));
+        const snapshot = buildPersistentSnapshot();
+        try {
+            localStorage.setItem('alexpress_cart', encryptData(snapshot.cart));
+            localStorage.setItem('alexpress_wishlist', encryptData(snapshot.wishlist));
+            localStorage.setItem('alexpress_history', encryptData(snapshot.history));
+            localStorage.setItem('alexpress_cart_backup', JSON.stringify(snapshot.cart));
+            localStorage.setItem('alexpress_wishlist_backup', JSON.stringify(snapshot.wishlist));
+            localStorage.setItem('alexpress_history_backup', JSON.stringify(snapshot.history));
+        } catch (e) {
+            console.error('Local save failed, using emergency state backup', e);
+        }
+        writeEmergencyState(snapshot);
         updateAccountStats();
-        syncToCloud(); 
+        if (isCloudEnabled) syncToCloud(); 
     }
 
     function loadData() {
         const savedLang = localStorage.getItem('alexpress_lang') || 'ar';
         changeLanguage(savedLang);
+        refreshCloudUiState();
 
         if(localStorage.getItem('alexpress_theme') === 'light') {
             document.body.classList.add('light-mode');
             document.getElementById('theme-icon').className = 'fas fa-moon';
         }
         try {
-            const savedCart = localStorage.getItem('alexpress_cart');
-            const savedWish = localStorage.getItem('alexpress_wishlist');
-            const savedHist = localStorage.getItem('alexpress_history');
-            
-            if (savedCart) cart = decryptData(savedCart) || [];
-            if (savedWish) wishlist = decryptData(savedWish) || [];
-            if (savedHist) orderHistory = decryptData(savedHist) || [];
+            cart = recalculateStoredCollection(readStorageCollection('alexpress_cart', 'alexpress_cart_backup'));
+            wishlist = recalculateStoredCollection(readStorageCollection('alexpress_wishlist', 'alexpress_wishlist_backup'));
+            orderHistory = readStorageCollection('alexpress_history', 'alexpress_history_backup');
         } catch (e) { console.error("Error loading data", e); }
+
+        const emergencyState = readEmergencyState();
+        if (emergencyState) {
+            if (cart.length === 0 && Array.isArray(emergencyState.cart) && emergencyState.cart.length > 0) {
+                cart = recalculateStoredCollection(emergencyState.cart);
+            }
+            if (wishlist.length === 0 && Array.isArray(emergencyState.wishlist) && emergencyState.wishlist.length > 0) {
+                wishlist = recalculateStoredCollection(emergencyState.wishlist);
+            }
+            if (orderHistory.length === 0 && Array.isArray(emergencyState.history) && emergencyState.history.length > 0) {
+                orderHistory = emergencyState.history;
+            }
+        }
         
         updateBadges();
         renderCart();
@@ -2757,13 +3564,11 @@
         const p = parseFloat(document.getElementById('usd-price').value) || 0;
         const s = parseFloat(document.getElementById('usd-ship').value) || 0;
         const totalUSD = p + s;
-        let rate = rates.base;
-        if (totalUSD > 0 && totalUSD < 10) rate = rates.low;
-        else if (totalUSD < 50) rate = rates.mid;
-        else if (totalUSD < 150) rate = rates.high;
-        const totalTND = totalUSD * rate;
-        document.getElementById('tnd-result').textContent = totalTND.toFixed(3) + " TND";
-        document.getElementById('rate-badge').textContent = totalUSD > 0 ? `Rate: ${rate.toFixed(3)}` : "--";
+        const calc = convertUsdTotalToTnd(totalUSD);
+        const totalTND = calc.totalTnd;
+        const rate = calc.rate;
+        document.getElementById('tnd-result').textContent = calc.totalTnd.toFixed(3) + " TND";
+        updateCalculatorRuntimePanels(p, s, calc);
         
         const liveRateDisplay = document.getElementById('live-rate-display');
         if (liveRateDisplay) liveRateDisplay.textContent = `1 USD ≈ ${rate.toFixed(3)} TND`;
@@ -2881,10 +3686,13 @@
         const list = document.getElementById('cart-items-list');
         const footer = document.getElementById('cart-footer');
         const totalDisplay = document.getElementById('cart-total-display');
+        const runtimeCartService = document.getElementById('runtime-cart-service');
+        const serviceFeePerItem = Number(getCalculatorSettings().serviceFeeTnd || 0);
         
         if (cart.length === 0) {
             list.innerHTML = `<div class="text-center py-12 text-slate-600 text-xs italic">${t('cart_empty')}</div>`;
             footer.classList.add('hidden');
+            if (runtimeCartService) runtimeCartService.textContent = "0.000 TND";
             return;
         }
         
@@ -2928,6 +3736,11 @@
             totalDisplay.innerHTML = `<span class="line-through text-slate-500 text-lg mr-2">${subtotal.toFixed(3)}</span> <span class="text-green-400">${finalTotal.toFixed(3)} TND</span>`;
         } else {
             totalDisplay.textContent = finalTotal.toFixed(3) + " TND";
+        }
+
+        if (runtimeCartService) {
+            const totalQty = cart.reduce((sum, item) => sum + Math.max(1, Number(item.qty || 1)), 0);
+            runtimeCartService.textContent = `${(totalQty * serviceFeePerItem).toFixed(3)} TND`;
         }
     }
 
@@ -2984,7 +3797,16 @@
         saveData(); renderHistory();
 
         const encoded = encodeURIComponent(message);
-        window.open(channel === 'whatsapp' ? `https://wa.me/21627498276?text=${encoded}` : (channel === 'messenger' ? `https://m.me/alexpresstunisie?text=${encoded}` : `https://ig.me/m/alexpress.tunisie?text=${encoded}`), '_blank');
+        const storefrontSettings = getRuntimeSettings().storefront || defaultPublicSettings.storefront;
+        const whatsappNumber = storefrontSettings.whatsappNumber || defaultPublicSettings.storefront.whatsappNumber;
+        const messengerHandle = storefrontSettings.messengerHandle || defaultPublicSettings.storefront.messengerHandle;
+        const instagramHandle = storefrontSettings.instagramHandle || defaultPublicSettings.storefront.instagramHandle;
+        const targetUrl = channel === 'whatsapp'
+            ? `https://wa.me/${whatsappNumber}?text=${encoded}`
+            : (channel === 'messenger'
+                ? `https://m.me/${messengerHandle}?text=${encoded}`
+                : `https://ig.me/m/${instagramHandle}?text=${encoded}`);
+        window.open(targetUrl, '_blank');
         
         cart = []; updateBadges(); renderCart(); saveData();
         document.getElementById('promo-code').value = ''; 
@@ -3060,12 +3882,15 @@
         const container = document.getElementById('banned-list');
         if(!container) return;
         container.innerHTML = bannedKeywords.map(item => `
-            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between group auto-align">
-                 <div class="flex flex-col">
-                    <span class="font-bold text-[11px] text-slate-400 mb-1">${t(item.nameKey)}</span>
-                    <span class="text-[8px] font-black ${item.color} uppercase tracking-tighter">${t(item.statusKey)}</span>
+            <div class="banned-grid-item p-4 rounded-2xl flex items-center justify-between gap-3 group auto-align">
+                 <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shrink-0 shadow-inner">${item.icon}</div>
+                    <div class="flex flex-col min-w-0">
+                        <span class="font-bold text-[11px] text-slate-200 mb-1 leading-snug">${t(item.nameKey)}</span>
+                        <span class="inline-flex w-max items-center gap-1 text-[8px] font-black ${item.color} uppercase tracking-tighter px-2 py-1 rounded-full bg-black/20 border border-white/5">${t(item.statusKey)}</span>
+                    </div>
                  </div>
-                 <span class="text-2xl opacity-80 group-hover:opacity-100 transition-opacity">${item.icon}</span>
+                 <span class="text-[10px] text-slate-500 font-black">⚠️</span>
             </div>
         `).join('');
     }
@@ -3081,15 +3906,48 @@
         });
     }
 
-    window.onload = () => { 
+    window.onload = async () => { 
         initCharts(); 
+        await loadPublicSettings();
         calculateTND(); 
         loadData(); 
-        initFirebase(); 
+        try {
+            await initFirebase();
+        } catch (e) {
+            console.error('Firebase init failed', e);
+            isCloudEnabled = false;
+            cloudState = 'offline';
+            refreshCloudUiState();
+        }
         setTimeout(triggerSocialProof, 5000); 
         setInterval(triggerSocialProof, 25000); 
     };
+
+    window.addEventListener('beforeunload', () => {
+        try { saveData(); } catch (e) {}
+    });
 </script>
-<script src="assets/script.js?v=20260403-3"></script>
+<script>
+(() => {
+    const applyImmediateFixes = () => {
+        const accountAdminPanel = document.querySelector('#section-account details[data-account-panel="admin"]');
+        if (accountAdminPanel) {
+            accountAdminPanel.remove();
+        }
+
+        const footerLove = document.querySelector('.footer-love');
+        if (footerLove) {
+            footerLove.innerHTML = 'Created with <span class="footer-love-heart">&#10084;</span> By';
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyImmediateFixes, { once: true });
+    } else {
+        applyImmediateFixes();
+    }
+})();
+</script>
+<script src="assets/script.js?v=20260410-1"></script>
 </body>
 </html>

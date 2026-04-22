@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة الإدارة | Alexpress Tunisie</title>
+    <meta name="theme-color" content="#0b1220">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-1: #050816;
+            --bg-2: #0b1220;
+            --panel: rgba(10, 18, 32, 0.82);
+            --panel-soft: rgba(14, 23, 40, 0.76);
+            --panel-border: rgba(148, 163, 184, 0.16);
+            --text: #e5eefb;
+            --muted: #94a3b8;
+            --accent: #f59e0b;
+            --accent-2: #38bdf8;
+            --success: #34d399;
+            --danger: #fb7185;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Cairo", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 26%),
+                radial-gradient(circle at top right, rgba(245, 158, 11, 0.14), transparent 24%),
+                radial-gradient(circle at bottom center, rgba(52, 211, 153, 0.08), transparent 28%),
+                linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 52%, #07101d 100%);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+            background-size: 28px 28px;
+            opacity: 0.22;
+            mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.9), transparent 88%);
+        }
+
+        .studio-shell {
+            width: min(1480px, calc(100vw - 24px));
+            margin: 18px auto 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .glass {
+            background: linear-gradient(180deg, var(--panel), var(--panel-soft));
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
+            backdrop-filter: blur(18px);
+        }
+
+        .hero-card,
+        .section-card {
+            border-radius: 28px;
+            padding: 22px;
+        }
+
+        .hero-card {
+            background:
+                radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(56, 189, 248, 0.16), transparent 20%),
+                linear-gradient(145deg, rgba(6, 13, 26, 0.96), rgba(9, 16, 31, 0.88));
+        }
+
+        .eyebrow {
+            font-family: "Cairo", sans-serif;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            color: #9fb6d2;
+            font-weight: 700;
+        }
+
+        .hero-title {
+            font-family: "Cairo", sans-serif;
+            font-size: clamp(2rem, 3vw, 4.2rem);
+            line-height: 0.98;
+            color: white;
+            margin: 12px 0 0;
+        }
+
+        .hero-copy {
+            max-width: 900px;
+            font-size: 15px;
+            color: #bed0e7;
+            line-height: 1.9;
+            margin-top: 14px;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .chip,
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .status-pill {
+            font-family: "Cairo", sans-serif;
+            letter-spacing: 0.02em;
+        }
+
+        .panel-title {
+            font-family: "Cairo", sans-serif;
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .kpi-card {
+            border-radius: 24px;
+            padding: 18px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .kpi-value {
+            font-family: "Cairo", sans-serif;
+            font-size: clamp(1.7rem, 2vw, 2.5rem);
+            line-height: 1;
+            font-weight: 700;
+            color: white;
+            margin-top: 14px;
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        .field,
+        .select,
+        .textarea {
+            width: 100%;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(4, 9, 19, 0.82);
+            color: white;
+            padding: 13px 14px;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .textarea {
+            resize: vertical;
+            min-height: 92px;
+        }
+
+        .field:focus,
+        .select:focus,
+        .textarea:focus {
+            border-color: rgba(245, 158, 11, 0.55);
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.09);
+            transform: translateY(-1px);
+        }
+
+        .label {
+            display: block;
+            margin-bottom: 8px;
+            color: #d6e1f0;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .btn {
+            border: 0;
+            border-radius: 16px;
+            padding: 12px 16px;
+            cursor: pointer;
+            font-family: "Cairo", sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #111827;
+        }
+
+        .btn-secondary {
+            background: rgba(56, 189, 248, 0.12);
+            color: #bfe8ff;
+            border: 1px solid rgba(56, 189, 248, 0.24);
+        }
+
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-danger {
+            background: rgba(251, 113, 133, 0.12);
+            color: #ffd2da;
+            border: 1px solid rgba(251, 113, 133, 0.22);
+        }
+
+        .metric-tile,
+        .mini-item {
+            border-radius: 20px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .mini-list,
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .stat-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .chart-box {
+            height: 300px;
+            position: relative;
+        }
+
+        .table-wrap {
+            overflow: auto;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(4, 9, 19, 0.56);
+        }
+
+        table {
+            width: 100%;
+            min-width: 980px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 14px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            vertical-align: top;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.04);
+            color: #95a9c2;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 800;
+            z-index: 1;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.026);
+        }
+
+        .empty-state {
+            padding: 28px;
+            text-align: center;
+            border-radius: 18px;
+            border: 1px dashed rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .login-panel {
+            max-width: 520px;
+            margin: 54px auto 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 1100px) {
+            .stat-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .studio-shell {
+                width: min(100vw - 16px, 1480px);
+            }
+
+            .hero-card,
+            .section-card {
+                padding: 16px;
+            }
+
+            .hero-title {
+                line-height: 1.06;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="studio-shell">
+        <section class="hero-card glass">
+            <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                <div>
+                    <div class="eyebrow">لوحة الإدارة</div>
+                    <h1 class="hero-title">تحكم في الأسعار والعروض والطلبات من مكان واحد.</h1>
+                    <p class="hero-copy">
+                        هذه الصفحة تسمح لك بتعديل مستويات أسعار الحاسبة، إضافة رسوم الخدمة، تحديث قنوات التواصل،
+                        إدارة أكواد التخفيض، ومتابعة الطلبات بواجهة أوضح ومعاينة مباشرة.
+                    </p>
+                    <div class="chip-row">
+                        <span id="settings-active-base-rate" class="chip">السعر الأساسي 3.800</span>
+                        <span id="settings-service-fee-chip" class="chip">رسوم الخدمة 0.000 د.ت</span>
+                        <span id="settings-refresh-chip" class="chip">التحديث التلقائي متوقف</span>
+                        <span id="settings-last-saved" class="chip">لم تتم المزامنة بعد</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-start xl:items-end gap-3">
+                    <div id="admin-session-pill" class="status-pill">مغلق</div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="/" class="btn btn-ghost">العودة إلى المتجر</a>
+                        <button id="admin-refresh-btn" class="btn btn-secondary hidden">تحديث البيانات</button>
+                        <button id="admin-logout-btn" class="btn btn-danger hidden">تسجيل الخروج</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="admin-login-panel" class="login-panel section-card glass">
+            <div class="stack">
+                <div>
+                    <div class="panel-title">دخول آمن</div>
+                    <h2 class="text-3xl font-black text-white mt-3">افتح لوحة الإدارة</h2>
+                    <p class="subtle mt-3">
+                        أدخل رمز الإدارة لعرض الإحصائيات، تعديل إعدادات الحاسبة، إدارة العروض، وتحديث حالات الطلبات.
+                    </p>
+                </div>
+
+                <div class="stack">
+                    <input id="admin-pin-input" type="password" inputmode="numeric" class="field" placeholder="رمز الإدارة">
+                    <button id="admin-login-btn" class="btn btn-primary w-full">دخول لوحة الإدارة</button>
+                    <div id="admin-login-message" class="text-sm font-bold text-slate-400"></div>
+                </div>
+            </div>
+        </section>
+
+        <main id="admin-app" class="hidden mt-4 space-y-4">
+            <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                <div class="kpi-card glass">
+                    <div class="panel-title">الإيرادات</div>
+                    <div id="kpi-revenue" class="kpi-value">0.000 TND</div>
+                    <div class="subtle mt-2">إجمالي قيمة الطلبات المسجلة في لوحة الإدارة.</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="panel-title">الطلبات</div>
+                    <div id="kpi-orders" class="kpi-value">0</div>
+                    <div class="subtle mt-2">كل الطلبات التي تتم متابعتها حالياً من لوحة الإدارة.</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="panel-title">قيد الانتظار</div>
+                    <div id="kpi-pending" class="kpi-value">0</div>
+                    <div class="subtle mt-2">طلبات ما زالت تنتظر المعالجة أو التأكيد.</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="panel-title">تم التسليم</div>
+                    <div id="kpi-delivered" class="kpi-value">0</div>
+                    <div class="subtle mt-2">طلبات مكتملة تم تعليمها على أنها منتهية.</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="panel-title">مخاطر</div>
+                    <div id="kpi-risk" class="kpi-value">0</div>
+                    <div class="subtle mt-2">طلبات عليها تنبيه بسبب قيود أو مخاطر جمركية.</div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-[1.3fr_0.9fr] gap-4">
+                <div class="section-card glass">
+                    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
+                        <div>
+                            <div class="panel-title">التحكم في الحاسبة</div>
+                            <h3 class="text-2xl font-black text-white mt-2">مستويات الأسعار وقواعد التسعير</h3>
+                            <p class="subtle mt-2">غيّر أسعار الحاسبة المستخدمة في المتجر بدون تعديل الكود.</p>
+                        </div>
+                        <div class="chip-row mt-0">
+                            <span class="chip">مزامنة مباشرة مع المتجر</span>
+                            <span class="chip">معاينة قبل الحفظ</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="mini-item">
+                            <div class="panel-title">الحدود</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                                <div>
+                                    <label class="label" for="settings-threshold-low">الحد الأقصى للمستوى الأول بالدولار</label>
+                                    <input id="settings-threshold-low" class="field" type="number" min="0" step="1" placeholder="10">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-threshold-mid">الحد الأقصى للمستوى الثاني بالدولار</label>
+                                    <input id="settings-threshold-mid" class="field" type="number" min="0" step="1" placeholder="50">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-threshold-high">الحد الأقصى للمستوى الثالث بالدولار</label>
+                                    <input id="settings-threshold-high" class="field" type="number" min="0" step="1" placeholder="150">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mini-item">
+                            <div class="panel-title">الأسعار</div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                                <div>
+                                    <label class="label" for="settings-rate-low">سعر المستوى الأول</label>
+                                    <input id="settings-rate-low" class="field" type="number" min="0" step="0.001" placeholder="4.500">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-mid">سعر المستوى الثاني</label>
+                                    <input id="settings-rate-mid" class="field" type="number" min="0" step="0.001" placeholder="4.300">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-high">سعر المستوى الثالث</label>
+                                    <input id="settings-rate-high" class="field" type="number" min="0" step="0.001" placeholder="4.100">
+                                </div>
+                                <div>
+                                    <label class="label" for="settings-rate-base">السعر الأساسي</label>
+                                    <input id="settings-rate-base" class="field" type="number" min="0" step="0.001" placeholder="3.800">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] gap-4 mt-4">
+                        <div class="mini-item">
+                            <div class="panel-title">الرسوم</div>
+                            <label class="label mt-4" for="settings-service-fee">رسوم خدمة ثابتة بالدينار</label>
+                            <input id="settings-service-fee" class="field" type="number" min="0" step="0.001" placeholder="0.000">
+                            <p class="subtle mt-3">يتم إضافة هذا المبلغ مرة واحدة على كل نتيجة حاسبة وإجمالي السلة.</p>
+                        </div>
+
+                        <div class="mini-item">
+                            <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                                <div>
+                                    <div class="panel-title">معاينة مباشرة</div>
+                                    <h4 class="text-lg font-black text-white mt-2">شاهد نتيجة الحاسبة قبل الحفظ</h4>
+                                </div>
+                                <div class="w-full lg:w-56">
+                                    <label class="label" for="settings-preview-usd">مبلغ تجريبي بالدولار</label>
+                                    <input id="settings-preview-usd" class="field" type="number" min="0" step="0.1" value="35">
+                                </div>
+                            </div>
+                            <div class="stat-grid mt-4">
+                                <div class="metric-tile">
+                                    <div class="panel-title">السعر المطبق</div>
+                                    <div id="settings-preview-rate" class="text-2xl font-black text-white mt-2">4.300 TND</div>
+                                    <div class="subtle mt-2">لكل 1 دولار حسب المبلغ التجريبي المختار.</div>
+                                </div>
+                                <div class="metric-tile">
+                                    <div class="panel-title">رسوم الخدمة</div>
+                                    <div id="settings-preview-service" class="text-2xl font-black text-amber-300 mt-2">0.000 TND</div>
+                                    <div class="subtle mt-2">رسوم ثابتة تضاف مرة واحدة بعد تحويل العملة.</div>
+                                </div>
+                                <div class="metric-tile">
+                                    <div class="panel-title">الإجمالي النهائي</div>
+                                    <div id="settings-preview-total" class="text-2xl font-black text-emerald-300 mt-2">0.000 TND</div>
+                                    <div class="subtle mt-2">هذا هو المبلغ الذي ستعرضه الحاسبة للعميل.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mt-5">
+                        <button id="settings-save-btn" class="btn btn-primary">حفظ الإعدادات</button>
+                        <button id="settings-reset-btn" class="btn btn-ghost">إعادة تعيين النموذج</button>
+                    </div>
+                    <div id="settings-message" class="text-sm font-bold text-slate-400 mt-4"></div>
+                </div>
+
+                <div class="space-y-4">
+                    <section class="section-card glass">
+                        <div class="panel-title">قنوات المتجر</div>
+                        <h3 class="text-xl font-black text-white mt-2">روابط التواصل المستخدمة في الطلب</h3>
+                        <p class="subtle mt-2">تُستخدم هذه القيم عندما يرسل العميل طلبه عبر واتساب أو ماسنجر أو إنستغرام.</p>
+
+                        <div class="stack mt-4">
+                            <div>
+                                <label class="label" for="settings-whatsapp">رقم واتساب</label>
+                                <input id="settings-whatsapp" class="field" placeholder="21627498276">
+                            </div>
+                            <div>
+                                <label class="label" for="settings-messenger">اسم حساب ماسنجر</label>
+                                <input id="settings-messenger" class="field" placeholder="alexpresstunisie">
+                            </div>
+                            <div>
+                                <label class="label" for="settings-instagram">اسم حساب إنستغرام</label>
+                                <input id="settings-instagram" class="field" placeholder="alexpress.tunisie">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="section-card glass">
+                        <div class="panel-title">تجربة الإدارة</div>
+                        <h3 class="text-xl font-black text-white mt-2">إعدادات المشرف</h3>
+                        <p class="subtle mt-2">حدّث الصفحة تلقائياً أثناء متابعة الطلبات الجديدة.</p>
+
+                        <div class="stack mt-4">
+                            <div>
+                                <label class="label" for="settings-auto-refresh">التحديث التلقائي كل عدد من الثواني</label>
+                                <input id="settings-auto-refresh" class="field" type="number" min="0" step="1" placeholder="0">
+                                <p class="subtle mt-2">استخدم <strong>0</strong> لإيقاف التحديث التلقائي.</p>
+                            </div>
+
+                            <div class="mini-item">
+                                <div class="panel-title">ما الجديد</div>
+                                <div class="subtle mt-3">
+                                    واجهة أفضل، مستويات حاسبة قابلة للتعديل، إعدادات قنوات المتجر، معاينة مباشرة للحاسبة،
+                                    تحكم في التحديث التلقائي، وتجربة إدارة أكثر وضوحاً.
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-4">
+                <div class="section-card glass">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <div class="panel-title">نظرة على الطلبات</div>
+                            <h3 class="text-xl font-black text-white mt-2">توزيع حالات الطلبات</h3>
+                        </div>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="orders-status-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="section-card glass">
+                    <div class="panel-title">أكثر المنتجات</div>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">المنتجات الأكثر طلباً</h3>
+                    <div class="chart-box">
+                        <canvas id="top-products-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
+                <div class="section-card glass">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <div class="panel-title">إدارة العروض</div>
+                            <h3 class="text-xl font-black text-white mt-2">إنشاء وتعديل أكواد التخفيض</h3>
+                        </div>
+                        <div id="promos-count" class="status-pill">0 عروض</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <input id="promo-code-input" class="field" placeholder="CODE2026">
+                        <select id="promo-type-input" class="select">
+                            <option value="percent">نسبة مئوية %</option>
+                            <option value="fixed">قيمة ثابتة بالدينار</option>
+                        </select>
+                        <input id="promo-value-input" class="field" type="number" min="0" step="0.1" placeholder="قيمة الخصم">
+                        <input id="promo-limit-input" class="field" type="number" min="0" step="1" placeholder="حد الاستخدام">
+                        <input id="promo-expiry-input" class="field" type="datetime-local">
+                        <div class="flex gap-2">
+                            <button id="promo-save-btn" class="btn btn-primary flex-1">حفظ العرض</button>
+                            <button id="promo-clear-btn" class="btn btn-ghost">مسح</button>
+                        </div>
+                    </div>
+                    <div id="promo-message" class="text-sm font-bold text-slate-400 mb-4"></div>
+                    <div id="promos-list" class="mini-list"></div>
+                </div>
+
+                <div class="section-card glass">
+                    <div class="panel-title">إحصائيات</div>
+                    <h3 class="text-xl font-black text-white mt-2 mb-4">ملخص سريع</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div class="mini-item">
+                            <div class="panel-title">العملاء المتكررون</div>
+                            <div id="repeat-customers-list" class="stack mt-3"></div>
+                        </div>
+                        <div class="mini-item">
+                            <div class="panel-title">أفضل العروض</div>
+                            <div id="top-promos-list" class="stack mt-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="mini-item">
+                        <div class="panel-title">نشاط الإدارة</div>
+                        <div id="admin-activity-log" class="stack mt-3"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section-card glass">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between mb-4">
+                    <div>
+                        <div class="panel-title">الطلبات</div>
+                        <h3 class="text-xl font-black text-white mt-2">جميع الطلبات المتابعة</h3>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto lg:min-w-[760px]">
+                        <input id="orders-search-input" class="field" placeholder="ابحث بالمرجع أو الهاتف أو المدينة أو المنتج">
+                        <select id="orders-status-filter" class="select">
+                            <option value="all">كل الحالات</option>
+                            <option value="pending">قيد الانتظار</option>
+                            <option value="processing">قيد المعالجة</option>
+                            <option value="shipped">تم الشحن</option>
+                            <option value="delivered">تم التسليم</option>
+                        </select>
+                        <select id="orders-sort-filter" class="select">
+                            <option value="newest">الأحدث أولاً</option>
+                            <option value="oldest">الأقدم أولاً</option>
+                            <option value="high-total">الأعلى إجمالياً</option>
+                            <option value="low-total">الأقل إجمالياً</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>المرجع</th>
+                                <th>التاريخ</th>
+                                <th>العميل</th>
+                                <th>المنتجات</th>
+                                <th>الحالة</th>
+                                <th>الإجمالي</th>
+                                <th>التتبع</th>
+                                <th>التحديث</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/assets/admin.js"></script>
+</body>
+</html>

@@ -1,9 +1,10 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
+const { URL } = require("url");
 const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
@@ -17,11 +18,13 @@ try {
 
 const app = express();
 const ROOT = __dirname;
+const ENV_FILE_PATH = path.join(ROOT, ".env");
 const PORT = Number(process.env.PORT || 3000);
-const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 900) * 1000;
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/g, "");
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_SECONDS || 21600) * 1000;
 const FX_CACHE_TTL_MS = Number(process.env.FX_CACHE_TTL_SECONDS || 3600) * 1000;
 const SCRAPE_TIMEOUT_MS = Number(process.env.SCRAPE_TIMEOUT_MS || 30_000);
-const SCRAPE_RETRIES = Number(process.env.SCRAPE_RETRIES || 2);
+const SCRAPE_RETRIES = Number(process.env.SCRAPE_RETRIES || 1);
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 45);
 const CORS_ORIGINS = String(process.env.CORS_ORIGINS || "")
@@ -33,23 +36,37 @@ const FX_FALLBACK_URL = process.env.FX_FALLBACK_URL || "https://api.exchangerate
 const FX_FALLBACK_RATE = Number(process.env.FX_FALLBACK_RATE || 3.8);
 const DEFAULT_SHIPPING_USD = Number(process.env.DEFAULT_SHIPPING_USD || 2);
 const RESTRICTED_RULES = [
-  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|طيارة بدون طيار|طائرة بدون طيار/i, message: "المنتج هذا ينجم يكون ممنوع في الديوانة التونسية." },
-  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|سيجارة إلكترونية/i, message: "السيجارة الإلكترونية ومشتقاتها فيها خطر حجز كبير." },
-  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|كاميرا تجسس/i, message: "الكاميرات المخفية والتجسس غالبا ممنوعة." },
-  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|جهاز تتبع/i, message: "أجهزة التتبع فيها خطر قانوني مرتفع." },
-  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|هاتف|telephone portable/i, message: "الهواتف تنجم تتطلب إجراءات أو تصريح قبل الإدخال." },
-  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|لاسلكي|transceiver/i, message: "الأجهزة اللاسلكية تنجم تتطلب ترخيص." },
-  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|رسيفر/i, message: "أجهزة الاستقبال تنجم تتطلب تصريح أو تتعرض للحجز." },
-  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|دواء|مكمل غذائي/i, message: "الأدوية والمكملات الغذائية يلزمهم تثبت إضافي قبل الطلب." },
-  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|سكين|خنجر|سيف/i, message: "الأدوات الحادة أو الصيد فيها خطر رفض أو حجز." }
+  { type: "banned", category: "drone", pattern: /\bdrone\b|quadcop|fpv|Ø·ÙŠØ§Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±|Ø·Ø§Ø¦Ø±Ø© Ø¨Ø¯ÙˆÙ† Ø·ÙŠØ§Ø±/i, message: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠÙƒÙˆÙ† Ù…Ù…Ù†ÙˆØ¹ ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©." },
+  { type: "banned", category: "vape", pattern: /\bvape\b|e-?cig|electronic cigarette|Ø³ÙŠØ¬Ø§Ø±Ø© Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ©/i, message: "Ø§Ù„Ø³ÙŠØ¬Ø§Ø±Ø© Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠØ© ÙˆÙ…Ø´ØªÙ‚Ø§ØªÙ‡Ø§ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ±." },
+  { type: "banned", category: "spy-camera", pattern: /spy camera|hidden camera|mini camera|ÙƒØ§Ù…ÙŠØ±Ø§ ØªØ¬Ø³Ø³/i, message: "Ø§Ù„ÙƒØ§Ù…ÙŠØ±Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© ÙˆØ§Ù„ØªØ¬Ø³Ø³ ØºØ§Ù„Ø¨Ø§ Ù…Ù…Ù†ÙˆØ¹Ø©." },
+  { type: "banned", category: "gps-tracker", pattern: /\bgps\b.*tracker|tracker.*\bgps\b|Ø¬Ù‡Ø§Ø² ØªØªØ¨Ø¹/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„ØªØªØ¨Ø¹ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ù‚Ø§Ù†ÙˆÙ†ÙŠ Ù…Ø±ØªÙØ¹." },
+  { type: "restricted", category: "phone", pattern: /\bsmartphone\b|\bmobile phone\b|\bcell phone\b|Ù‡Ø§ØªÙ|telephone portable/i, message: "Ø§Ù„Ù‡ÙˆØ§ØªÙ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø¯Ø®Ø§Ù„." },
+  { type: "restricted", category: "radio", pattern: /walkie|two-way radio|radio transceiver|Ù„Ø§Ø³Ù„ÙƒÙŠ|transceiver/i, message: "Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù„Ø§Ø³Ù„ÙƒÙŠØ© ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØ±Ø®ÙŠØµ." },
+  { type: "restricted", category: "tv-box", pattern: /tv box|receiver|set[- ]?top|box tv|Ø±Ø³ÙŠÙØ±/i, message: "Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ø§Ø³ØªÙ‚Ø¨Ø§Ù„ ØªÙ†Ø¬Ù… ØªØªØ·Ù„Ø¨ ØªØµØ±ÙŠØ­ Ø£Ùˆ ØªØªØ¹Ø±Ø¶ Ù„Ù„Ø­Ø¬Ø²." },
+  { type: "restricted", category: "supplements", pattern: /supplement|vitamin|capsule|medicine|medication|Ø¯ÙˆØ§Ø¡|Ù…ÙƒÙ…Ù„ ØºØ°Ø§Ø¦ÙŠ/i, message: "Ø§Ù„Ø£Ø¯ÙˆÙŠØ© ÙˆØ§Ù„Ù…ÙƒÙ…Ù„Ø§Øª Ø§Ù„ØºØ°Ø§Ø¦ÙŠØ© ÙŠÙ„Ø²Ù…Ù‡Ù… ØªØ«Ø¨Øª Ø¥Ø¶Ø§ÙÙŠ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." },
+  { type: "restricted", category: "knife", pattern: /knife|dagger|sword|hunting|Ø³ÙƒÙŠÙ†|Ø®Ù†Ø¬Ø±|Ø³ÙŠÙ/i, message: "Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø§Ù„Ø­Ø§Ø¯Ø© Ø£Ùˆ Ø§Ù„ØµÙŠØ¯ ÙÙŠÙ‡Ø§ Ø®Ø·Ø± Ø±ÙØ¶ Ø£Ùˆ Ø­Ø¬Ø²." }
 ];
 
 const ALIEXPRESS_API_BASE_URL = process.env.ALIEXPRESS_API_BASE_URL || "";
 const ALIEXPRESS_APP_KEY = process.env.ALIEXPRESS_APP_KEY || "";
 const ALIEXPRESS_APP_SECRET = String(process.env.ALIEXPRESS_APP_SECRET || "").replace(/^"|"$/g, "");
 const ALIEXPRESS_PRODUCT_METHOD = process.env.ALIEXPRESS_PRODUCT_METHOD || "aliexpress.ds.product.get";
+const ALIEXPRESS_ENABLE_AFFILIATE_API = process.env.ALIEXPRESS_ENABLE_AFFILIATE_API === "true";
+const ALIEXPRESS_OAUTH_AUTHORIZE_URL = process.env.ALIEXPRESS_OAUTH_AUTHORIZE_URL || "https://api-sg.aliexpress.com/oauth/authorize";
+const ALIEXPRESS_OAUTH_TOKEN_URL = process.env.ALIEXPRESS_OAUTH_TOKEN_URL || "https://api-sg.aliexpress.com/rest/auth/token/create";
+const ALIEXPRESS_AFFILIATE_API_BASE_URL = process.env.ALIEXPRESS_AFFILIATE_API_BASE_URL || "https://eco.taobao.com/router/rest";
+const ALIEXPRESS_AFFILIATE_PRODUCT_METHOD = process.env.ALIEXPRESS_AFFILIATE_PRODUCT_METHOD || "aliexpress.affiliate.productdetail.get";
+const ALIEXPRESS_TRACKING_ID = String(process.env.ALIEXPRESS_TRACKING_ID || "").trim();
 const PLAYWRIGHT_EXECUTABLE_PATH = process.env.PLAYWRIGHT_EXECUTABLE_PATH || "";
-const ADMIN_PIN = String(process.env.ADMIN_PIN || "2749").trim();
+const SCRAPE_PROXY_URL = String(process.env.SCRAPE_PROXY_URL || "").trim();
+const SCRAPE_PROXY_BYPASS = String(process.env.SCRAPE_PROXY_BYPASS || "").trim();
+const SCRAPINGDOG_API_URL = process.env.SCRAPINGDOG_API_URL || "https://api.scrapingdog.com/scrape";
+const SCRAPINGDOG_API_KEY = (process.env.SCRAPINGDOG_API_KEY || "").trim();
+const SCRAPINGDOG_DYNAMIC = String(process.env.SCRAPINGDOG_DYNAMIC || "false").trim().toLowerCase() === "true";
+const SCRAPINGDOG_RETRY_COUNT = Math.max(0, Number(process.env.SCRAPINGDOG_RETRY_COUNT || 1));
+const SCRAPINGDOG_COUNTRY = String(process.env.SCRAPINGDOG_COUNTRY || "tn").trim().toLowerCase();
+const SCRAPINGDOG_ACCEPT_LANGUAGE = String(process.env.SCRAPINGDOG_ACCEPT_LANGUAGE || "en-US,en;q=0.9,fr;q=0.8,ar;q=0.7").trim();
+const ADMIN_PIN = String(process.env.ADMIN_PIN || "1920").trim();
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || "alex-admin-secret").trim();
 const ADMIN_TOKEN_TTL_MS = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 168) * 60 * 60 * 1000;
 const DATA_DIR = path.join(ROOT, "data");
@@ -72,13 +89,90 @@ function log(level, message, meta = {}) {
   console[level](`[${new Date().toISOString()}] ${message}${payload}`);
 }
 
+function clearBrowserReference(reason, meta = {}) {
+  if (browserPromise) {
+    log("warn", "Clearing Playwright browser reference", { reason, ...meta });
+  }
+  browserPromise = null;
+}
+
+function isRecoverablePlaywrightError(error) {
+  const message = String(error?.message || error || "");
+  return /Target page, context or browser has been closed|Target closed|Browser has been closed|Connection closed|browser has disconnected|Execution context was destroyed|net::ERR_|browserType\.launch/i.test(message);
+}
+
 function sanitizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
+}
+
+function parseProxyUrl(rawValue = "") {
+  const input = String(rawValue || "").trim();
+  if (!input) return null;
+  try {
+    const parsed = new URL(input);
+    if (!/^https?:$/i.test(parsed.protocol) && !/^socks5?:$/i.test(parsed.protocol)) return null;
+    const server = `${parsed.protocol}//${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`;
+    return {
+      server,
+      username: parsed.username ? decodeURIComponent(parsed.username) : "",
+      password: parsed.password ? decodeURIComponent(parsed.password) : "",
+      protocol: parsed.protocol.replace(":", "").toLowerCase()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getScrapeProxyConfig() {
+  return parseProxyUrl(SCRAPE_PROXY_URL);
+}
+
+function getAxiosProxyOptions() {
+  const proxyConfig = getScrapeProxyConfig();
+  if (proxyConfig) {
+    log("log", "Axios using configured proxy", { server: proxyConfig.server });
+    return {
+      proxy: {
+        protocol: proxyConfig.protocol,
+        host: new URL(proxyConfig.server).hostname,
+        port: Number(new URL(proxyConfig.server).port || 80),
+        auth: proxyConfig.username || proxyConfig.password
+          ? {
+              username: proxyConfig.username,
+              password: proxyConfig.password
+            }
+          : undefined
+      }
+    };
+  }
+
+  if (!process.env.SCRAPE_PROXY_SERVER) {
+    log("warn", "No proxy configured for Axios");
+    return { proxy: false };
+  }
+
+  const proxyUrl = new URL(process.env.SCRAPE_PROXY_SERVER);
+
+  log("log", "Axios using SCRAPE_PROXY_SERVER", { server: proxyUrl.href });
+
+  return {
+    proxy: {
+      protocol: proxyUrl.protocol.replace(":", ""),
+      host: proxyUrl.hostname,
+      port: Number(proxyUrl.port || 80),
+      auth: {
+        username: process.env.SCRAPE_PROXY_USERNAME,
+        password: process.env.SCRAPE_PROXY_PASSWORD
+      }
+    }
+  };
 }
 
 function normalizeUrl(value = "") {
   const cleaned = sanitizeText(value);
   if (!cleaned) return "";
+  if (isAliExpressPlaceholderText(cleaned)) return "";
+  if (/^data:image\//i.test(cleaned)) return "";
   if (cleaned.startsWith("//")) return `https:${cleaned}`;
   return cleaned;
 }
@@ -195,18 +289,39 @@ function hasUsableImage(value) {
   return Boolean(normalizeUrl(value));
 }
 
+function hasMeaningfulVariantGroups(groups = []) {
+  return (Array.isArray(groups) ? groups : []).some((group) => {
+    const name = sanitizeText(group?.name || "");
+    const values = Array.isArray(group?.values) ? group.values.map((value) => sanitizeText(value || "")) : [];
+    return (
+      name &&
+      !isLowValueProductTitle(name) &&
+      !isAliExpressNavigationJunk(name) &&
+      values.filter((value) => value && !isLowValueProductDescription(value) && !isAliExpressNavigationJunk(value)).length >= 2
+    );
+  });
+}
+
 function hasUsefulPartialProductData(partial = {}) {
-  return Boolean(
-    hasUsableImage(partial.image) ||
-    sanitizeText(partial.title) ||
-    sanitizeText(partial.description) ||
+  const title = sanitizeText(partial.title);
+  const description = sanitizeText(partial.description);
+  const shipping = partial.shipping != null ? Number(partial.shipping) : null;
+  const hasMeaningfulText =
+    (title && !isLowValueProductTitle(title) && !isAliExpressPlaceholderLike(title)) ||
+    (description && !isLowValueProductDescription(description) && !isAliExpressPlaceholderLike(description));
+  const hasMeaningfulCommerceData =
     Number(partial.price || 0) > 0 ||
-    Number(partial.rating || 0) > 0 ||
-    Number(partial.shipping || 0) >= 0 ||
+    (shipping != null && Number.isFinite(shipping) && shipping > 0);
+  const hasSupportingSignals =
     Number(partial.reviewCount || 0) > 0 ||
     Number(partial.soldCount || 0) > 0 ||
-    sanitizeText(partial.deliveryEstimate) ||
-    (Array.isArray(partial.variants) && partial.variants.length > 0)
+    Boolean(sanitizeText(partial.deliveryEstimate)) ||
+    hasMeaningfulVariantGroups(partial.variants);
+
+  return Boolean(
+    hasMeaningfulText ||
+    hasMeaningfulCommerceData ||
+    (hasUsableImage(partial.image) && (hasMeaningfulText || hasMeaningfulCommerceData || hasSupportingSignals))
   );
 }
 
@@ -245,10 +360,82 @@ function ensureDataDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+function toFiniteNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getDefaultAdminSettings() {
+  return {
+    calculator: {
+      thresholds: {
+        low: 10,
+        mid: 50,
+        high: 150
+      },
+      rates: {
+        low: 4.5,
+        mid: 4.3,
+        high: 4.1,
+        base: 3.8
+      },
+      serviceFeeTnd: 0
+    },
+    storefront: {
+      whatsappNumber: "21627498276",
+      messengerHandle: "alexpresstunisie",
+      instagramHandle: "alexpress.tunisie"
+    },
+    admin: {
+      autoRefreshSeconds: 0
+    }
+  };
+}
+
+function normalizeAdminSettings(settings = {}) {
+  const defaults = getDefaultAdminSettings();
+  const source = settings && typeof settings === "object" ? settings : {};
+  const calculator = source.calculator && typeof source.calculator === "object" ? source.calculator : {};
+  const thresholds = calculator.thresholds && typeof calculator.thresholds === "object" ? calculator.thresholds : {};
+  const rates = calculator.rates && typeof calculator.rates === "object" ? calculator.rates : {};
+  const storefront = source.storefront && typeof source.storefront === "object" ? source.storefront : {};
+  const admin = source.admin && typeof source.admin === "object" ? source.admin : {};
+
+  const lowThreshold = Math.max(0, toFiniteNumber(thresholds.low, defaults.calculator.thresholds.low));
+  const midThreshold = Math.max(lowThreshold + 1, toFiniteNumber(thresholds.mid, defaults.calculator.thresholds.mid));
+  const highThreshold = Math.max(midThreshold + 1, toFiniteNumber(thresholds.high, defaults.calculator.thresholds.high));
+
+  return {
+    calculator: {
+      thresholds: {
+        low: lowThreshold,
+        mid: midThreshold,
+        high: highThreshold
+      },
+      rates: {
+        low: Math.max(0.001, toFiniteNumber(rates.low, defaults.calculator.rates.low)),
+        mid: Math.max(0.001, toFiniteNumber(rates.mid, defaults.calculator.rates.mid)),
+        high: Math.max(0.001, toFiniteNumber(rates.high, defaults.calculator.rates.high)),
+        base: Math.max(0.001, toFiniteNumber(rates.base, defaults.calculator.rates.base))
+      },
+      serviceFeeTnd: Math.max(0, toFiniteNumber(calculator.serviceFeeTnd, defaults.calculator.serviceFeeTnd))
+    },
+    storefront: {
+      whatsappNumber: sanitizeText(storefront.whatsappNumber || defaults.storefront.whatsappNumber),
+      messengerHandle: sanitizeText(storefront.messengerHandle || defaults.storefront.messengerHandle),
+      instagramHandle: sanitizeText(storefront.instagramHandle || defaults.storefront.instagramHandle)
+    },
+    admin: {
+      autoRefreshSeconds: Math.max(0, Math.round(toFiniteNumber(admin.autoRefreshSeconds, defaults.admin.autoRefreshSeconds)))
+    }
+  };
+}
+
 function getDefaultAdminStore() {
   return {
     promos: [],
     orders: [],
+    settings: getDefaultAdminSettings(),
     updatedAt: new Date().toISOString()
   };
 }
@@ -315,6 +502,7 @@ function loadAdminStore() {
     adminStoreCache = {
       promos: Array.isArray(parsed.promos) ? parsed.promos.map(normalizePromoRecord).filter(Boolean) : [],
       orders: Array.isArray(parsed.orders) ? sortOrdersNewestFirst(parsed.orders.map(normalizeOrderRecord).filter(Boolean)) : [],
+      settings: normalizeAdminSettings(parsed.settings || {}),
       updatedAt: parsed.updatedAt || new Date().toISOString()
     };
   } catch {
@@ -329,6 +517,7 @@ function saveAdminStore(store) {
   const normalized = {
     promos: Array.isArray(store.promos) ? store.promos.map(normalizePromoRecord).filter(Boolean) : [],
     orders: sortOrdersNewestFirst(Array.isArray(store.orders) ? store.orders.map(normalizeOrderRecord).filter(Boolean) : []),
+    settings: normalizeAdminSettings(store.settings || {}),
     updatedAt: new Date().toISOString()
   };
   const tempPath = `${ADMIN_STORE_PATH}.tmp`;
@@ -347,6 +536,14 @@ function getPublicPromoState(store = loadAdminStore()) {
     if (promo.limit > 0 && promo.used >= promo.limit) return false;
     return true;
   });
+}
+
+function getPublicSettings(store = loadAdminStore()) {
+  const settings = normalizeAdminSettings(store.settings || {});
+  return {
+    calculator: settings.calculator,
+    storefront: settings.storefront
+  };
 }
 
 function buildAdminAnalytics(store = loadAdminStore()) {
@@ -454,7 +651,7 @@ function getBearerToken(req) {
 function requireAdminAuth(req, res, next) {
   const token = getBearerToken(req);
   if (!verifyAdminToken(token)) {
-    return res.status(401).json({ success: false, error: "جلسة الإدارة غير صالحة" });
+    return res.status(401).json({ success: false, error: "Ø¬Ù„Ø³Ø© Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
   }
   next();
 }
@@ -465,6 +662,275 @@ function fileExists(targetPath) {
   } catch {
     return false;
   }
+}
+
+function getPublicBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+  const protocol = sanitizeText(req.headers["x-forwarded-proto"] || req.protocol || "https") || "https";
+  const host = sanitizeText(req.headers["x-forwarded-host"] || req.get("host") || "");
+  return host ? `${protocol}://${host}` : "";
+}
+
+function getAliExpressOAuthCallbackUrl(req) {
+  const baseUrl = getPublicBaseUrl(req);
+  return baseUrl ? `${baseUrl}/aliexpress/oauth-callback` : "";
+}
+
+function escapeEnvValue(value = "") {
+  const text = String(value ?? "");
+  if (!text) return "";
+  return /[\s#"'`]/.test(text) ? JSON.stringify(text) : text;
+}
+
+function upsertEnvEntries(filePath, updates = {}) {
+  const source = fileExists(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+  const newline = source.includes("\r\n") ? "\r\n" : "\n";
+  let contents = source.replace(/\r\n/g, "\n");
+
+  Object.entries(updates).forEach(([key, rawValue]) => {
+    const value = escapeEnvValue(rawValue);
+    const line = `${key}=${value}`;
+    const pattern = new RegExp(`^${key}=.*$`, "m");
+    if (pattern.test(contents)) {
+      contents = contents.replace(pattern, line);
+    } else {
+      contents = `${contents.replace(/\n*$/g, "")}\n${line}\n`;
+    }
+  });
+
+  fs.writeFileSync(filePath, contents.replace(/\n/g, newline), "utf8");
+}
+
+function getFutureIsoFromSeconds(seconds) {
+  const amount = Number(seconds || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  return new Date(Date.now() + amount * 1000).toISOString();
+}
+
+function shouldUseAliExpressAffiliateApi() {
+  return false; // ðŸš« Ø¹Ø·Ù‘Ù„Ù†Ø§ affiliate Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹
+}
+
+function hasAliExpressDsAccessToken() {
+  return Boolean(sanitizeText(process.env.ALIEXPRESS_ACCESS_TOKEN || ""));
+}
+
+function getAliExpressApiMode() {
+  if (hasAliExpressDsAccessToken()) return "ds";
+  if (shouldUseAliExpressAffiliateApi()) return "affiliate";
+  return "scrape-only";
+}
+
+function buildAliExpressSortedParams(params = {}) {
+  return Object.keys(params)
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+    .sort()
+    .map((key) => `${key}${params[key]}`)
+    .join("");
+}
+
+function signAliExpressRestRequest(apiPath, params, secret, strategy = "hmac-sha256-path") {
+  const normalizedPath = String(apiPath || "").trim() || "/";
+  const sorted = buildAliExpressSortedParams(params);
+
+  switch (strategy) {
+    case "sha256-secret-wrap-path":
+      return crypto.createHash("sha256").update(`${secret}${normalizedPath}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "sha256-secret-wrap":
+      return crypto.createHash("sha256").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "md5-secret-wrap":
+      return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
+    case "hmac-sha256":
+      return crypto.createHmac("sha256", secret).update(sorted, "utf8").digest("hex").toUpperCase();
+    case "hmac-sha256-path":
+    default:
+      return crypto.createHmac("sha256", secret).update(`${normalizedPath}${sorted}`, "utf8").digest("hex").toUpperCase();
+  }
+}
+
+function signAliExpressSystemParams(params = {}, secret, algorithm = "md5") {
+  const normalized = Object.keys(params)
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+    .sort()
+    .map((key) => `${key}${params[key]}`)
+    .join("");
+
+  const payload = `${secret}${normalized}${secret}`;
+  const algo = String(algorithm || "md5").toLowerCase() === "sha256" ? "sha256" : "md5";
+  return crypto.createHash(algo).update(payload, "utf8").digest("hex").toUpperCase();
+}
+
+async function createAliExpressAccessToken(code) {
+  const trimmedCode = sanitizeText(code);
+  if (!trimmedCode) {
+    const error = new Error("Missing OAuth code");
+    error.status = 400;
+    throw error;
+  }
+  if (!ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET) {
+    const error = new Error("AliExpress app credentials are missing");
+    error.status = 500;
+    throw error;
+  }
+
+  const tokenUrl = new URL(ALIEXPRESS_OAUTH_TOKEN_URL);
+  const tokenPath = tokenUrl.pathname || "/auth/token/create";
+  const systemTokenUrl = `${tokenUrl.origin}/sync`;
+  const callbackUrl = getAliExpressOAuthCallbackUrl({ headers: {}, query: {}, protocol: "" }) || String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/$/, "") + "/aliexpress/oauth-callback";
+  const timestampValues = [String(Date.now()), String(Math.floor(Date.now() / 1000))];
+  const unsignedPayloadVariants = [];
+
+  for (const timestamp of timestampValues) {
+    unsignedPayloadVariants.push(
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grantType: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "sha256", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code" },
+      { app_key: ALIEXPRESS_APP_KEY, timestamp, sign_method: "md5", code: trimmedCode, grant_type: "authorization_code", redirect_uri: callbackUrl }
+    );
+  }
+
+  const requestVariants = [];
+  const seenVariants = new Set();
+  const addVariant = (variant) => {
+    const key = JSON.stringify(variant);
+    if (!seenVariants.has(key)) {
+      seenVariants.add(key);
+      requestVariants.push(variant);
+    }
+  };
+
+  for (const params of unsignedPayloadVariants) {
+    const restSignStrategies = [
+      "hmac-sha256-path",
+      "hmac-sha256",
+      "sha256-secret-wrap-path",
+      "sha256-secret-wrap",
+      "md5-secret-wrap"
+    ];
+
+    for (const strategy of restSignStrategies) {
+      const signMethod = strategy === "md5-secret-wrap" ? "md5" : params.sign_method;
+      const signedParams = { ...params, sign_method: signMethod };
+      addVariant({
+        label: `rest:${strategy}:${signMethod}`,
+        type: "rest",
+        url: ALIEXPRESS_OAUTH_TOKEN_URL,
+        params: {
+          ...signedParams,
+          sign: signAliExpressRestRequest(tokenPath, signedParams, ALIEXPRESS_APP_SECRET, strategy)
+        }
+      });
+    }
+
+    for (const signMethod of ["md5", "sha256"]) {
+      const systemParams = {
+        ...params,
+        sign_method: signMethod,
+        method: tokenPath,
+        format: "json"
+      };
+      addVariant({
+        label: `system-post:${signMethod}`,
+        type: "system-post",
+        url: systemTokenUrl,
+        params: {
+          ...systemParams,
+          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
+        }
+      });
+      addVariant({
+        label: `system-get:${signMethod}`,
+        type: "system-get",
+        url: systemTokenUrl,
+        params: {
+          ...systemParams,
+          sign: signAliExpressSystemParams(systemParams, ALIEXPRESS_APP_SECRET, signMethod)
+        }
+      });
+    }
+  }
+  let lastError = null;
+
+  for (const variant of requestVariants) {
+    try {
+      let response;
+      if (variant.type === "system-get") {
+        response = await axios.get(variant.url, {
+          timeout: 20_000,
+          proxy: false,
+          params: variant.params,
+          headers: { accept: "application/json" }
+        });
+      } else if (variant.type === "system-post") {
+        response = await axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
+          timeout: 20_000,
+          proxy: false,
+          headers: {
+            "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+            accept: "application/json"
+          }
+        });
+      } else {
+        const attempts = [
+          () => axios.post(variant.url, null, {
+            timeout: 20_000,
+            proxy: false,
+            params: variant.params,
+            headers: { accept: "application/json" }
+          }),
+          () => axios.post(variant.url, new URLSearchParams(variant.params).toString(), {
+            timeout: 20_000,
+            proxy: false,
+            headers: {
+              "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+              accept: "application/json"
+            }
+          })
+        ];
+
+        let localResponse = null;
+        for (const attempt of attempts) {
+          localResponse = await attempt();
+          const data = localResponse.data && typeof localResponse.data === "object" ? localResponse.data : {};
+          if (String(data.code ?? "0") === "0" || data.access_token) {
+            response = localResponse;
+            break;
+          }
+        }
+        if (!response && localResponse) response = localResponse;
+      }
+
+      const rawData = response?.data && typeof response.data === "object" ? response.data : {};
+      const data = extractAliExpressOAuthTokenPayload(rawData);
+      if (String(rawData.code ?? data.code ?? "0") !== "0" && !data.access_token && !data.accessToken) {
+        const message = rawData.message || rawData.msg || rawData.error_message || rawData.error || data.message || data.msg || "AliExpress OAuth token exchange failed";
+        const error = new Error(message);
+        error.status = 502;
+        error.meta = {
+          code: rawData.code ?? data.code ?? null,
+          requestId: rawData.request_id || rawData.requestId || data.request_id || data.requestId || null,
+          label: variant.label,
+          responsePreview: previewValue(rawData)
+        };
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      log("warn", "AliExpress OAuth token variant failed", {
+        label: variant.label,
+        error: error.message,
+        code: error?.meta?.code ?? error?.response?.data?.code ?? null,
+        requestId: error?.meta?.requestId ?? error?.response?.data?.request_id ?? error?.response?.data?.requestId ?? null,
+        responsePreview:
+          error?.meta?.responsePreview ||
+          (error?.response?.data ? previewValue(error.response.data) : "")
+      });
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("AliExpress OAuth token exchange failed");
 }
 
 function detectPlaywrightExecutable() {
@@ -568,11 +1034,72 @@ function getProductUrlCandidates(input) {
 }
 
 function isAliExpressBlockedTitle(title) {
-  return /封禁|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
+  return /å°ç¦|blocked|access denied|forbidden|ip ban|verification required|sorry, the page you requested can not be found|smarter shopping, better living/i.test(String(title || ""));
 }
 
 function isGenericAliExpressTitle(title) {
   return /^(aliexpress|ali express|aliexpress\.com)$/i.test(sanitizeText(title || ""));
+}
+
+function isAliExpressPlaceholderText(value) {
+  return /smarter shopping,\s*better living(?:!|\.)?(?:\s*aliexpress\.com)?/i.test(sanitizeText(value || ""));
+}
+
+function isAliExpressNavigationJunk(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  const keywordMatches = [
+    /download the aliexpress app/i,
+    /you can click this button to search/i,
+    /help center/i,
+    /return(?:&| and )refund policy/i,
+    /report ipr infringement/i,
+    /transparency center/i,
+    /submit report/i,
+    /welcome\s*sign in/i,
+    /sign in\s*\/\s*register/i,
+    /welcome\s*sign in\s*\/\s*register/i,
+    /search by image/i,
+    /all categories/i,
+    /\b0\s+cart\b/i,
+    /\ben\s*\/\s*usd\b/i
+  ].filter((pattern) => pattern.test(cleaned)).length;
+
+  return keywordMatches >= 2;
+}
+
+function isAliExpressAntiBotSignal(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  return Boolean(
+    /bxpunish/i.test(cleaned) ||
+    /x5secdata/i.test(cleaned) ||
+    /secdata/i.test(cleaned) ||
+    /captcha/i.test(cleaned) ||
+    /verify (?:you'?re|you are) human/i.test(cleaned) ||
+    /æµ™å…¬ç½‘å®‰å¤‡|å¢žå€¼ç”µä¿¡ä¸šåŠ¡ç»è¥è®¸å¯è¯/.test(cleaned)
+  );
+}
+
+function isAliExpressPlaceholderLike(value) {
+  const cleaned = sanitizeText(value || "");
+  if (!cleaned) return false;
+  return Boolean(
+    isAliExpressBlockedTitle(cleaned) ||
+    isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
+    /download the aliexpress app/i.test(cleaned) ||
+    /\bdownload the app\b/i.test(cleaned) ||
+    /\bwelcome\b/i.test(cleaned) ||
+    /help center/i.test(cleaned) ||
+    /return(?:&| and )refund policy/i.test(cleaned) ||
+    /report ipr infringement/i.test(cleaned) ||
+    /search by image/i.test(cleaned) ||
+    /all categories/i.test(cleaned) ||
+    /\b0\s+cart\b/i.test(cleaned) ||
+    /\ben[^\p{L}\p{N}]{0,8}usd\b/iu.test(cleaned) ||
+    isAliExpressAntiBotSignal(cleaned)
+  );
 }
 
 function isLowValueProductTitle(title) {
@@ -580,9 +1107,36 @@ function isLowValueProductTitle(title) {
   if (!cleaned) return true;
   return Boolean(
     isGenericAliExpressTitle(cleaned) ||
+    /^Ù…Ù†ØªØ¬\s+aliexpress\s*#\d+$/i.test(cleaned) ||
+    /^aliexpress\s+product\s*#\d+$/i.test(cleaned) ||
     /^itemdetail(?:resp|result|response)?$/i.test(cleaned) ||
     /^(resp|response|result|data|dto)$/i.test(cleaned) ||
-    /^smarter shopping, better living!?$/i.test(cleaned)
+    /^smarter shopping, better living!?$/i.test(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
+    isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressPlaceholderLike(cleaned)
+  );
+}
+
+function isLowValueProductDescription(text) {
+  const cleaned = sanitizeText(text || "");
+  if (!cleaned) return true;
+  return Boolean(
+    isAliExpressBlockedTitle(cleaned) ||
+    isAliExpressPlaceholderText(cleaned) ||
+    isAliExpressNavigationJunk(cleaned) ||
+    isAliExpressPlaceholderLike(cleaned) ||
+    /^<?\s*click to feedback\s*>?$/i.test(cleaned) ||
+    /window\._config_/i.test(cleaned) ||
+    /captcharecaptcha/i.test(cleaned) ||
+    /recaptcha/i.test(cleaned) ||
+    /nctokenstr/i.test(cleaned) ||
+    /secdata/i.test(cleaned) ||
+    /slidetoget/i.test(cleaned) ||
+    /^with\s*\(document\)\s*with\s*\(body\)/i.test(cleaned) ||
+    /createelement\(["']script["']\)/i.test(cleaned) ||
+    /aplus_v2\.js/i.test(cleaned) ||
+    /tb-beacon-aplus/i.test(cleaned)
   );
 }
 
@@ -591,6 +1145,9 @@ function isBadCachedProduct(product = {}) {
     product?.source === "partial-fallback" ||
     product?.priceUnavailable ||
     isLowValueProductTitle(product?.title) ||
+    isLowValueProductDescription(product?.description) ||
+    isAliExpressPlaceholderText(product?.title) ||
+    isAliExpressPlaceholderText(product?.description) ||
     isAliExpressBlockedTitle(product?.title) ||
     isAliExpressBlockedTitle(product?.description)
   );
@@ -602,15 +1159,21 @@ function getClientIp(req) {
 
 function formatTopTimestamp(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const utcMs = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
+  const gmt8 = new Date(utcMs + (8 * 60 * 60 * 1000));
+  return `${gmt8.getUTCFullYear()}-${pad(gmt8.getUTCMonth() + 1)}-${pad(gmt8.getUTCDate())} ${pad(gmt8.getUTCHours())}:${pad(gmt8.getUTCMinutes())}:${pad(gmt8.getUTCSeconds())}`;
 }
 
-function signTopRequest(params, secret) {
+function signTopRequest(params, secret, signMethod = "md5") {
   const sorted = Object.keys(params)
     .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
     .sort()
     .map((key) => `${key}${params[key]}`)
     .join("");
+
+  if (String(signMethod || "").toLowerCase() === "hmac") {
+    return crypto.createHmac("md5", secret).update(sorted, "utf8").digest("hex").toUpperCase();
+  }
 
   return crypto.createHash("md5").update(`${secret}${sorted}${secret}`, "utf8").digest("hex").toUpperCase();
 }
@@ -677,11 +1240,11 @@ function extractUsdValuesFromText(text) {
 }
 
 function hasShippingKeyword(text) {
-  return /shipping|delivery|freight|logistics|postage|livraison|شحن|توصيل/i.test(text);
+  return /shipping|delivery|freight|logistics|postage|livraison|Ø´Ø­Ù†|ØªÙˆØµÙŠÙ„/i.test(text);
 }
 
 function hasFreeShippingKeyword(text) {
-  return /free shipping|free delivery|livraison gratuite|شحن مجاني|توصيل مجاني/i.test(text);
+  return /free shipping|free delivery|livraison gratuite|Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ|ØªÙˆØµÙŠÙ„ Ù…Ø¬Ø§Ù†ÙŠ/i.test(text);
 }
 
 function parseShippingTexts(texts = []) {
@@ -707,9 +1270,9 @@ function parseShippingTexts(texts = []) {
 function extractDeliveryEstimateFromTexts(texts = []) {
   const patterns = [
     /\b(\d{1,2})\s*(?:-|to|~)\s*(\d{1,2})\s*(?:business\s*)?(?:days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:حتى|الى|إلى)\s*(\d{1,2})\s*(?:يوم|أيام)/i,
+    /(\d{1,2})\s*(?:Ø­ØªÙ‰|Ø§Ù„Ù‰|Ø¥Ù„Ù‰)\s*(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i,
     /\b(\d{1,2})\s*(?:business\s*)?(days?|jours?)\b/i,
-    /(\d{1,2})\s*(?:يوم|أيام)/i
+    /(\d{1,2})\s*(?:ÙŠÙˆÙ…|Ø£ÙŠØ§Ù…)/i
   ];
 
   for (const raw of texts) {
@@ -725,11 +1288,11 @@ function extractDeliveryEstimateFromTexts(texts = []) {
 
 function inferDeliveryEstimate(shippingValue) {
   const shipping = Number(shippingValue);
-  if (!Number.isFinite(shipping) || shipping < 0) return "غير متوفر";
-  if (shipping === 0) return "من 12 حتى 25 يوم";
-  if (shipping <= 3) return "من 10 حتى 20 يوم";
-  if (shipping <= 8) return "من 8 حتى 16 يوم";
-  return "من 7 حتى 14 يوم";
+  if (!Number.isFinite(shipping) || shipping < 0) return "ØºÙŠØ± Ù…ØªÙˆÙØ±";
+  if (shipping === 0) return "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…";
+  if (shipping <= 3) return "Ù…Ù† 10 Ø­ØªÙ‰ 20 ÙŠÙˆÙ…";
+  if (shipping <= 8) return "Ù…Ù† 8 Ø­ØªÙ‰ 16 ÙŠÙˆÙ…";
+  return "Ù…Ù† 7 Ø­ØªÙ‰ 14 ÙŠÙˆÙ…";
 }
 
 function parseCompactCount(value) {
@@ -757,7 +1320,7 @@ function extractCountFromTextList(texts = [], keywordPattern) {
   let best = 0;
   for (const raw of texts) {
     const text = sanitizeText(raw);
-    if (!text || !keywordPattern.test(text)) continue;
+    if (!text || !keywordPattern.test(text) || isLowValueProductDescription(text)) continue;
     for (const pattern of nearKeywordPatterns) {
       const match = text.match(pattern);
       const count = parseCompactCount(match?.[1] || "");
@@ -785,15 +1348,15 @@ function buildProductAlerts(product) {
   const alerts = [];
 
   if (product.restrictions?.banned) {
-    alerts.push({ level: "danger", text: "هذا المنتج عندو خطر حجز كبير في تونس. كلمنا قبل ما تأكد الطلب." });
+    alerts.push({ level: "danger", text: "Ù‡Ø°Ø§ Ø§Ù„Ù…Ù†ØªØ¬ Ø¹Ù†Ø¯Ùˆ Ø®Ø·Ø± Ø­Ø¬Ø² ÙƒØ¨ÙŠØ± ÙÙŠ ØªÙˆÙ†Ø³. ÙƒÙ„Ù…Ù†Ø§ Ù‚Ø¨Ù„ Ù…Ø§ ØªØ£ÙƒØ¯ Ø§Ù„Ø·Ù„Ø¨." });
   } else if (product.restrictions?.restricted) {
-    alerts.push({ level: "warning", text: "المنتج هذا ينجم يحتاج تثبت أو تصريح قبل الطلب." });
+    alerts.push({ level: "warning", text: "Ø§Ù„Ù…Ù†ØªØ¬ Ù‡Ø°Ø§ ÙŠÙ†Ø¬Ù… ÙŠØ­ØªØ§Ø¬ ØªØ«Ø¨Øª Ø£Ùˆ ØªØµØ±ÙŠØ­ Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨." });
   }
 
-  if (Number(product.shipping) === 0) {
-    alerts.push({ level: "info", text: "الشحن مجاني في العرض الحالي." });
-  } else if (Number(product.shipping) >= 8) {
-    alerts.push({ level: "info", text: "الشحن مرتفع شوية، إذا تحب نعملولك تسعيرة يدوية أفضل." });
+  if (product.shipping != null && Number(product.shipping) === 0) {
+    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ ÙÙŠ Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø­Ø§Ù„ÙŠ." });
+  } else if (product.shipping != null && Number(product.shipping) >= 8) {
+    alerts.push({ level: "info", text: "Ø§Ù„Ø´Ø­Ù† Ù…Ø±ØªÙØ¹ Ø´ÙˆÙŠØ©ØŒ Ø¥Ø°Ø§ ØªØ­Ø¨ Ù†Ø¹Ù…Ù„ÙˆÙ„Ùƒ ØªØ³Ø¹ÙŠØ±Ø© ÙŠØ¯ÙˆÙŠØ© Ø£ÙØ¶Ù„." });
   }
 
   return alerts;
@@ -811,7 +1374,13 @@ function guessVariantLabel(key = "", values = []) {
 function uniqueShortText(values = []) {
   return Array.from(new Set(values
     .map((value) => sanitizeText(value))
-    .filter((value) => value && value.length <= 40 && !/^[0-9.]+$/.test(value))
+    .filter((value) => (
+      value &&
+      value.length <= 40 &&
+      !/^[0-9.]+$/.test(value) &&
+      !isAliExpressPlaceholderLike(value) &&
+      !isAliExpressAntiBotSignal(value)
+    ))
   ));
 }
 
@@ -1197,18 +1766,18 @@ function buildSellerTrustScore(product) {
   if (soldCount >= 1000) score += 8;
   else if (soldCount >= 100) score += 4;
 
-  if (Number(product.shipping) === 0) score += 4;
-  else if (Number(product.shipping) >= 10) score -= 4;
+  if (product.shipping != null && Number(product.shipping) === 0) score += 4;
+  else if (product.shipping != null && Number(product.shipping) >= 10) score -= 4;
 
   if (product.restrictions?.restricted) score -= 10;
   if (product.restrictions?.banned) score -= 25;
   if (product.priceUnavailable) score -= 5;
 
   const finalScore = Math.max(15, Math.min(98, Math.round(score)));
-  let label = "متوسط";
-  if (finalScore >= 85) label = "ممتاز";
-  else if (finalScore >= 72) label = "قوي";
-  else if (finalScore >= 58) label = "مليح";
+  let label = "Ù…ØªÙˆØ³Ø·";
+  if (finalScore >= 85) label = "Ù…Ù…ØªØ§Ø²";
+  else if (finalScore >= 72) label = "Ù‚ÙˆÙŠ";
+  else if (finalScore >= 58) label = "Ù…Ù„ÙŠØ­";
 
   return { score: finalScore, label };
 }
@@ -1217,27 +1786,27 @@ function buildCustomsAdvisor(product) {
   const category = product.restrictions?.category || "general";
   const riskLevel = product.restrictions?.banned ? "high" : (product.restrictions?.restricted ? "medium" : "low");
   const docsMap = {
-    phone: ["إثبات IMEI أو المطابقة", "فاتورة البائع"],
-    radio: ["ترخيص توريد", "فاتورة البائع"],
-    "tv-box": ["مرجع تقني للمنتج", "فاتورة البائع"],
-    supplements: ["قائمة المكونات", "فاتورة البائع"],
-    knife: ["مراجعة يدوية قبل الطلب"],
-    general: ["فاتورة البائع"]
+    phone: ["Ø¥Ø«Ø¨Ø§Øª IMEI Ø£Ùˆ Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    radio: ["ØªØ±Ø®ÙŠØµ ØªÙˆØ±ÙŠØ¯", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    "tv-box": ["Ù…Ø±Ø¬Ø¹ ØªÙ‚Ù†ÙŠ Ù„Ù„Ù…Ù†ØªØ¬", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    supplements: ["Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…ÙƒÙˆÙ†Ø§Øª", "ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"],
+    knife: ["Ù…Ø±Ø§Ø¬Ø¹Ø© ÙŠØ¯ÙˆÙŠØ© Ù‚Ø¨Ù„ Ø§Ù„Ø·Ù„Ø¨"],
+    general: ["ÙØ§ØªÙˆØ±Ø© Ø§Ù„Ø¨Ø§Ø¦Ø¹"]
   };
   const saferAlternativeMap = {
-    phone: "الأفضل تختار إكسسوارات أو قطع غيار بدل هاتف كامل.",
-    radio: "الأفضل تختار إكسسوارات Bluetooth من غير تجهيزات إرسال راديو.",
-    "tv-box": "الأفضل تختار إكسسوارات ستريمنغ بمواصفات وشهادات واضحة.",
-    supplements: "الأفضل تختار إكسسوارات عناية أو رفاهة غير قابلة للاستهلاك.",
-    knife: "الأفضل تختار أدوات مطبخ أقل حساسية في الديوانة.",
-    general: "اختار منتجات بمواصفات واضحة وشحن عادي."
+    phone: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø£Ùˆ Ù‚Ø·Ø¹ ØºÙŠØ§Ø± Ø¨Ø¯Ù„ Ù‡Ø§ØªÙ ÙƒØ§Ù…Ù„.",
+    radio: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Bluetooth Ù…Ù† ØºÙŠØ± ØªØ¬Ù‡ÙŠØ²Ø§Øª Ø¥Ø±Ø³Ø§Ù„ Ø±Ø§Ø¯ÙŠÙˆ.",
+    "tv-box": "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø³ØªØ±ÙŠÙ…Ù†Øº Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ´Ù‡Ø§Ø¯Ø§Øª ÙˆØ§Ø¶Ø­Ø©.",
+    supplements: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø¥ÙƒØ³Ø³ÙˆØ§Ø±Ø§Øª Ø¹Ù†Ø§ÙŠØ© Ø£Ùˆ Ø±ÙØ§Ù‡Ø© ØºÙŠØ± Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø§Ø³ØªÙ‡Ù„Ø§Ùƒ.",
+    knife: "Ø§Ù„Ø£ÙØ¶Ù„ ØªØ®ØªØ§Ø± Ø£Ø¯ÙˆØ§Øª Ù…Ø·Ø¨Ø® Ø£Ù‚Ù„ Ø­Ø³Ø§Ø³ÙŠØ© ÙÙŠ Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø©.",
+    general: "Ø§Ø®ØªØ§Ø± Ù…Ù†ØªØ¬Ø§Øª Ø¨Ù…ÙˆØ§ØµÙØ§Øª ÙˆØ§Ø¶Ø­Ø© ÙˆØ´Ø­Ù† Ø¹Ø§Ø¯ÙŠ."
   };
 
   return {
     level: riskLevel,
     category,
     docs: docsMap[category] || docsMap.general,
-    note: product.restrictions?.reasons?.[0] || "ما ثماش مانع ديوانة واضح حاليا.",
+    note: product.restrictions?.reasons?.[0] || "Ù…Ø§ Ø«Ù…Ø§Ø´ Ù…Ø§Ù†Ø¹ Ø¯ÙŠÙˆØ§Ù†Ø© ÙˆØ§Ø¶Ø­ Ø­Ø§Ù„ÙŠØ§.",
     saferAlternative: saferAlternativeMap[category] || saferAlternativeMap.general
   };
 }
@@ -1245,12 +1814,43 @@ function buildCustomsAdvisor(product) {
 function buildEstimatedTimeline(product) {
   const estimate = inferDeliveryEstimate(product.shipping);
   return [
-    { step: "تأكيد الطلب", status: "current", note: "كي يتأكد الدفع، نثبتو الطلب مع البائع." },
-    { step: "تجهيز البائع", status: "upcoming", note: "عادة بين نهار و4 أيام قبل الإرسال." },
-    { step: "الشحن الدولي", status: "upcoming", note: estimate },
-    { step: "الديوانة التونسية", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "مراجعة ديوانية عادية." },
-    { step: "التسليم المحلي", status: "upcoming", note: "التسليم الأخير عبر الموزع المحلي أو البريد." }
+    { step: "ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø·Ù„Ø¨", status: "current", note: "ÙƒÙŠ ÙŠØªØ£ÙƒØ¯ Ø§Ù„Ø¯ÙØ¹ØŒ Ù†Ø«Ø¨ØªÙˆ Ø§Ù„Ø·Ù„Ø¨ Ù…Ø¹ Ø§Ù„Ø¨Ø§Ø¦Ø¹." },
+    { step: "ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ø¨Ø§Ø¦Ø¹", status: "upcoming", note: "Ø¹Ø§Ø¯Ø© Ø¨ÙŠÙ† Ù†Ù‡Ø§Ø± Ùˆ4 Ø£ÙŠØ§Ù… Ù‚Ø¨Ù„ Ø§Ù„Ø¥Ø±Ø³Ø§Ù„." },
+    { step: "Ø§Ù„Ø´Ø­Ù† Ø§Ù„Ø¯ÙˆÙ„ÙŠ", status: "upcoming", note: estimate },
+    { step: "Ø§Ù„Ø¯ÙŠÙˆØ§Ù†Ø© Ø§Ù„ØªÙˆÙ†Ø³ÙŠØ©", status: product.restrictions?.restricted || product.restrictions?.banned ? "attention" : "upcoming", note: product.restrictions?.reasons?.[0] || "Ù…Ø±Ø§Ø¬Ø¹Ø© Ø¯ÙŠÙˆØ§Ù†ÙŠØ© Ø¹Ø§Ø¯ÙŠØ©." },
+    { step: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ù…Ø­Ù„ÙŠ", status: "upcoming", note: "Ø§Ù„ØªØ³Ù„ÙŠÙ… Ø§Ù„Ø£Ø®ÙŠØ± Ø¹Ø¨Ø± Ø§Ù„Ù…ÙˆØ²Ø¹ Ø§Ù„Ù…Ø­Ù„ÙŠ Ø£Ùˆ Ø§Ù„Ø¨Ø±ÙŠØ¯." }
   ];
+}
+
+function isAffiliateAppKeyInvalidError(error) {
+  return Boolean(
+    error?.apiError?.subCode === "isv.appkey-not-exists" ||
+    error?.apiError?.code === 29 ||
+    /invalid app key/i.test(String(error?.message || ""))
+  );
+}
+
+function buildUnavailableProductResponse({ canonicalUrl, productId }) {
+  return {
+    success: true,
+    title: "Ù…Ù†ØªØ¬ AliExpress",
+    description: "Ø§Ù„Ø³Ø¹Ø± ØºÙŠØ± Ù…ØªÙˆÙØ± Ø­Ø§Ù„ÙŠØ§Ù‹. ÙŠÙ…ÙƒÙ†Ù†Ø§ Ø·Ù„Ø¨ Ø¹Ø±Ø¶ Ø³Ø¹Ø± ÙŠØ¯ÙˆÙŠ.",
+    price: 0,
+    shipping: null,
+    image: "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
+    rating: 0,
+    reviewCount: 0,
+    soldCount: 0,
+    variants: [],
+    url: canonicalUrl || `https://m.aliexpress.com/item/${productId}.html`,
+    source: "fallback",
+    cached: false,
+    fetchedAt: new Date().toISOString(),
+    deliveryEstimate: "Ù…Ù† 12 Ø­ØªÙ‰ 25 ÙŠÙˆÙ…",
+    manualQuoteRecommended: true,
+    priceUnavailable: true,
+    alerts: [{ level: "warning", text: "AliExpress Ø´Ø¯Ù‘ Ø§Ù„Ù€ anti-bot. Ø§Ù„Ø³Ø¹Ø± Ø­Ø§Ù„ÙŠØ§Ù‹ ÙŠØ¯ÙˆÙŠ." }]
+  };
 }
 
 function buildVariantOfferProduct(baseProduct, offer) {
@@ -1264,7 +1864,7 @@ function buildVariantOfferProduct(baseProduct, offer) {
   const selectionLabel = Object.values(attributes).filter(Boolean).join(" / ");
 
   const variantProduct = {
-    title: baseProduct?.title || "منتج AliExpress",
+    title: baseProduct?.title || "Ù…Ù†ØªØ¬ AliExpress",
     description: baseProduct?.description || "",
     price,
     shipping,
@@ -1280,8 +1880,8 @@ function buildVariantOfferProduct(baseProduct, offer) {
   };
 
   variantProduct.shippingLabel = variantProduct.shipping == null
-    ? "غير متوفر"
-    : (variantProduct.shipping === 0 ? "شحن مجاني" : `${variantProduct.shipping.toFixed(2)} USD`);
+    ? "ØºÙŠØ± Ù…ØªÙˆÙØ±"
+    : (variantProduct.shipping === 0 ? "Ø´Ø­Ù† Ù…Ø¬Ø§Ù†ÙŠ" : `${variantProduct.shipping.toFixed(2)} USD`);
   variantProduct.restrictions = classifyProductRestrictions(variantProduct);
   variantProduct.alerts = buildProductAlerts(variantProduct);
   variantProduct.trustScore = buildSellerTrustScore(variantProduct);
@@ -1326,9 +1926,33 @@ function cleanupProductDescription(text, fallbackTitle = "") {
     .trim();
 
   if (!cleaned) return "";
-  if (/^ae.+ip.+模板/i.test(cleaned)) return "";
+  if (isLowValueProductDescription(cleaned)) return "";
+  if (/^ae.+ip.+æ¨¡æ¿/i.test(cleaned)) return "";
+  if (isAliExpressPlaceholderText(cleaned)) return "";
   if (fallbackTitle && cleaned.toLowerCase() === String(fallbackTitle).trim().toLowerCase()) return "";
   return cleaned.length > 320 ? `${cleaned.slice(0, 317).trim()}...` : cleaned;
+}
+
+function pickBestProductTitle(...candidates) {
+  for (const candidate of candidates) {
+    const cleaned = cleanupProductTitle(candidate || "");
+    if (!cleaned) continue;
+    if (isLowValueProductTitle(cleaned)) continue;
+    if (isAliExpressPlaceholderLike(cleaned)) continue;
+    return cleaned;
+  }
+  return "";
+}
+
+function pickBestProductDescription(candidates = [], fallbackTitle = "") {
+  for (const candidate of candidates) {
+    const cleaned = cleanupProductDescription(candidate || "", fallbackTitle);
+    if (!cleaned) continue;
+    if (isLowValueProductDescription(cleaned)) continue;
+    if (isAliExpressPlaceholderLike(cleaned)) continue;
+    return cleaned;
+  }
+  return "";
 }
 
 function extractPriceFromTextList(texts = []) {
@@ -1351,6 +1975,80 @@ function safeJsonParse(raw) {
   } catch {
     return null;
   }
+}
+
+function parseMaybeJson(value, maxDepth = 3) {
+  let current = value;
+  let depth = 0;
+
+  while (typeof current === "string" && depth < maxDepth) {
+    const trimmed = current.trim();
+    if (!trimmed || !/^[\[{]/.test(trimmed)) break;
+    const parsed = safeJsonParse(trimmed);
+    if (!parsed) break;
+    current = parsed;
+    depth += 1;
+  }
+
+  return current;
+}
+
+function summarizeValueKeys(value, limit = 12) {
+  if (!value || typeof value !== "object") return [];
+  return Object.keys(value).slice(0, limit);
+}
+
+function previewValue(value, limit = 280) {
+  const text = sanitizeText(
+    typeof value === "string"
+      ? value
+      : JSON.stringify(value)
+  );
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
+function buildAffiliateResponseDebugSummary(responseData) {
+  const errorResponse = responseData?.error_response || null;
+  const methodResponse =
+    responseData?.aliexpress_affiliate_productdetail_get_response ||
+    responseData?.aliexpress_affiliate_product_detail_get_response ||
+    responseData?.aliexpress_affiliate_productdetails_get_response ||
+    responseData;
+  const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
+  const payload = parseMaybeJson(rawRespResult);
+  const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
+  const productsNode = parseMaybeJson(
+    resultNode?.products ??
+    payload?.products ??
+    resultNode?.result ??
+    null
+  );
+  const productNode = parseMaybeJson(
+    productsNode?.product ??
+    resultNode?.product ??
+    payload?.product ??
+    null
+  );
+  const firstProduct = Array.isArray(productNode) ? productNode[0] : productNode;
+
+  return {
+    dataType: Array.isArray(responseData) ? "array" : typeof responseData,
+    topKeys: summarizeValueKeys(responseData),
+    errorResponseKeys: summarizeValueKeys(errorResponse),
+    errorCode: errorResponse?.code ?? null,
+    errorMsg: errorResponse?.msg ?? null,
+    errorSubCode: errorResponse?.sub_code ?? null,
+    errorSubMsg: errorResponse?.sub_msg ?? null,
+    errorPreview: errorResponse ? previewValue(errorResponse) : "",
+    methodResponseKeys: summarizeValueKeys(methodResponse),
+    respResultType: Array.isArray(rawRespResult) ? "array" : typeof rawRespResult,
+    respResultPreview: rawRespResult == null ? "" : previewValue(rawRespResult),
+    payloadKeys: summarizeValueKeys(payload),
+    resultKeys: summarizeValueKeys(resultNode),
+    productsKeys: summarizeValueKeys(productsNode),
+    firstProductKeys: summarizeValueKeys(firstProduct),
+    firstProductPreview: firstProduct == null ? "" : previewValue(firstProduct)
+  };
 }
 
 function extractBalancedJson(source, startIndex) {
@@ -1405,7 +2103,8 @@ function extractJsonObjectsFromHtml(html, $) {
     const assignmentPattern = /(?:window\.[\w$]+|[\w$]+)\s*=\s*[\[{]/g;
     let match = null;
     while ((match = assignmentPattern.exec(script)) !== null) {
-      const start = script.search(/[\[{]/, match.index);
+      const relativeStart = script.slice(match.index).search(/[\[{]/);
+      const start = relativeStart >= 0 ? match.index + relativeStart : -1;
       if (start < 0) continue;
       const jsonChunk = extractBalancedJson(script, start);
       if (!jsonChunk) continue;
@@ -1438,6 +2137,80 @@ function extractJsonObjectsFromHtml(html, $) {
     }
   }
   return objects;
+}
+
+function decodeAliExpressEscapes(value = "") {
+  return String(value || "")
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, code) => String.fromCharCode(Number.parseInt(code, 16)))
+    .replace(/\\\//g, "/")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#34;/g, "\"")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function pickFirstRegexValue(source, patterns = []) {
+  for (const pattern of patterns) {
+    const match = String(source || "").match(pattern);
+    if (!match?.[1]) continue;
+    const value = sanitizeText(decodeAliExpressEscapes(match[1]));
+    if (value) return value;
+  }
+  return "";
+}
+
+function extractProductFieldsFromRawHtml(html) {
+  const source = String(html || "");
+  const title = pickFirstRegexValue(source, [
+    /"subject"\s*:\s*"([^"]{6,500})"/i,
+    /"productTitle"\s*:\s*"([^"]{6,500})"/i,
+    /"seoTitle"\s*:\s*"([^"]{6,500})"/i,
+    /"title"\s*:\s*"([^"]{6,500}?)"\s*,\s*"tradeCount"/i,
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
+  ]);
+  const image = normalizeUrl(pickFirstRegexValue(source, [
+    /"imagePathList"\s*:\s*\[\s*"([^"]+)"/i,
+    /"productMainImageUrl"\s*:\s*"([^"]+)"/i,
+    /"mainImageUrl"\s*:\s*"([^"]+)"/i,
+    /"imageUrl"\s*:\s*"([^"]+)"/i,
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+  ]));
+  const priceText = pickFirstRegexValue(source, [
+    /"formatedActivityPrice"\s*:\s*"([^"]+)"/i,
+    /"formatedPrice"\s*:\s*"([^"]+)"/i,
+    /"skuCalPrice"\s*:\s*"([^"]+)"/i,
+    /"salePrice"\s*:\s*"([^"]+)"/i,
+    /"minPrice"\s*:\s*"([^"]+)"/i,
+    /"minActivityAmount"\s*:\s*"([^"]+)"/i,
+    /"price"\s*:\s*"((?:US\s*)?\$?\s*[0-9][^"]{0,24})"/i
+  ]);
+  const ratingText = pickFirstRegexValue(source, [
+    /"averageStar"\s*:\s*"([^"]+)"/i,
+    /"starRating"\s*:\s*"([^"]+)"/i,
+    /"rating"\s*:\s*"([0-5](?:[.,][0-9])?)"/i
+  ]);
+  const reviewText = pickFirstRegexValue(source, [
+    /"reviewerNum"\s*:\s*"([^"]+)"/i,
+    /"reviewCount"\s*:\s*"([^"]+)"/i,
+    /"feedbackRating"\s*:\s*"([^"]+)"/i
+  ]);
+  const soldText = pickFirstRegexValue(source, [
+    /"tradeCount"\s*:\s*"([^"]+)"/i,
+    /"formatTradeCount"\s*:\s*"([^"]+)"/i,
+    /"orders"\s*:\s*"([^"]+)"/i
+  ]);
+
+  return {
+    title,
+    image,
+    price: pickFirstPositive([parseMoney(priceText), ...extractUsdValuesFromText(priceText)]),
+    rating: normalizeRating(ratingText),
+    reviewCount: parseCompactCount(reviewText),
+    soldCount: parseCompactCount(soldText)
+  };
 }
 
 function extractProductFieldsFromObjectTree(source) {
@@ -1503,6 +2276,12 @@ function extractProductFieldsFromObjectTree(source) {
 
 function extractHtmlProduct(html, url, source) {
   const $ = cheerio.load(html);
+  const rawExtracted = extractProductFieldsFromRawHtml(html);
+  const antiBotPage = isAliExpressAntiBotSignal([
+    $("title").text(),
+    $("body").text().slice(0, 5000),
+    html.slice(0, 12000)
+  ].join(" "));
   const jsonLdObjects = $("script[type='application/ld+json']").map((_, element) => safeJsonParse($(element).html() || "")).get().filter(Boolean);
   const embedded = extractProductFieldsFromObjectTree([
     ...extractJsonObjectsFromHtml(html, $),
@@ -1512,6 +2291,7 @@ function extractHtmlProduct(html, url, source) {
     ? embedded.title
     : "";
   const title =
+    rawExtracted.title ||
     safeEmbeddedTitle ||
     sanitizeText($("meta[property='og:title']").attr("content")) ||
     sanitizeText($("meta[name='twitter:title']").attr("content")) ||
@@ -1530,6 +2310,7 @@ function extractHtmlProduct(html, url, source) {
     title
   );
   const image =
+    rawExtracted.image ||
     embedded.image ||
     normalizeUrl($("meta[property='og:image']").attr("content")) ||
     normalizeUrl($("meta[name='twitter:image']").attr("content")) ||
@@ -1547,16 +2328,20 @@ function extractHtmlProduct(html, url, source) {
     parseMoney($("meta[property='product:price:amount']").attr("content")),
     parseMoney($("meta[name='twitter:data1']").attr("content")),
     parseMoney($("meta[itemprop='price']").attr("content")),
+    rawExtracted.price,
     selectorPrice,
     embedded.price,
     bodyPrice
   ]);
-  const rating = embedded.rating || extractRatingFromTextList([$("body").text()]);
-  const reviewCount = embedded.reviewCount || extractCountFromTextList([
+  const rating = rawExtracted.rating || embedded.rating || extractRatingFromTextList([
+    ...$("[class*='rating'], [class*='Rating'], [class*='star'], [class*='Star']").map((_, el) => $(el).text()).get(),
+    ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
+  ]);
+  const reviewCount = rawExtracted.reviewCount || embedded.reviewCount || extractCountFromTextList([
     $("body").text(),
     ...$("[class*='review'], [class*='Review'], [class*='feedback']").map((_, el) => $(el).text()).get()
   ], /review|feedback|ratings?|avis/i);
-  const soldCount = embedded.soldCount || extractCountFromTextList([
+  const soldCount = rawExtracted.soldCount || embedded.soldCount || extractCountFromTextList([
     $("body").text(),
     ...$("[class*='sold'], [class*='order'], [class*='trade']").map((_, el) => $(el).text()).get()
   ], /sold|orders?|commandes|ventes/i);
@@ -1566,19 +2351,21 @@ function extractHtmlProduct(html, url, source) {
   const deliveryEstimate = embedded.deliveryEstimate || extractDeliveryEstimateFromTexts([
     ...$("[class*='delivery'], [class*='Delivery'], [class*='arrival'], [class*='transit'], [class*='logistics']").map((_, el) => $(el).text()).get()
   ]);
-  const variants = embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($);
+  const variants = antiBotPage
+    ? []
+    : (embedded.variants?.length ? embedded.variants : extractVariantGroupsFromHtml($));
 
     return {
       success: true,
-      title: isAliExpressBlockedTitle(title) ? "" : title,
-      description,
-      price,
+      title: antiBotPage || isAliExpressBlockedTitle(title) || isAliExpressPlaceholderText(title) ? "" : title,
+      description: antiBotPage ? "" : description,
+      price: antiBotPage ? 0 : price,
       shipping,
       deliveryEstimate,
-      image,
-    rating: rating || 0,
-    reviewCount,
-    soldCount,
+      image: antiBotPage ? "" : image,
+    rating: antiBotPage ? 0 : (rating || 0),
+    reviewCount: antiBotPage ? 0 : reviewCount,
+    soldCount: antiBotPage ? 0 : soldCount,
     variants,
     url,
     source
@@ -1600,8 +2387,191 @@ async function withRetries(label, task) {
   throw lastError;
 }
 
-async function fetchAliExpressApiProduct(productId) {
-  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !process.env.ALIEXPRESS_ACCESS_TOKEN) {
+async function fetchAliExpressApiProduct(productId, url) {
+  return null;
+}
+
+function buildAffiliateLink(url) {
+  return url;
+}
+
+function shouldRetryScrapingDogRequest(error) {
+  const status = Number(error?.response?.status || 0);
+  if (error?.code === "ECONNABORTED") return true;
+  if (!status) return true;
+  return status >= 500 || status === 429;
+}
+
+function normalizeScrapedProductData(product = {}, url, source) {
+  return {
+    success: true,
+    title: pickBestProductTitle(product.title, product.description) || "",
+    description: pickBestProductDescription([product.description], product.title || ""),
+    price: Number(product.price || 0),
+    shipping: product.shipping != null ? Number(product.shipping) : null,
+    deliveryEstimate: sanitizeText(product.deliveryEstimate || ""),
+    image: normalizeUrl(product.image || ""),
+    rating: normalizeRating(product.rating),
+    reviewCount: Number(product.reviewCount || 0),
+    soldCount: Number(product.soldCount || 0),
+    variants: Array.isArray(product.variants) ? product.variants : [],
+    url,
+    affiliateUrl: buildAffiliateLink(url),
+    source
+  };
+}
+
+function buildScrapePartialData(product = {}, url, source) {
+  const normalized = normalizeScrapedProductData(product, url, source);
+  return {
+    title: normalized.title,
+    description: normalized.description,
+    image: normalized.image,
+    price: normalized.price,
+    shipping: normalized.shipping,
+    deliveryEstimate: normalized.deliveryEstimate,
+    rating: normalized.rating,
+    reviewCount: normalized.reviewCount,
+    soldCount: normalized.soldCount,
+    variants: normalized.variants,
+    url: normalized.url
+  };
+}
+
+async function fetchScrapingDogHtml(url, options = {}) {
+  if (!SCRAPINGDOG_API_KEY) {
+    const error = new Error("ScrapingDog API key is missing");
+    error.status = 500;
+    throw error;
+  }
+
+  const useDynamic = options.dynamic === true;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= SCRAPINGDOG_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await axios.get(SCRAPINGDOG_API_URL, {
+        params: {
+          api_key: SCRAPINGDOG_API_KEY,
+          url,
+          dynamic: String(useDynamic ? true : SCRAPINGDOG_DYNAMIC),
+          country: SCRAPINGDOG_COUNTRY || undefined
+        },
+        timeout: SCRAPE_TIMEOUT_MS,
+        responseType: "text",
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": SCRAPINGDOG_ACCEPT_LANGUAGE,
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+        },
+        proxy: false
+      });
+
+      const html = typeof response.data === "string" ? response.data : String(response.data || "");
+      if (!html.trim()) {
+        const error = new Error("ScrapingDog returned an empty HTML response");
+        error.status = 502;
+        error.nonRetryable = true;
+        throw error;
+      }
+
+      return html;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= SCRAPINGDOG_RETRY_COUNT || !shouldRetryScrapingDogRequest(error)) {
+        break;
+      }
+      await sleep(500 * (attempt + 1));
+    }
+  }
+
+  if (lastError?.response?.status) {
+    const status = Number(lastError.response.status);
+    const error = new Error(`ScrapingDog request failed with status ${status}`);
+    error.status = status >= 500 ? 502 : status;
+    error.nonRetryable = status < 500 && status !== 429;
+    throw error;
+  }
+
+  throw lastError || new Error("ScrapingDog request failed");
+}
+
+function isIncompleteScrapedProduct(product = {}) {
+  return Boolean(
+    !product.title ||
+    !product.image ||
+    (!product.price && !product.description) ||
+    isAliExpressBlockedTitle(product.title) ||
+    isAliExpressBlockedTitle(product.description) ||
+    isAliExpressPlaceholderLike(product.title) ||
+    isAliExpressPlaceholderLike(product.description)
+  );
+}
+
+async function scrapeAliExpressWithScrapingDog(url, source = "playwright") {
+  let browser = null, context = null, page = null;
+  try {
+    if (!playwright?.chromium) throw new Error("Playwright not available");
+
+    const proxyConfig = getScrapeProxyConfig();
+
+    browser = await playwright.chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      proxy: proxyConfig ? { server: proxyConfig.server, username: proxyConfig.username, password: proxyConfig.password } : undefined
+    });
+
+    context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Mobile Safari/537.36",
+      viewport: { width: 412, height: 915 },
+      isMobile: true,
+      hasTouch: true
+    });
+
+    page = await context.newPage();
+
+    await page.route('**/*', (route) => {
+      if (['image', 'font', 'media', 'stylesheet'].includes(route.request().resourceType())) return route.abort();
+      return route.continue();
+    });
+
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+
+    await page.waitForTimeout(1500);
+    await page.mouse.move(150, 250, { steps: 10 });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => window.scrollBy(0, 600));
+
+    const html = await page.content();
+
+    if (html.includes("captcha") || html.includes("punish")) {
+      throw new Error("Blocked by AliExpress");
+    }
+
+    const extracted = extractHtmlProduct(html, url, source);
+
+    return normalizeScrapedProductData(extracted, url, source);
+
+  } catch (error) {
+    log("warn", "scrapeAliExpressWithScrapingDog failed", { url, error: error.message });
+    throw error;
+  } finally {
+    if (page) await page.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
+async function legacyScrapeWithPlaywright(url) {
+  return scrapeAliExpressWithScrapingDog(url, "scrapingdog");
+}
+
+async function scrapeWithHttp(url) {
+  return scrapeAliExpressWithScrapingDog(url, "scrapingdog-http");
+}
+
+async function fetchAliExpressApiProductLegacy(productId) {
+  if (!ALIEXPRESS_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId || !hasAliExpressDsAccessToken()) {
     return null;
   }
 
@@ -1613,7 +2583,7 @@ async function fetchAliExpressApiProduct(productId) {
     timestamp: formatTopTimestamp(),
     v: "2.0",
     product_id: productId,
-    access_token: process.env.ALIEXPRESS_ACCESS_TOKEN,
+    access_token: String(process.env.ALIEXPRESS_ACCESS_TOKEN || "").trim(),
     ship_to_country: "TN",
     target_currency: "USD",
     target_language: "en_US"
@@ -1624,7 +2594,7 @@ async function fetchAliExpressApiProduct(productId) {
   const response = await axios.get(ALIEXPRESS_API_BASE_URL, {
     params,
     timeout: 20_000,
-    proxy: false
+    ...getAxiosProxyOptions()
   });
 
   const extracted = extractProductFieldsFromObjectTree(response.data);
@@ -1647,14 +2617,212 @@ async function fetchAliExpressApiProduct(productId) {
   };
 }
 
+
+async function fetchAliExpressAffiliateProduct(productId) {
+  if (!ALIEXPRESS_AFFILIATE_API_BASE_URL || !ALIEXPRESS_APP_KEY || !ALIEXPRESS_APP_SECRET || !productId) {
+    return null;
+  }
+
+  const attemptCountries = ["TN", "", "US"];
+  let lastError = null;
+
+  for (const country of attemptCountries) {
+    try {
+      const params = {
+        app_key: ALIEXPRESS_APP_KEY,
+        method: ALIEXPRESS_AFFILIATE_PRODUCT_METHOD,
+        format: "json",
+        sign_method: "hmac",
+        timestamp: formatTopTimestamp(),
+        v: "2.0",
+        partner_id: "apidoc",
+        simplify: "true",
+        fields: "product_title,product_detail_url,product_main_image_url,product_small_image_urls,target_sale_price,target_sale_price_currency,target_app_sale_price,target_app_sale_price_currency,app_sale_price,app_sale_price_currency,sale_price,sale_price_currency,evaluate_rate,lastest_volume,shop_id,seller_name",
+        product_ids: String(productId),
+        target_currency: "USD",
+        target_language: "EN"
+      };
+
+      if (country) {
+        params.country = country;
+      }
+      if (ALIEXPRESS_TRACKING_ID) {
+        params.tracking_id = ALIEXPRESS_TRACKING_ID;
+      }
+
+      params.sign = signTopRequest(params, ALIEXPRESS_APP_SECRET, params.sign_method);
+
+      const body = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          body.append(key, String(value));
+        }
+      });
+
+      const response = await axios.post(ALIEXPRESS_AFFILIATE_API_BASE_URL, body.toString(), {
+        timeout: 20_000,
+        headers: {
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        ...getAxiosProxyOptions()
+      });
+
+      if (response.data?.error_response) {
+        const apiError = response.data.error_response;
+        const message = apiError?.sub_msg || apiError?.msg || "AliExpress Affiliate API returned error_response";
+        const error = new Error(message);
+        error.nonRetryable = true;
+        error.apiError = {
+          code: apiError?.code ?? null,
+          msg: apiError?.msg ?? null,
+          subCode: apiError?.sub_code ?? null,
+          subMsg: apiError?.sub_msg ?? null
+        };
+        throw error;
+      }
+
+      const methodResponse =
+        response.data?.aliexpress_affiliate_productdetail_get_response ||
+        response.data?.aliexpress_affiliate_product_detail_get_response ||
+        response.data?.aliexpress_affiliate_productdetails_get_response ||
+        response.data;
+      const rawRespResult = methodResponse?.resp_result ?? methodResponse?.respResult ?? null;
+      const payload = parseMaybeJson(rawRespResult);
+      const resultNode = parseMaybeJson(payload?.result ?? methodResponse?.result ?? null);
+      const productsNode = parseMaybeJson(
+        resultNode?.products ??
+        payload?.products ??
+        resultNode?.result ??
+        null
+      );
+      const rawProducts = parseMaybeJson(
+        productsNode?.product ??
+        resultNode?.product ??
+        payload?.product ??
+        null
+      );
+      const firstProduct = Array.isArray(rawProducts) ? rawProducts[0] : rawProducts;
+      const extracted = extractProductFieldsFromObjectTree([
+        response.data,
+        methodResponse,
+        payload,
+        resultNode,
+        productsNode,
+        firstProduct
+      ]);
+      const title = pickBestProductTitle(
+        firstProduct?.product_title,
+        firstProduct?.title,
+        firstProduct?.productName,
+        firstProduct?.item_title,
+        extracted.title
+      );
+      const image = normalizeUrl(
+        firstProduct?.product_main_image_url ||
+        firstProduct?.image_url ||
+        firstProduct?.main_image ||
+        firstProduct?.product_small_image_urls?.split?.(",")?.[0] ||
+        extracted.image
+      );
+      const price = pickFirstPositive([
+        parseMoney(firstProduct?.target_sale_price),
+        parseMoney(firstProduct?.target_app_sale_price),
+        parseMoney(firstProduct?.app_sale_price),
+        parseMoney(firstProduct?.sale_price),
+        parseMoney(firstProduct?.targetOriginalPrice),
+        parseMoney(firstProduct?.targetSalePrice),
+        parseMoney(firstProduct?.promotion_price),
+        extracted.price
+      ]);
+      const soldCount = Math.max(
+        parseCompactCount(firstProduct?.lastest_volume),
+        parseCompactCount(firstProduct?.orders),
+        Number(extracted.soldCount || 0)
+      );
+
+      if (title || image || price) {
+        return {
+          title,
+          description: "",
+          image,
+          price,
+          shipping: null,
+          deliveryEstimate: "",
+          rating: normalizeRating(extracted.rating) || 0,
+          reviewCount: Number(extracted.reviewCount || 0),
+          soldCount,
+          variants: [],
+          source: "aliexpress-affiliate-api"
+        };
+      }
+
+      const debugSummary = buildAffiliateResponseDebugSummary(response.data);
+      lastError = new Error(`AliExpress Affiliate API returned no usable product fields (country=${country || "none"}, resp_code=${payload?.resp_code || methodResponse?.resp_code || "unknown"})`);
+      log("warn", "AliExpress Affiliate API returned empty product", {
+        productId,
+        country: country || "none",
+        respCode: payload?.resp_code || methodResponse?.resp_code || null,
+        respMsg: payload?.resp_msg || methodResponse?.resp_msg || null,
+        debug: debugSummary
+      });
+    } catch (error) {
+      lastError = error;
+      log("warn", "AliExpress Affiliate API request failed", {
+        productId,
+        country: country || "none",
+        error: error.message,
+        apiError: error?.apiError || null,
+        responseStatus: error?.response?.status || null,
+        responseDataPreview: error?.response?.data ? previewValue(error.response.data) : ""
+      });
+      if (error?.nonRetryable) break;
+    }
+  }
+
+  throw lastError || new Error("AliExpress Affiliate API returned no usable product fields");
+}
+
 async function getBrowser() {
-  if (!playwright?.chromium) throw new Error("Playwright is not installed");
+  if (!playwright?.chromium) {
+    throw new Error("Playwright is not installed");
+  }
+
+  // reuse browser if alive
+  if (browserPromise) {
+    try {
+      const existingBrowser = await browserPromise;
+      if (typeof existingBrowser?.isConnected !== "function" || existingBrowser.isConnected()) {
+        return existingBrowser;
+      }
+      clearBrowserReference("browser-disconnected-before-reuse");
+    } catch (error) {
+      clearBrowserReference("browser-promise-rejected", { error: error.message });
+    }
+  }
+
   if (!browserPromise) {
     resolvedBrowserExecutable = resolvedBrowserExecutable || detectPlaywrightExecutable();
+
     const launchOptions = {
       headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage"
+      ]
     };
+
+    const proxyConfig = getScrapeProxyConfig();
+    if (proxyConfig) {
+      launchOptions.proxy = {
+        server: proxyConfig.server,
+        username: proxyConfig.username || undefined,
+        password: proxyConfig.password || undefined
+      };
+      log("log", "Using configured Playwright proxy", { server: proxyConfig.server });
+    }
+
+    // optional custom chromium path
     if (resolvedBrowserExecutable) {
       launchOptions.executablePath = resolvedBrowserExecutable;
     }
@@ -1662,16 +2830,19 @@ async function getBrowser() {
     browserPromise = playwright.chromium
       .launch(launchOptions)
       .then((browser) => {
-        if (resolvedBrowserExecutable) {
-          log("log", "Playwright browser ready", { executablePath: resolvedBrowserExecutable });
-        }
+        browser.on("disconnected", () => {
+          clearBrowserReference("browser-disconnected-event");
+        });
+
+        console.log("ðŸš€ Browser launched");
         return browser;
       })
       .catch((error) => {
-        browserPromise = null;
+        clearBrowserReference("browser-launch-failed", { error: error.message });
         throw error;
       });
   }
+
   return browserPromise;
 }
 
@@ -1680,8 +2851,55 @@ async function buildPlaywrightContext(browser) {
     locale: "en-US",
     timezoneId: "Africa/Tunis",
     viewport: { width: 1366, height: 900 },
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    colorScheme: "light"
   });
+
+  await context.setExtraHTTPHeaders({
+    "accept-language": "en-US,en;q=0.9",
+    "upgrade-insecure-requests": "1",
+    "sec-ch-ua": "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\""
+  }).catch(() => {});
+
+  await context.addInitScript(() => {
+    const override = (target, key, value) => {
+      try {
+        Object.defineProperty(target, key, {
+          get: () => value,
+          configurable: true
+        });
+      } catch {}
+    };
+
+    override(Navigator.prototype, "webdriver", false);
+    override(Navigator.prototype, "platform", "Win32");
+    override(Navigator.prototype, "language", "en-US");
+    override(Navigator.prototype, "languages", ["en-US", "en"]);
+    override(Navigator.prototype, "hardwareConcurrency", 8);
+    override(Navigator.prototype, "maxTouchPoints", 0);
+    override(Navigator.prototype, "plugins", [1, 2, 3, 4, 5]);
+
+    if (!window.chrome) {
+      Object.defineProperty(window, "chrome", {
+        value: { runtime: {}, app: {} },
+        configurable: true
+      });
+    }
+
+    const originalQuery = window.navigator.permissions?.query;
+    if (originalQuery) {
+      window.navigator.permissions.query = (parameters) => (
+        parameters?.name === "notifications"
+          ? Promise.resolve({ state: Notification.permission })
+          : originalQuery(parameters)
+      );
+    }
+  }).catch(() => {});
 
   await context.route("**/*", async (route) => {
     const type = route.request().resourceType();
@@ -1705,25 +2923,85 @@ async function buildPlaywrightContext(browser) {
   return context;
 }
 
-async function scrapeWithPlaywright(url) {
+async function legacyScrapeWithCapturedResponses(url) {
   const browser = await getBrowser();
   const context = await buildPlaywrightContext(browser);
   const page = await context.newPage();
+  const responsePayloads = [];
+  const responsePayloadTasks = [];
 
-  try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: SCRAPE_TIMEOUT_MS });
-    await Promise.race([
-      page.waitForLoadState("load", { timeout: 8_000 }).catch(() => {}),
-      page.waitForSelector("h1, img, meta[property='og:title'], script", { timeout: 8_000 }).catch(() => {}),
-      page.waitForFunction(
-        () => Boolean(document?.body?.innerText?.trim()?.length > 120 || document?.querySelector("img")),
-        { timeout: 8_000 }
-      ).catch(() => {})
-    ]);
-    await page.waitForTimeout(800);
+  const captureResponsePayload = async (response) => {
+    try {
+      const responseUrl = String(response.url() || "");
+      if (!/aliexpress\./i.test(responseUrl)) return;
+      if (response.status() >= 400) return;
+
+      const headers = response.headers();
+      const contentType = String(headers["content-type"] || "");
+      const looksStructured =
+        /json|javascript/i.test(contentType) ||
+        /graphql|api|mtop|detail|product|sku|price|recommend|component|render/i.test(responseUrl);
+      if (!looksStructured) return;
+
+      const body = await response.text();
+      if (!body || body.length > 1_500_000) return;
+
+      const parsed = parseMaybeJson(body, 4);
+      if (!parsed || typeof parsed !== "object") return;
+
+      responsePayloads.push(parsed);
+      if (responsePayloads.length > 24) responsePayloads.shift();
+    } catch {}
+  };
+
+  page.on("response", (response) => {
+    const task = captureResponsePayload(response);
+    responsePayloadTasks.push(task);
+    task.finally(() => {
+      const index = responsePayloadTasks.indexOf(task);
+      if (index >= 0) responsePayloadTasks.splice(index, 1);
+    }).catch(() => {});
+  });
+
+try {
+  await page.goto(url, {
+    waitUntil: "domcontentloaded",
+    timeout: SCRAPE_TIMEOUT_MS || 20000
+  }).catch(() => {});
+
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  await page.waitForTimeout(2000).catch(() => {});
+
+  if (responsePayloadTasks.length) {
+    await Promise.allSettled(responsePayloadTasks);
+  }
 
     const runtime = await page.evaluate(() => {
       const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+      const toSerializable = (value, depth = 0, seen = new WeakSet()) => {
+        if (value == null) return value;
+        if (typeof value === "string") return value.length > 4_000 ? value.slice(0, 4_000) : value;
+        if (typeof value === "number" || typeof value === "boolean") return value;
+        if (depth >= 5) return undefined;
+        if (Array.isArray(value)) {
+          return value
+            .slice(0, 24)
+            .map((entry) => toSerializable(entry, depth + 1, seen))
+            .filter((entry) => entry !== undefined);
+        }
+        if (typeof value !== "object") return undefined;
+        if (seen.has(value)) return undefined;
+        seen.add(value);
+
+        const result = {};
+        Object.entries(value)
+          .slice(0, 80)
+          .forEach(([key, entry]) => {
+            const normalized = toSerializable(entry, depth + 1, seen);
+            if (normalized !== undefined) result[key] = normalized;
+          });
+        return Object.keys(result).length ? result : undefined;
+      };
       const queryText = (selectors) => {
         for (const selector of selectors) {
           const element = document.querySelector(selector);
@@ -1753,7 +3031,7 @@ async function scrapeWithPlaywright(url) {
       };
 
       const globalSnapshots = [];
-      [
+      const candidateGlobalEntries = [
         window.runParams,
         window.__INITIAL_STATE__,
         window.__data__,
@@ -1761,22 +3039,44 @@ async function scrapeWithPlaywright(url) {
         window.__NEXT_DATA__,
         window.detailData,
         window.pageData
-      ].forEach((entry) => {
+      ];
+      Object.keys(window)
+        .filter((key) => /(?:^__|data|state|detail|product|sku|price|offer|render|page)/i.test(key))
+        .slice(0, 20)
+        .forEach((key) => {
+          try {
+            candidateGlobalEntries.push(window[key]);
+          } catch {}
+        });
+      candidateGlobalEntries.forEach((entry) => {
         if (entry && typeof entry === "object") {
-          globalSnapshots.push(entry);
+          const normalized = toSerializable(entry);
+          if (normalized) globalSnapshots.push(normalized);
         }
       });
 
       return {
-        title: queryText(["h1[data-pl='product-title']", "h1[class*='title']", "h1"]),
+        title: queryText([
+          "h1[data-pl='product-title']",
+          "h1[data-testid*='title']",
+          "h1[class*='title']",
+          "h1"
+        ]),
         description:
           queryText(["meta[property='og:description']", "meta[name='description']", "[class*='description']", "[class*='Description']"]) ||
           "",
         image:
           queryAttr(["meta[property='og:image']", "meta[name='twitter:image']"], "content") ||
-          queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "currentSrc") ||
-          queryAttr(["img[src*='alicdn']", "img[class*='main']", "img[src]"], "src"),
-        priceTexts: collectTexts(["[class*='price']", "[class*='Price']", "[data-testid*='price']"]),
+          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "currentSrc") ||
+          queryAttr(["img[src*='alicdn']", "img[src*='ae01']", "img[class*='main']", "img[src]"], "src"),
+        priceTexts: collectTexts([
+          "[class*='price']",
+          "[class*='Price']",
+          "[data-testid*='price']",
+          "[data-pl*='price']",
+          "[class*='snow-price']",
+          "[class*='product-price']"
+        ]),
         ratingTexts: collectTexts(["[class*='rating']", "[class*='Rating']", "[class*='star']", "[class*='Star']"]),
         reviewTexts: collectTexts(["[class*='review']", "[class*='Review']", "[class*='feedback']", "[class*='comment']"]),
         soldTexts: collectTexts(["[class*='sold']", "[class*='Sold']", "[class*='order']", "[class*='Order']", "[class*='trade']"]),
@@ -1805,38 +3105,58 @@ async function scrapeWithPlaywright(url) {
     const html = await page.content();
     const parsed = extractHtmlProduct(html, page.url(), "playwright");
     const fromGlobals = extractProductFieldsFromObjectTree(runtime.globalSnapshots || []);
+    const fromResponses = extractProductFieldsFromObjectTree(responsePayloads);
+    const responseVariants = extractVariantOffersFromObjectTree(responsePayloads);
 
     const merged = {
       ...parsed,
-      title: sanitizeText(runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
-      description: cleanupProductDescription(runtime.description || fromGlobals.description || parsed.description || runtime.bodyText, runtime.title || fromGlobals.title || parsed.title || runtime.pageTitle),
-      image: normalizeUrl(runtime.image || fromGlobals.image || parsed.image),
+      title: sanitizeText(runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle),
+      description: cleanupProductDescription(
+        runtime.description || fromResponses.description || fromGlobals.description || parsed.description || runtime.bodyText,
+        runtime.title || fromResponses.title || fromGlobals.title || parsed.title || runtime.pageTitle
+      ),
+      image: normalizeUrl(runtime.image || fromResponses.image || fromGlobals.image || parsed.image),
       price: pickFirstPositive([
         extractPriceFromTextList(runtime.priceTexts),
+        fromResponses.price,
         fromGlobals.price,
         parsed.price,
         extractPriceFromTextList([runtime.bodyText])
       ]),
-      rating: normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) || normalizeRating(fromGlobals.rating) || normalizeRating(parsed.rating),
+      rating:
+        normalizeRating(extractRatingFromTextList(runtime.ratingTexts)) ||
+        normalizeRating(fromResponses.rating) ||
+        normalizeRating(fromGlobals.rating) ||
+        normalizeRating(parsed.rating),
       reviewCount: Math.max(
         extractCountFromTextList(runtime.reviewTexts, /review|feedback|ratings?|avis/i),
+        Number(fromResponses.reviewCount || 0),
         Number(fromGlobals.reviewCount || 0),
         Number(parsed.reviewCount || 0)
       ),
       soldCount: Math.max(
         extractCountFromTextList(runtime.soldTexts, /sold|orders?|commandes|ventes/i),
+        Number(fromResponses.soldCount || 0),
         Number(fromGlobals.soldCount || 0),
         Number(parsed.soldCount || 0)
       ),
-      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromGlobals.shipping ?? parsed.shipping,
-      deliveryEstimate: extractDeliveryEstimateFromTexts(runtime.shippingTexts) || fromGlobals.deliveryEstimate || parsed.deliveryEstimate || "",
+      shipping: parseShippingTexts(runtime.shippingTexts) ?? fromResponses.shipping ?? fromGlobals.shipping ?? parsed.shipping,
+      deliveryEstimate:
+        extractDeliveryEstimateFromTexts(runtime.shippingTexts) ||
+        fromResponses.deliveryEstimate ||
+        fromGlobals.deliveryEstimate ||
+        parsed.deliveryEstimate ||
+        "",
       variants: mergeVariantGroups(
-        mergeVariantGroups(fromGlobals.variants, parsed.variants),
+        mergeVariantGroups(
+          mergeVariantGroups(responseVariants.groups, fromGlobals.variants),
+          parsed.variants
+        ),
         extractVariantGroupsFromTextList(runtime.variantTexts)
       )
     };
 
-    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle)) {
+    if (isAliExpressBlockedTitle(merged.title || runtime.pageTitle) || isAliExpressPlaceholderText(merged.title || runtime.pageTitle)) {
       const error = new Error("AliExpress blocked this host for the current URL");
       error.partialData = {
         title: "",
@@ -1854,7 +3174,14 @@ async function scrapeWithPlaywright(url) {
       throw error;
     }
 
-    if (((!merged.title && !merged.description) || /^aliexpress$/i.test(merged.title) || isAliExpressBlockedTitle(merged.title) || isAliExpressBlockedTitle(merged.description)) || !merged.image) {
+    if (
+      !hasUsefulPartialProductData(merged) ||
+      /^aliexpress$/i.test(merged.title) ||
+      isAliExpressBlockedTitle(merged.title) ||
+      isAliExpressBlockedTitle(merged.description) ||
+      isAliExpressPlaceholderText(merged.title) ||
+      isAliExpressPlaceholderText(merged.description)
+    ) {
       log("warn", "Playwright extracted partial product data", {
         url,
         title: merged.title || null,
@@ -1877,192 +3204,324 @@ async function scrapeWithPlaywright(url) {
         soldCount: merged.soldCount,
         variants: merged.variants
       };
-      if (hasUsableImage(merged.image) && (merged.title || merged.description)) {
+      if (hasUsefulPartialProductData(merged)) {
         error.nonRetryable = true;
       }
       throw error;
     }
     return merged;
+  } catch (error) {
+    if (isRecoverablePlaywrightError(error)) {
+      clearBrowserReference("recoverable-playwright-error", { error: error.message, url });
+    }
+    throw error;
   } finally {
     await page.close().catch(() => {});
     await context.close().catch(() => {});
   }
 }
 
-async function scrapeWithHttp(url) {
-  const response = await axios.get(url, {
-    timeout: Math.min(SCRAPE_TIMEOUT_MS, 20_000),
-    proxy: false,
-    headers: {
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      "accept-language": "en-US,en;q=0.9"
-    }
+async function legacyMinimalPlaywrightScrape(url) {
+  const { chromium } = require("playwright");
+  const executablePath = detectPlaywrightExecutable();
+
+  const launchOptions = {
+    headless: true,
+    args: ["--no-sandbox"]
+  };
+  if (executablePath) {
+    launchOptions.executablePath = executablePath;
+  }
+
+  const browser = await chromium.launch(launchOptions);
+
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
   });
 
-  const parsed = extractHtmlProduct(response.data, url, "http-fallback");
-  if (((!parsed.title && !parsed.description) || /^aliexpress$/i.test(parsed.title) || isAliExpressBlockedTitle(parsed.title) || isAliExpressBlockedTitle(parsed.description)) || !parsed.image) {
-    const error = new Error("HTTP fallback returned incomplete product data");
-    error.partialData = {
-      title: parsed.title,
-      description: parsed.description,
-      image: parsed.image,
-      price: parsed.price,
-      shipping: parsed.shipping,
-      deliveryEstimate: parsed.deliveryEstimate,
-      rating: parsed.rating,
-      reviewCount: parsed.reviewCount,
-      soldCount: parsed.soldCount,
-      variants: parsed.variants
-    };
-    if (hasUsableImage(parsed.image) && (parsed.title || parsed.description)) {
-      error.nonRetryable = true;
+  const page = await context.newPage();
+
+  try {
+
+await page.goto(url, {
+  waitUntil: "domcontentloaded",
+  timeout: 20000
+}).catch(() => {});
+
+await page.waitForTimeout(3000).catch(() => {});
+
+    const html = await page.content();
+
+    // ðŸš¨ detect block
+    if (html.includes("captcha") || html.includes("punish")) {
+      throw new Error("BLOCKED BY ALIEXPRESS");
     }
-    throw error;
+
+const data = await page.evaluate(() => {
+  const scripts = Array.from(document.querySelectorAll("script"));
+
+  let jsonData = null;
+
+  for (const s of scripts) {
+    if (s.innerText.includes("runParams")) {
+      try {
+        const match = s.innerText.match(/runParams\s*=\s*(\{.*\})/);
+        if (match) {
+          jsonData = JSON.parse(match[1]);
+          break;
+        }
+      } catch {}
+    }
   }
-  return parsed;
+
+  if (!jsonData) return null;
+
+  const product = jsonData?.data || {};
+
+  return {
+    title:
+      product.titleModule?.subject ||
+      product.title ||
+      "",
+
+    price:
+      product.priceModule?.formatedPrice ||
+      product.priceModule?.minActivityAmount?.value ||
+      "",
+
+    image:
+      product.imageModule?.imagePathList?.[0] || ""
+  };
+});
+
+if (!data) {
+  const error = new Error("JSON extraction failed");
+  error.nonRetryable = true;
+  throw error;
 }
 
-async function fetchProduct(url) {
-  const urlCandidates = getProductUrlCandidates(url);
-  const canonicalUrl = urlCandidates[0] || getCanonicalProductUrl(url);
-  if (!canonicalUrl) {
-    const error = new Error("رابط AliExpress غير صالح");
-    error.status = 400;
-    throw error;
-  }
+    return data;
+  } catch (err) {
+    throw err;
+  } finally {
+    await page.close().catch(() => {});
+    await context.close().catch(() => {});
+    await browser.close().catch(() => {});
+}
+}
 
-  const productId = extractProductId(canonicalUrl) || crypto.createHash("md5").update(canonicalUrl).digest("hex");
-  const cacheKey = `product:${productId}`;
-  const cached = getCache(productCache, cacheKey);
-  if (cached && !isBadCachedProduct(cached)) return { ...cached, cached: true };
-  if (cached && isBadCachedProduct(cached)) {
-    productCache.delete(cacheKey);
-  }
+async function scrapeWithPlaywright(url) {
+  if (!playwright?.chromium) throw new Error("Playwright not available");
 
-  let apiData = null;
+  const browser = await playwright.chromium.launch({ headless: true, args: ["--no-sandbox"] });
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 Chrome/135.0.0.0 Mobile Safari/537.36",
+    viewport: { width: 412, height: 915 }
+  });
+  const page = await context.newPage();
+
   try {
-    apiData = await fetchAliExpressApiProduct(productId);
-  } catch (error) {
-    log("warn", "AliExpress API product fetch failed", { productId, error: error.message });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForTimeout(2000);
+
+    const html = await page.content();
+    const $ = cheerio.load(html);
+
+    const title = $("h1").first().text().trim() || $("title").text().trim();
+    let price = 0;
+    const priceEl = $("[class*='price'], .product-price").first().text();
+    if (priceEl) price = parseFloat(priceEl.replace(/[^0-9.]/g, '')) || 0;
+
+    const image = $("img[src*='alicdn']").first().attr("src") || "";
+
+    return { title: sanitizeText(title), price, image: normalizeUrl(image) };
+  } finally {
+    await page.close();
+    await context.close();
+    await browser.close();
   }
+}
 
-  let pageData = null;
-  let lastPageError = null;
-  let partialPageData = null;
-  const canUsePartialData = () => Boolean(partialPageData && hasUsefulPartialProductData(partialPageData));
+function finalizeFetchedProduct(product, canonicalUrl) {
+  const normalized = normalizeScrapedProductData(product, canonicalUrl, product?.source || "scrape");
+  return {
+    ...normalized,
+    success: true,
+    fetchedAt: new Date().toISOString(),
+    cached: false,
+    deliveryEstimate: normalized.deliveryEstimate || "12 to 25 days",
+    manualQuoteRecommended: Number(normalized.price || 0) <= 0,
+    priceUnavailable: Number(normalized.price || 0) <= 0
+  };
+}
 
-  for (const candidateUrl of urlCandidates) {
-    try {
-      pageData = await withRetries("playwright-scrape", () => scrapeWithPlaywright(candidateUrl));
-      if (pageData) break;
-    } catch (error) {
-      lastPageError = error;
-      if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
-      log("warn", "Playwright scrape exhausted for candidate, switching candidate/fallback", { candidateUrl, error: error.message });
-    }
-  }
+function extractAliExpressOAuthTokenPayload(responseData) {
+  const parsedRoot = parseMaybeJson(responseData);
+  const candidates = [
+    parsedRoot,
+    parseMaybeJson(parsedRoot?.data),
+    parseMaybeJson(parsedRoot?.result),
+    parseMaybeJson(parsedRoot?.response),
+    parseMaybeJson(parsedRoot?.resp_result),
+    parseMaybeJson(parsedRoot?.respResult),
+    parseMaybeJson(parsedRoot?.aliexpress_auth_token_create_response),
+    parseMaybeJson(parsedRoot?.aliexpress_oauth_token_create_response)
+  ].filter(Boolean);
 
-  if (!pageData && !canUsePartialData()) {
-    for (const candidateUrl of urlCandidates) {
-      try {
-        pageData = await withRetries("http-scrape", () => scrapeWithHttp(candidateUrl));
-        if (pageData) break;
-      } catch (error) {
-        lastPageError = error;
-        if (error?.partialData) partialPageData = mergePartialProductData(partialPageData, error.partialData, candidateUrl);
-        log("warn", "HTTP fallback exhausted for candidate", { candidateUrl, error: error.message });
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const direct =
+      candidate.access_token ||
+      candidate.accessToken ||
+      candidate.refresh_token ||
+      candidate.refreshToken;
+    if (direct) return candidate;
+
+    const nested = [
+      parseMaybeJson(candidate.data),
+      parseMaybeJson(candidate.result),
+      parseMaybeJson(candidate.response),
+      parseMaybeJson(candidate.token_result),
+      parseMaybeJson(candidate.tokenResult)
+    ];
+
+    for (const value of nested) {
+      if (!value || typeof value !== "object") continue;
+      if (value.access_token || value.accessToken || value.refresh_token || value.refreshToken) {
+        return value;
       }
     }
   }
 
-  if (!pageData && !apiData && !partialPageData) {
-    const error = lastPageError || new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
-    error.status = 502;
-    error.message = "ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا";
-    throw error;
+  return parsedRoot && typeof parsedRoot === "object" ? parsedRoot : {};
+}
+
+async function fetchProduct(url) {
+  const canonicalUrl = getCanonicalProductUrl(url);
+  if (!canonicalUrl) return { success: false, error: "Invalid product URL" };
+
+  const productId = extractProductId(canonicalUrl);
+  const cacheKey = `product:${productId}`;
+  const cached = getCache(productCache, cacheKey);
+
+  if (cached && !isBadCachedProduct(cached)) {
+    return { ...cached, cached: true };
   }
 
-  if (!pageData) {
-    pageData = {
-      title: partialPageData?.title || `منتج AliExpress #${productId}`,
-      description: partialPageData?.description || "",
-      price: Number(partialPageData?.price || 0),
-      image: normalizeUrl(partialPageData?.image) || "https://placehold.co/600x600/0f172a/f8fafc?text=AliExpress",
-      rating: normalizeRating(partialPageData?.rating),
-      reviewCount: Number(partialPageData?.reviewCount || 0),
-      soldCount: Number(partialPageData?.soldCount || 0),
-      variants: Array.isArray(partialPageData?.variants) ? partialPageData.variants : [],
-      url: partialPageData?.url || canonicalUrl,
-      source: partialPageData ? "partial-fallback" : "api-fallback",
-      shipping: partialPageData?.shipping != null ? Number(partialPageData.shipping) : null,
-      deliveryEstimate: partialPageData?.deliveryEstimate || "",
-      priceUnavailable: true
-    };
-  }
+  let partialProduct = cached && hasUsefulPartialProductData(cached)
+    ? mergePartialProductData(null, cached, canonicalUrl)
+    : null;
 
-  const product = {
-    success: true,
-    title: cleanupProductTitle(apiData?.title || pageData?.title || "منتج AliExpress"),
-    description: cleanupProductDescription(apiData?.description || pageData?.description || "", apiData?.title || pageData?.title || "منتج AliExpress"),
-    price: Number(apiData?.price || pageData?.price || 0),
-    shipping: pageData?.shipping != null
-      ? Number(pageData.shipping)
-      : (apiData?.shipping != null ? Number(apiData.shipping) : null),
-    image: apiData?.image || pageData?.image || "",
-    rating: normalizeRating(apiData?.rating) || normalizeRating(pageData?.rating),
-    reviewCount: Number(apiData?.reviewCount || pageData?.reviewCount || 0),
-    soldCount: Number(apiData?.soldCount || pageData?.soldCount || 0),
-    variants: mergeVariantGroups(pageData?.variants, apiData?.variants),
-    url: canonicalUrl,
-    source: apiData ? "api+scrape" : (pageData?.source || "scrape"),
-    cached: false,
-    fetchedAt: new Date().toISOString()
+  const rememberPartial = (candidate, source = "") => {
+    if (!hasUsefulPartialProductData(candidate)) return;
+    partialProduct = mergePartialProductData(partialProduct, { ...candidate, source }, canonicalUrl);
   };
 
-  product.shippingLabel = product.shipping == null
-    ? "غير متوفر"
-    : (product.shipping === 0 ? "شحن مجاني" : `${product.shipping.toFixed(2)} USD`);
-  if (!product.title || isGenericAliExpressTitle(product.title) || isAliExpressBlockedTitle(product.title)) {
-    product.title = product.description
-      ? cleanupProductTitle(product.description.split(/[.!?|\-]/)[0]) || "منتج AliExpress"
-      : "منتج AliExpress";
-  }
+  const tryCandidate = async (label, task) => {
+    try {
+      const candidate = await task();
+      if (!candidate) return null;
 
-  if (isLowValueProductTitle(product.title)) {
-    product.title = cleanupProductTitle(pageData?.title || apiData?.title || "") || "منتج AliExpress";
-  }
+      const finalized = finalizeFetchedProduct(
+        { ...candidate, source: candidate.source || label },
+        canonicalUrl
+      );
 
-  product.deliveryEstimate = pageData?.deliveryEstimate || apiData?.deliveryEstimate || inferDeliveryEstimate(product.shipping);
-  product.restrictions = classifyProductRestrictions(product);
-  product.alerts = buildProductAlerts(product);
-  product.trustScore = buildSellerTrustScore(product);
-  product.customsAdvisor = buildCustomsAdvisor(product);
-  product.deliveryTimeline = buildEstimatedTimeline(product);
-  product.manualQuoteRecommended = Boolean(
-    product.restrictions?.banned ||
-    product.restrictions?.restricted ||
-    (Number.isFinite(Number(product.shipping)) && Number(product.shipping) >= 8)
-  );
-  product.priceUnavailable = Boolean(pageData?.priceUnavailable && !apiData?.price && product.price <= 0);
+      rememberPartial(finalized, finalized.source);
 
-  if (product.priceUnavailable) {
-    product.alerts.unshift({
-      level: "warning",
-      text: "ما قدرناش نجيبولك السعر exact توّا بسبب حماية AliExpress. استعمل التسعيرة اليدوية أو ابعثنا الرابط على واتساب."
+      if (!isBadCachedProduct(finalized) && !isIncompleteScrapedProduct(finalized)) {
+        setCache(productCache, cacheKey, finalized, CACHE_TTL_MS);
+        return finalized;
+      }
+    } catch (error) {
+      rememberPartial(error?.partialData, label);
+      log("warn", `${label} product fetch failed`, {
+        url: canonicalUrl,
+        error: error.message
+      });
+    }
+
+    return null;
+  };
+
+  const affiliateProduct =
+    ALIEXPRESS_ENABLE_AFFILIATE_API &&
+    await tryCandidate("aliexpress-affiliate-api", async () => {
+      const product = await fetchAliExpressAffiliateProduct(productId);
+      return product ? { ...product, source: product.source || "aliexpress-affiliate-api" } : null;
     });
-    product.manualQuoteRecommended = true;
+  if (affiliateProduct) return affiliateProduct;
+
+  const dsApiProduct = await tryCandidate("aliexpress-api", async () => {
+    const product = await fetchAliExpressApiProductLegacy(productId);
+    return product ? { ...product, source: product.source || "aliexpress-api" } : null;
+  });
+  if (dsApiProduct) return dsApiProduct;
+
+  const scrapingDogProduct =
+    SCRAPINGDOG_API_KEY &&
+    await tryCandidate("scrapingdog", async () => {
+      const modesToTry = SCRAPINGDOG_DYNAMIC ? [true, false] : [false, true];
+      let lastError = null;
+
+      for (const dynamic of modesToTry) {
+        try {
+          const html = await withRetries(`scrapingdog-html-${dynamic ? "dynamic" : "static"}`, () =>
+            fetchScrapingDogHtml(canonicalUrl, { dynamic })
+          );
+          return {
+            ...extractHtmlProduct(html, canonicalUrl, dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"),
+            source: dynamic ? "scrapingdog-dynamic" : "scrapingdog-static"
+          };
+        } catch (error) {
+          lastError = error;
+          log("warn", "ScrapingDog mode failed", {
+            url: canonicalUrl,
+            dynamic,
+            error: error.message
+          });
+        }
+      }
+
+      throw lastError || new Error("ScrapingDog failed in both static and dynamic modes");
+    });
+  if (scrapingDogProduct) return scrapingDogProduct;
+
+  const playwrightCapturedProduct =
+    playwright?.chromium &&
+    await tryCandidate("playwright-captured", async () => {
+      const product = await withRetries("playwright-captured", () =>
+        legacyScrapeWithCapturedResponses(canonicalUrl)
+      );
+      return { ...product, source: product?.source || "playwright" };
+    });
+  if (playwrightCapturedProduct) return playwrightCapturedProduct;
+
+  const playwrightMinimalProduct =
+    playwright?.chromium &&
+    await tryCandidate("playwright-minimal", async () => {
+      const product = await withRetries("playwright-minimal", () =>
+        legacyMinimalPlaywrightScrape(canonicalUrl)
+      );
+      return { ...product, source: "playwright-minimal" };
+    });
+  if (playwrightMinimalProduct) return playwrightMinimalProduct;
+
+  if (hasUsefulPartialProductData(partialProduct)) {
+    const partialResponse = finalizeFetchedProduct(
+      { ...partialProduct, source: partialProduct.source || "partial-fallback" },
+      canonicalUrl
+    );
+
+    if (!isBadCachedProduct(partialResponse)) {
+      setCache(productCache, cacheKey, partialResponse, Math.min(CACHE_TTL_MS, 15 * 60 * 1000));
+    }
+
+    return partialResponse;
   }
 
-  if (!hasUsableImage(product.image) || (!product.title && !product.description)) {
-    const error = new Error("ما قدرناش نجيبولك تفاصيل المنتج من AliExpress حاليا");
-    error.status = 502;
-    throw error;
-  }
-
-  if (!isBadCachedProduct(product)) {
-    setCache(productCache, cacheKey, product, CACHE_TTL_MS);
-  }
-  return product;
+  return buildUnavailableProductResponse({ canonicalUrl, productId });
 }
 
 async function fetchExchangeRate() {
@@ -2124,7 +3583,7 @@ function rateLimitMiddleware(req, res, next) {
   bucket.count += 1;
   rateBuckets.set(ip, bucket);
   if (bucket.count > RATE_LIMIT_MAX) {
-    return res.status(429).json({ success: false, error: "برشا طلبات، عاود بعد شوية." });
+    return res.status(429).json({ success: false, error: "Ø¨Ø±Ø´Ø§ Ø·Ù„Ø¨Ø§ØªØŒ Ø¹Ø§ÙˆØ¯ Ø¨Ø¹Ø¯ Ø´ÙˆÙŠØ©." });
   }
   next();
 }
@@ -2151,13 +3610,117 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(ROOT, "index.html"));
 });
 
+app.get(["/admin", "/admin.html"], (req, res) => {
+  res.sendFile(path.join(ROOT, "admin.html"));
+});
+
+app.get("/aliexpress/oauth/start", (req, res) => {
+  if (!ALIEXPRESS_APP_KEY) {
+    return res.status(500).json({ success: false, error: "AliExpress App Key ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
+  }
+
+  const callbackUrl = getAliExpressOAuthCallbackUrl(req);
+  if (!callbackUrl) {
+    return res.status(500).json({ success: false, error: "Ø±Ø§Ø¨Ø· callback ØºÙŠØ± Ù…Ø¶Ø¨ÙˆØ·" });
+  }
+
+  const authorizeUrl = new URL(ALIEXPRESS_OAUTH_AUTHORIZE_URL);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("force_auth", "true");
+  authorizeUrl.searchParams.set("client_id", ALIEXPRESS_APP_KEY);
+  authorizeUrl.searchParams.set("redirect_uri", callbackUrl);
+  if (req.query.state) {
+    authorizeUrl.searchParams.set("state", sanitizeText(req.query.state));
+  }
+
+  res.redirect(authorizeUrl.toString());
+});
+
+app.get("/aliexpress/oauth-callback", async (req, res, next) => {
+  try {
+    if (req.query.error) {
+      return res.status(400).send(`<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>AliExpress OAuth Failed</title>
+<body style="font-family:Arial,sans-serif;padding:24px">
+<h1>AliExpress authorization failed</h1>
+<p>${sanitizeText(req.query.error_description || req.query.error)}</p>
+</body></html>`);
+    }
+
+    const code = sanitizeText(req.query.code || "");
+    if (!code) {
+      return res.status(400).json({ success: false, error: "ÙƒÙˆØ¯ Ø§Ù„ØªÙÙˆÙŠØ¶ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
+    }
+
+    const tokenData = await createAliExpressAccessToken(code);
+    const accessToken = sanitizeText(tokenData.access_token || tokenData.accessToken || "");
+    const refreshToken = sanitizeText(tokenData.refresh_token || tokenData.refreshToken || "");
+    if (!accessToken) {
+      throw new Error("AliExpress OAuth did not return an access token");
+    }
+
+    upsertEnvEntries(ENV_FILE_PATH, {
+      ALIEXPRESS_ACCESS_TOKEN: accessToken,
+      ALIEXPRESS_REFRESH_TOKEN: refreshToken,
+      ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn),
+      ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT: getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn)
+    });
+    process.env.ALIEXPRESS_ACCESS_TOKEN = accessToken;
+    process.env.ALIEXPRESS_REFRESH_TOKEN = refreshToken;
+    process.env.ALIEXPRESS_ACCESS_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.expires_in || tokenData.expiresIn);
+    process.env.ALIEXPRESS_REFRESH_TOKEN_EXPIRES_AT = getFutureIsoFromSeconds(tokenData.refresh_expires_in || tokenData.refreshExpiresIn);
+
+    log("log", "AliExpress OAuth token stored", {
+      account: sanitizeText(tokenData.account || ""),
+      expiresIn: Number(tokenData.expires_in || tokenData.expiresIn || 0),
+      refreshExpiresIn: Number(tokenData.refresh_expires_in || tokenData.refreshExpiresIn || 0)
+    });
+
+    res.send(`<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>AliExpress Connected</title>
+<body style="font-family:Arial,sans-serif;padding:24px">
+<h1>AliExpress connected</h1>
+<p>Access token saved successfully.</p>
+<p>You can now retry product fetching from your site.</p>
+</body></html>`);
+  } catch (error) {
+    log("warn", "AliExpress OAuth callback failed", {
+      error: error.message,
+      code: error?.meta?.code ?? null,
+      requestId: error?.meta?.requestId || error?.requestId || null,
+      variant: error?.meta?.label || null,
+      responsePreview: error?.meta?.responsePreview || ""
+    });
+    const response = {
+      success: false,
+      error: error.message,
+      requestId: error?.meta?.requestId || error?.requestId || undefined
+    };
+    if (error?.meta?.label) response.variant = error.meta.label;
+    if (error?.meta?.code != null) response.code = error.meta.code;
+    res.status(error?.status || 502).json(response);
+  }
+});
+
 app.get("/api/health", (req, res) => {
+  const scrapeProxy = getScrapeProxyConfig();
+  const apiMode = getAliExpressApiMode();
   res.json({
     success: true,
     status: "ok",
     now: new Date().toISOString(),
     playwright: Boolean(playwright?.chromium),
-    aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET)
+    scrapingDogConfigured: Boolean(SCRAPINGDOG_API_KEY),
+    scrapingDogDynamicPreferred: SCRAPINGDOG_DYNAMIC,
+    aliexpressApiConfigured: Boolean(ALIEXPRESS_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    aliexpressApiTokenConfigured: hasAliExpressDsAccessToken(),
+    aliexpressApiMode: apiMode,
+    affiliateApiConfigured: Boolean(ALIEXPRESS_AFFILIATE_API_BASE_URL && ALIEXPRESS_APP_KEY && ALIEXPRESS_APP_SECRET),
+    affiliateApiEnabled: ALIEXPRESS_ENABLE_AFFILIATE_API,
+    affiliateTrackingIdConfigured: Boolean(ALIEXPRESS_TRACKING_ID),
+    scrapeProxyConfigured: Boolean(scrapeProxy),
+    scrapeProxyProtocol: scrapeProxy?.protocol || "",
+    scrapeProxyBypassConfigured: Boolean(SCRAPE_PROXY_BYPASS)
   });
 });
 
@@ -2177,15 +3740,44 @@ app.get("/api/promos", rateLimitMiddleware, (req, res) => {
   });
 });
 
-app.get("/api/product", rateLimitMiddleware, async (req, res, next) => {
+app.get("/api/product", rateLimitMiddleware, async (req, res) => {
+  const url = String(req.query.url || "").trim();
+
+  if (!url) {
+    return res.status(400).json({
+      success: false,
+      error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« Ø±Ø§Ø¨Ø· Ø§Ù„Ù…Ù†ØªØ¬"
+    });
+  }
+
+  // Anti-cache headers
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  console.log("API HIT:", url);
+
   try {
-    if (!req.query.url) {
-      return res.status(400).json({ success: false, error: "لازم تبعث رابط المنتج" });
-    }
-    const product = await fetchProduct(req.query.url);
-    res.json(product);
+    const product = await fetchProduct(url);   // â† Ù‡Ù†Ø§ Ø§Ù„Ø§Ø³ØªØ¯Ø¹Ø§Ø¡ Ø§Ù„Ù…Ø¨Ø§Ø´Ø± ÙˆØ§Ù„Ø¢Ù…Ù†
+
+    console.log("SCRAPE DONE | source:", product.source, "| price:", product.price);
+
+    return res.json(product);
+
   } catch (error) {
-    next(error);
+    console.error("FETCH ERROR:", error.message);
+
+    // Ø¥Ø°Ø§ Ø­ØµÙ„ Ø®Ø·Ø£ØŒ Ù†Ø±Ø¬Ø¹ Ø§Ù„Ù€ fallback Ø§Ù„Ø¬Ù…ÙŠÙ„
+    const canonicalUrl = getCanonicalProductUrl(url) || url;
+    const productId = extractProductId(canonicalUrl);
+
+    const fallback = buildUnavailableProductResponse({
+      canonicalUrl,
+      productId,
+      alertText: "ØªØ¹Ø°Ø± Ø¬Ù„Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¨Ø³Ø¨Ø¨ anti-bot"
+    });
+
+    return res.status(200).json(fallback);   // Ù†Ø±Ø¬Ø¹ 200 Ø­ØªÙ‰ Ù„Ùˆ fallback
   }
 });
 
@@ -2195,7 +3787,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
     const previousOrder = payload.orderRef ? getOrderByRef(payload.orderRef) : null;
     const order = upsertOrderRecord(payload);
     if (!order) {
-      return res.status(400).json({ success: false, error: "لازم تبعث orderRef" });
+      return res.status(400).json({ success: false, error: "Ù„Ø§Ø²Ù… ØªØ¨Ø¹Ø« orderRef" });
     }
 
     const promoCode = sanitizeText(payload.promoCode || "").toUpperCase();
@@ -2218,7 +3810,7 @@ app.post("/api/orders/register", rateLimitMiddleware, (req, res, next) => {
 app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
   const order = getOrderByRef(req.params.orderRef);
   if (!order) {
-    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
+    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
   }
 
   res.json({ success: true, order });
@@ -2227,16 +3819,18 @@ app.get("/api/orders/:orderRef", rateLimitMiddleware, (req, res) => {
 app.post("/api/admin/login", rateLimitMiddleware, (req, res) => {
   const pin = sanitizeText(req.body?.pin || "");
   if (!pin || pin !== ADMIN_PIN) {
-    return res.status(401).json({ success: false, error: "PIN الإدارة غير صحيح" });
+    return res.status(401).json({ success: false, error: "PIN Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© ØºÙŠØ± ØµØ­ÙŠØ­" });
   }
 
+  const store = loadAdminStore();
   res.json({
     success: true,
     token: createAdminToken(),
     state: {
-      promos: loadAdminStore().promos,
-      orders: sortOrdersNewestFirst(loadAdminStore().orders),
-      analytics: buildAdminAnalytics(loadAdminStore())
+      promos: store.promos,
+      orders: sortOrdersNewestFirst(store.orders),
+      analytics: buildAdminAnalytics(store),
+      settings: normalizeAdminSettings(store.settings || {})
     }
   });
 });
@@ -2247,15 +3841,50 @@ app.get("/api/admin/state", rateLimitMiddleware, requireAdminAuth, (req, res) =>
     success: true,
     promos: store.promos,
     orders: sortOrdersNewestFirst(store.orders),
-    analytics: buildAdminAnalytics(store)
+    analytics: buildAdminAnalytics(store),
+    settings: normalizeAdminSettings(store.settings || {})
   });
+});
+
+app.put("/api/admin/settings", rateLimitMiddleware, requireAdminAuth, (req, res) => {
+  const store = loadAdminStore();
+  const incoming = req.body && typeof req.body === "object" ? req.body : {};
+  const current = normalizeAdminSettings(store.settings || {});
+
+  store.settings = normalizeAdminSettings({
+    ...current,
+    ...incoming,
+    calculator: {
+      ...current.calculator,
+      ...(incoming.calculator || {}),
+      thresholds: {
+        ...current.calculator.thresholds,
+        ...((incoming.calculator && incoming.calculator.thresholds) || {})
+      },
+      rates: {
+        ...current.calculator.rates,
+        ...((incoming.calculator && incoming.calculator.rates) || {})
+      }
+    },
+    storefront: {
+      ...current.storefront,
+      ...(incoming.storefront || {})
+    },
+    admin: {
+      ...current.admin,
+      ...(incoming.admin || {})
+    }
+  });
+
+  saveAdminStore(store);
+  res.json({ success: true, settings: store.settings });
 });
 
 app.post("/api/admin/promos", rateLimitMiddleware, requireAdminAuth, (req, res) => {
   const store = loadAdminStore();
   const promo = normalizePromoRecord(req.body || {});
   if (!promo || promo.value <= 0) {
-    return res.status(400).json({ success: false, error: "بيانات البرومو غير صالحة" });
+    return res.status(400).json({ success: false, error: "Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¨Ø±ÙˆÙ…Ùˆ ØºÙŠØ± ØµØ§Ù„Ø­Ø©" });
   }
 
   const index = store.promos.findIndex((entry) => entry.code === promo.code);
@@ -2285,7 +3914,7 @@ app.delete("/api/admin/promos/:code", rateLimitMiddleware, requireAdminAuth, (re
 app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (req, res) => {
   const current = getOrderByRef(req.params.orderRef);
   if (!current) {
-    return res.status(404).json({ success: false, error: "الطلب غير موجود" });
+    return res.status(404).json({ success: false, error: "Ø§Ù„Ø·Ù„Ø¨ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
   }
 
   const updated = upsertOrderRecord({
@@ -2299,7 +3928,7 @@ app.put("/api/admin/orders/:orderRef", rateLimitMiddleware, requireAdminAuth, (r
 });
 
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: "المسار غير موجود" });
+  res.status(404).json({ success: false, error: "Ø§Ù„Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯" });
 });
 
 app.use((error, req, res, next) => {
@@ -2311,7 +3940,7 @@ app.use((error, req, res, next) => {
   });
   res.status(status).json({
     success: false,
-    error: status === 500 ? "خطأ داخلي في السيرفر" : error.message,
+    error: status === 500 ? "Ø®Ø·Ø£ Ø¯Ø§Ø®Ù„ÙŠ ÙÙŠ Ø§Ù„Ø³ÙŠØ±ÙØ±" : error.message,
     requestId: res.locals.requestId
   });
 });
@@ -2330,7 +3959,9 @@ setInterval(() => {
 }, 60_000).unref();
 
 const server = app.listen(PORT, () => {
-  log("log", `AliExpress Tunisia server listening on port ${PORT}`);
+  log("log", `AliExpress Tunisia server listening on port ${PORT}`, {
+    scrapeProxyConfigured: Boolean(getScrapeProxyConfig())
+  });
 });
 
 async function closeServer() {
