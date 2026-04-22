@@ -5,3 +5,6 @@ server.out.log
 server.err.log
 server.test.out.log
 server.test.err.log
+
+.env.save
+env
